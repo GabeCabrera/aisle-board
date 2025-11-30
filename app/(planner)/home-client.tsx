@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { Settings } from "lucide-react";
 
 interface HomeClientProps {
   displayName: string;
@@ -20,13 +20,13 @@ export function HomeClient({ displayName, hasStartedPlanning }: HomeClientProps)
           <span className="text-warm-400">|</span>
           <span className="text-sm text-warm-500">{displayName}</span>
         </div>
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+        <Link
+          href="/settings"
           className="flex items-center gap-2 text-xs tracking-wider uppercase text-warm-500 hover:text-warm-600 transition-colors"
         >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+          <Settings className="w-4 h-4" />
+          Settings
+        </Link>
       </header>
 
       {/* Main Content */}
