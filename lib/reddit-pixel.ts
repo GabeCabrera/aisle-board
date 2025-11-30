@@ -19,14 +19,15 @@ export const init = () => {
   // Reddit Pixel base code
   (function(w: Window, d: Document) {
     if (!w.rdt) {
+      const callQueue: unknown[] = [];
       const rdt = function(...args: unknown[]) {
         if (rdt.sendEvent) {
           rdt.sendEvent.apply(rdt, args);
         } else {
-          rdt.callQueue.push(args);
+          callQueue.push(args);
         }
       } as NonNullable<Window['rdt']>;
-      rdt.callQueue = [];
+      rdt.callQueue = callQueue;
       w.rdt = rdt;
       const t = d.createElement('script');
       t.src = 'https://www.redditstatic.com/ads/pixel.js';
