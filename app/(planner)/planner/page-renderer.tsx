@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Link as LinkIcon, Share2, Copy, ExternalLink, Settings, MessageSquare, Mail, Smartphone, Send, Users2, Crown, Star, GripVertical, CalendarDays, User, Users as UsersIcon, Check } from "lucide-react";
+import { Plus, Trash2, Link as LinkIcon, Share2, Copy, ExternalLink, Settings, MessageSquare, Mail, Smartphone, Send, Users2, Crown, Star, GripVertical, CalendarDays, User, Users as UsersIcon, Check, Music, Mic2, ListMusic, Ban, Plane, Hotel, Map, Briefcase, FileText, Gift, Package, ShoppingBag, ScrollText, Sparkles, ChevronDown, ChevronUp, GripHorizontal } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -127,6 +127,62 @@ export function PageRenderer({ page, onFieldChange, allPages = [] }: PageRendere
   if (page.templateId === "task-board") {
     return (
       <TaskBoardRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+        allPages={allPages}
+      />
+    );
+  }
+
+  // Special rendering for music & playlist
+  if (page.templateId === "music-playlist") {
+    return (
+      <MusicPlaylistRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+      />
+    );
+  }
+
+  // Special rendering for ceremony script
+  if (page.templateId === "ceremony-script") {
+    return (
+      <CeremonyScriptRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+      />
+    );
+  }
+
+  // Special rendering for honeymoon planner
+  if (page.templateId === "honeymoon-planner") {
+    return (
+      <HoneymoonPlannerRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+      />
+    );
+  }
+
+  // Special rendering for registry tracker
+  if (page.templateId === "registry-tracker") {
+    return (
+      <RegistryTrackerRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+      />
+    );
+  }
+
+  // Special rendering for gift log
+  if (page.templateId === "gift-log") {
+    return (
+      <GiftLogRenderer
         page={page}
         fields={fields}
         updateField={updateField}
@@ -2887,6 +2943,1633 @@ function TaskBoardRenderer({ page, fields, updateField, allPages }: TaskBoardRen
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ============================================================================
+// MUSIC & PLAYLIST RENDERER
+// ============================================================================
+
+interface MusicPlaylistRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+function MusicPlaylistRenderer({ page, fields, updateField }: MusicPlaylistRendererProps) {
+  const mustPlaySongs = (fields.mustPlaySongs as Record<string, unknown>[]) || [];
+  const doNotPlaySongs = (fields.doNotPlaySongs as Record<string, unknown>[]) || [];
+
+  const addMustPlay = () => {
+    updateField("mustPlaySongs", [...mustPlaySongs, { song: "", artist: "", notes: "" }]);
+  };
+
+  const updateMustPlay = (index: number, key: string, value: string) => {
+    const updated = [...mustPlaySongs];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("mustPlaySongs", updated);
+  };
+
+  const removeMustPlay = (index: number) => {
+    updateField("mustPlaySongs", mustPlaySongs.filter((_, i) => i !== index));
+  };
+
+  const addDoNotPlay = () => {
+    updateField("doNotPlaySongs", [...doNotPlaySongs, { song: "", artist: "", reason: "" }]);
+  };
+
+  const updateDoNotPlay = (index: number, key: string, value: string) => {
+    const updated = [...doNotPlaySongs];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("doNotPlaySongs", updated);
+  };
+
+  const removeDoNotPlay = (index: number) => {
+    updateField("doNotPlaySongs", doNotPlaySongs.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* Special Moments */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-6">
+            <Sparkles className="w-5 h-5 text-amber-500" />
+            <h3 className="text-lg font-medium text-warm-700">Special Moments</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* First Dance */}
+            <div className="p-4 border border-warm-200 bg-gradient-to-br from-pink-50 to-warm-50">
+              <div className="flex items-center gap-2 mb-3">
+                <Music className="w-4 h-4 text-pink-500" />
+                <Label className="text-warm-600">First Dance</Label>
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={(fields.firstDanceSong as string) || ""}
+                  onChange={(e) => updateField("firstDanceSong", e.target.value)}
+                  placeholder="Song name"
+                  className="font-medium"
+                />
+                <Input
+                  value={(fields.firstDanceArtist as string) || ""}
+                  onChange={(e) => updateField("firstDanceArtist", e.target.value)}
+                  placeholder="Artist"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Parent Dance 1 */}
+            <div className="p-4 border border-warm-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Music className="w-4 h-4 text-warm-400" />
+                <Label className="text-warm-600">Parent Dance 1</Label>
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={(fields.parentDance1Song as string) || ""}
+                  onChange={(e) => updateField("parentDance1Song", e.target.value)}
+                  placeholder="Song name"
+                />
+                <Input
+                  value={(fields.parentDance1Artist as string) || ""}
+                  onChange={(e) => updateField("parentDance1Artist", e.target.value)}
+                  placeholder="Artist"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Parent Dance 2 */}
+            <div className="p-4 border border-warm-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Music className="w-4 h-4 text-warm-400" />
+                <Label className="text-warm-600">Parent Dance 2</Label>
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={(fields.parentDance2Song as string) || ""}
+                  onChange={(e) => updateField("parentDance2Song", e.target.value)}
+                  placeholder="Song name"
+                />
+                <Input
+                  value={(fields.parentDance2Artist as string) || ""}
+                  onChange={(e) => updateField("parentDance2Artist", e.target.value)}
+                  placeholder="Artist"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Cake Cutting & Last Dance */}
+            <div className="space-y-4">
+              <div className="p-4 border border-warm-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Music className="w-4 h-4 text-warm-400" />
+                  <Label className="text-warm-600">Cake Cutting</Label>
+                </div>
+                <Input
+                  value={(fields.cakeCuttingSong as string) || ""}
+                  onChange={(e) => updateField("cakeCuttingSong", e.target.value)}
+                  placeholder="Song name"
+                />
+              </div>
+              <div className="p-4 border border-warm-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Music className="w-4 h-4 text-warm-400" />
+                  <Label className="text-warm-600">Last Dance</Label>
+                </div>
+                <Input
+                  value={(fields.lastDanceSong as string) || ""}
+                  onChange={(e) => updateField("lastDanceSong", e.target.value)}
+                  placeholder="Song name"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ceremony Music */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-6">
+            <Mic2 className="w-5 h-5 text-purple-500" />
+            <h3 className="text-lg font-medium text-warm-700">Ceremony Music</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Guest Arrival</Label>
+              <Input
+                value={(fields.guestArrivalMusic as string) || ""}
+                onChange={(e) => updateField("guestArrivalMusic", e.target.value)}
+                placeholder="Playlist or song"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Processional (Wedding Party)</Label>
+              <Input
+                value={(fields.processionalSong as string) || ""}
+                onChange={(e) => updateField("processionalSong", e.target.value)}
+                placeholder="Song name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Bride Entrance</Label>
+              <Input
+                value={(fields.brideEntranceSong as string) || ""}
+                onChange={(e) => updateField("brideEntranceSong", e.target.value)}
+                placeholder="Song name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Recessional (Exit)</Label>
+              <Input
+                value={(fields.recessionalSong as string) || ""}
+                onChange={(e) => updateField("recessionalSong", e.target.value)}
+                placeholder="Song name"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Must Play List */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ListMusic className="w-5 h-5 text-green-500" />
+              <h3 className="text-lg font-medium text-warm-700">Must Play</h3>
+              <span className="text-sm text-warm-400">({mustPlaySongs.length})</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addMustPlay}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Song
+            </Button>
+          </div>
+          
+          {mustPlaySongs.length > 0 ? (
+            <div className="space-y-2">
+              {mustPlaySongs.map((song, index) => (
+                <div key={index} className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded group">
+                  <Music className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  <Input
+                    value={(song.song as string) || ""}
+                    onChange={(e) => updateMustPlay(index, "song", e.target.value)}
+                    placeholder="Song name"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={(song.artist as string) || ""}
+                    onChange={(e) => updateMustPlay(index, "artist", e.target.value)}
+                    placeholder="Artist"
+                    className="w-40"
+                  />
+                  <Input
+                    value={(song.notes as string) || ""}
+                    onChange={(e) => updateMustPlay(index, "notes", e.target.value)}
+                    placeholder="Notes (e.g., for bouquet toss)"
+                    className="w-48"
+                  />
+                  <button
+                    onClick={() => removeMustPlay(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No must-play songs yet. Add songs you definitely want to hear!
+            </p>
+          )}
+        </div>
+
+        {/* Do Not Play List */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Ban className="w-5 h-5 text-red-500" />
+              <h3 className="text-lg font-medium text-warm-700">Do Not Play</h3>
+              <span className="text-sm text-warm-400">({doNotPlaySongs.length})</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addDoNotPlay}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Song
+            </Button>
+          </div>
+          
+          {doNotPlaySongs.length > 0 ? (
+            <div className="space-y-2">
+              {doNotPlaySongs.map((song, index) => (
+                <div key={index} className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded group">
+                  <Ban className="w-4 h-4 text-red-500 flex-shrink-0" />
+                  <Input
+                    value={(song.song as string) || ""}
+                    onChange={(e) => updateDoNotPlay(index, "song", e.target.value)}
+                    placeholder="Song name"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={(song.artist as string) || ""}
+                    onChange={(e) => updateDoNotPlay(index, "artist", e.target.value)}
+                    placeholder="Artist"
+                    className="w-40"
+                  />
+                  <Input
+                    value={(song.reason as string) || ""}
+                    onChange={(e) => updateDoNotPlay(index, "reason", e.target.value)}
+                    placeholder="Reason (optional)"
+                    className="w-48"
+                  />
+                  <button
+                    onClick={() => removeDoNotPlay(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No banned songs yet. Add songs you want to avoid.
+            </p>
+          )}
+        </div>
+
+        {/* DJ Notes */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-warm-500" />
+            <h3 className="text-lg font-medium text-warm-700">Notes for DJ/Band</h3>
+          </div>
+          <Textarea
+            value={(fields.djNotes as string) || ""}
+            onChange={(e) => updateField("djNotes", e.target.value)}
+            placeholder="Any special instructions, timing notes, or preferences for your DJ or band..."
+            rows={4}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// CEREMONY SCRIPT RENDERER
+// ============================================================================
+
+interface CeremonyElement {
+  element: string;
+  person: string;
+  content: string;
+  duration: string;
+}
+
+interface Reading {
+  title: string;
+  author: string;
+  reader: string;
+  text: string;
+}
+
+interface CeremonyScriptRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+const CEREMONY_ELEMENTS = [
+  "Welcome & Opening",
+  "Reading",
+  "Musical Performance",
+  "Vows - Partner 1",
+  "Vows - Partner 2",
+  "Ring Exchange",
+  "Unity Candle",
+  "Sand Ceremony",
+  "Handfasting",
+  "Wine Ceremony",
+  "Ring Warming",
+  "Rose Ceremony",
+  "Pronouncement",
+  "First Kiss",
+  "Closing & Introduction",
+  "Other",
+];
+
+function CeremonyScriptRenderer({ page, fields, updateField }: CeremonyScriptRendererProps) {
+  const elements = (fields.elements as CeremonyElement[]) || [];
+  const readings = (fields.readings as Reading[]) || [];
+  const [expandedVows, setExpandedVows] = useState<"partner1" | "partner2" | null>(null);
+
+  const addElement = () => {
+    updateField("elements", [...elements, { element: "", person: "", content: "", duration: "" }]);
+  };
+
+  const updateElement = (index: number, key: string, value: string) => {
+    const updated = [...elements];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("elements", updated);
+  };
+
+  const removeElement = (index: number) => {
+    updateField("elements", elements.filter((_, i) => i !== index));
+  };
+
+  const moveElement = (index: number, direction: "up" | "down") => {
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === elements.length - 1) return;
+    
+    const updated = [...elements];
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    updateField("elements", updated);
+  };
+
+  const addReading = () => {
+    updateField("readings", [...readings, { title: "", author: "", reader: "", text: "" }]);
+  };
+
+  const updateReading = (index: number, key: string, value: string) => {
+    const updated = [...readings];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("readings", updated);
+  };
+
+  const removeReading = (index: number) => {
+    updateField("readings", readings.filter((_, i) => i !== index));
+  };
+
+  // Calculate total estimated time
+  const totalMinutes = elements.reduce((total, el) => {
+    const mins = parseInt(el.duration) || 0;
+    return total + mins;
+  }, 0);
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* Ceremony Info */}
+        <div className="mb-10 p-6 bg-warm-50 border border-warm-200 rounded">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Officiant Name</Label>
+              <Input
+                value={(fields.officiantName as string) || ""}
+                onChange={(e) => updateField("officiantName", e.target.value)}
+                placeholder="Who will officiate?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Ceremony Style</Label>
+              <select
+                value={(fields.ceremonyStyle as string) || ""}
+                onChange={(e) => updateField("ceremonyStyle", e.target.value)}
+                className="w-full px-3 py-2 border border-warm-300 text-sm focus:outline-none focus:border-warm-500 bg-white rounded"
+              >
+                <option value="">Select style...</option>
+                <option value="Traditional">Traditional</option>
+                <option value="Modern">Modern</option>
+                <option value="Religious">Religious</option>
+                <option value="Non-denominational">Non-denominational</option>
+                <option value="Spiritual">Spiritual</option>
+                <option value="Elopement">Elopement</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-warm-600">Estimated Length</Label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={(fields.estimatedLength as string) || ""}
+                  onChange={(e) => updateField("estimatedLength", e.target.value)}
+                  className="flex-1 px-3 py-2 border border-warm-300 text-sm focus:outline-none focus:border-warm-500 bg-white rounded"
+                >
+                  <option value="">Select...</option>
+                  <option value="15 minutes">15 minutes</option>
+                  <option value="20 minutes">20 minutes</option>
+                  <option value="30 minutes">30 minutes</option>
+                  <option value="45 minutes">45 minutes</option>
+                  <option value="1 hour">1 hour</option>
+                </select>
+                {totalMinutes > 0 && (
+                  <span className="text-xs text-warm-500 whitespace-nowrap">
+                    ~{totalMinutes} min planned
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ceremony Flow */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ScrollText className="w-5 h-5 text-purple-500" />
+              <h3 className="text-lg font-medium text-warm-700">Ceremony Flow</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addElement}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Element
+            </Button>
+          </div>
+
+          {elements.length > 0 ? (
+            <div className="space-y-2">
+              {elements.map((el, index) => (
+                <div key={index} className="flex items-start gap-2 p-3 border border-warm-200 rounded group bg-white hover:border-warm-300 transition-colors">
+                  <div className="flex flex-col gap-1 pt-2">
+                    <button
+                      onClick={() => moveElement(index, "up")}
+                      disabled={index === 0}
+                      className="p-0.5 text-warm-400 hover:text-warm-600 disabled:opacity-30"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => moveElement(index, "down")}
+                      disabled={index === elements.length - 1}
+                      className="p-0.5 text-warm-400 hover:text-warm-600 disabled:opacity-30"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <span className="text-sm text-warm-400 pt-2 w-6">{index + 1}.</span>
+                  <select
+                    value={el.element || ""}
+                    onChange={(e) => updateElement(index, "element", e.target.value)}
+                    className="w-48 px-2 py-1.5 border border-warm-300 text-sm focus:outline-none focus:border-warm-500 bg-white rounded"
+                  >
+                    <option value="">Select element...</option>
+                    {CEREMONY_ELEMENTS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                  <Input
+                    value={el.person || ""}
+                    onChange={(e) => updateElement(index, "person", e.target.value)}
+                    placeholder="Person/Reader"
+                    className="w-32 text-sm"
+                  />
+                  <Input
+                    value={el.content || ""}
+                    onChange={(e) => updateElement(index, "content", e.target.value)}
+                    placeholder="Notes or content"
+                    className="flex-1 text-sm"
+                  />
+                  <Input
+                    value={el.duration || ""}
+                    onChange={(e) => updateElement(index, "duration", e.target.value)}
+                    placeholder="Min"
+                    className="w-16 text-sm text-center"
+                  />
+                  <button
+                    onClick={() => removeElement(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-warm-50 rounded">
+              <p className="text-sm text-warm-500 mb-3">No ceremony elements yet</p>
+              <Button variant="outline" size="sm" onClick={addElement}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add Your First Element
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Personal Vows */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <Heart className="w-5 h-5 text-pink-500" />
+            <h3 className="text-lg font-medium text-warm-700">Personal Vows</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="border border-warm-200 rounded overflow-hidden">
+              <button
+                onClick={() => setExpandedVows(expandedVows === "partner1" ? null : "partner1")}
+                className="w-full p-3 flex items-center justify-between bg-warm-50 hover:bg-warm-100 transition-colors"
+              >
+                <span className="font-medium text-warm-700">Partner 1 Vows</span>
+                {expandedVows === "partner1" ? (
+                  <ChevronUp className="w-4 h-4 text-warm-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-warm-500" />
+                )}
+              </button>
+              {expandedVows === "partner1" && (
+                <div className="p-3">
+                  <Textarea
+                    value={(fields.partner1Vows as string) || ""}
+                    onChange={(e) => updateField("partner1Vows", e.target.value)}
+                    placeholder="Write your vows here... This is a private space to draft and refine your promises."
+                    rows={8}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="border border-warm-200 rounded overflow-hidden">
+              <button
+                onClick={() => setExpandedVows(expandedVows === "partner2" ? null : "partner2")}
+                className="w-full p-3 flex items-center justify-between bg-warm-50 hover:bg-warm-100 transition-colors"
+              >
+                <span className="font-medium text-warm-700">Partner 2 Vows</span>
+                {expandedVows === "partner2" ? (
+                  <ChevronUp className="w-4 h-4 text-warm-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-warm-500" />
+                )}
+              </button>
+              {expandedVows === "partner2" && (
+                <div className="p-3">
+                  <Textarea
+                    value={(fields.partner2Vows as string) || ""}
+                    onChange={(e) => updateField("partner2Vows", e.target.value)}
+                    placeholder="Write your vows here... This is a private space to draft and refine your promises."
+                    rows={8}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Readings */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-500" />
+              <h3 className="text-lg font-medium text-warm-700">Readings</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addReading}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Reading
+            </Button>
+          </div>
+
+          {readings.length > 0 ? (
+            <div className="space-y-4">
+              {readings.map((reading, index) => (
+                <div key={index} className="p-4 border border-warm-200 rounded group">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 grid grid-cols-3 gap-3">
+                      <Input
+                        value={reading.title || ""}
+                        onChange={(e) => updateReading(index, "title", e.target.value)}
+                        placeholder="Title"
+                        className="font-medium"
+                      />
+                      <Input
+                        value={reading.author || ""}
+                        onChange={(e) => updateReading(index, "author", e.target.value)}
+                        placeholder="Author"
+                      />
+                      <Input
+                        value={reading.reader || ""}
+                        onChange={(e) => updateReading(index, "reader", e.target.value)}
+                        placeholder="Reader"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeReading(index)}
+                      className="p-1 ml-2 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <Textarea
+                    value={reading.text || ""}
+                    onChange={(e) => updateReading(index, "text", e.target.value)}
+                    placeholder="Full text of the reading..."
+                    rows={4}
+                    className="text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No readings added yet. Add poems, passages, or quotes for your ceremony.
+            </p>
+          )}
+        </div>
+
+        {/* Officiant Script */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Mic2 className="w-5 h-5 text-warm-500" />
+            <h3 className="text-lg font-medium text-warm-700">Officiant Script</h3>
+          </div>
+          <Textarea
+            value={(fields.officiantScript as string) || ""}
+            onChange={(e) => updateField("officiantScript", e.target.value)}
+            placeholder="Draft the full ceremony script here, or paste one your officiant has shared..."
+            rows={10}
+          />
+        </div>
+
+        {/* Additional Notes */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-5 h-5 text-warm-400" />
+            <h3 className="text-lg font-medium text-warm-700">Additional Notes</h3>
+          </div>
+          <Textarea
+            value={(fields.notes as string) || ""}
+            onChange={(e) => updateField("notes", e.target.value)}
+            placeholder="Any other notes, reminders, or ideas for your ceremony..."
+            rows={4}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// HONEYMOON PLANNER RENDERER
+// ============================================================================
+
+interface HoneymoonPlannerRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+function HoneymoonPlannerRenderer({ page, fields, updateField }: HoneymoonPlannerRendererProps) {
+  const flights = (fields.flights as Record<string, unknown>[]) || [];
+  const accommodations = (fields.accommodations as Record<string, unknown>[]) || [];
+  const activities = (fields.activities as Record<string, unknown>[]) || [];
+  const packingList = (fields.packingList as Record<string, unknown>[]) || [];
+  const documents = (fields.documents as Record<string, unknown>[]) || [];
+
+  // Calculate trip duration
+  const departureDate = fields.departureDate as string;
+  const returnDate = fields.returnDate as string;
+  const tripDays = departureDate && returnDate 
+    ? Math.ceil((new Date(returnDate).getTime() - new Date(departureDate).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // Helper functions for each array
+  const addFlight = () => {
+    updateField("flights", [...flights, { airline: "", flightNumber: "", departure: "", arrival: "", date: "", confirmationCode: "" }]);
+  };
+
+  const updateFlight = (index: number, key: string, value: string) => {
+    const updated = [...flights];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("flights", updated);
+  };
+
+  const removeFlight = (index: number) => {
+    updateField("flights", flights.filter((_, i) => i !== index));
+  };
+
+  const addAccommodation = () => {
+    updateField("accommodations", [...accommodations, { name: "", checkIn: "", checkOut: "", confirmationCode: "", address: "" }]);
+  };
+
+  const updateAccommodation = (index: number, key: string, value: string) => {
+    const updated = [...accommodations];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("accommodations", updated);
+  };
+
+  const removeAccommodation = (index: number) => {
+    updateField("accommodations", accommodations.filter((_, i) => i !== index));
+  };
+
+  const addActivity = () => {
+    updateField("activities", [...activities, { activity: "", date: "", time: "", confirmationCode: "", notes: "" }]);
+  };
+
+  const updateActivity = (index: number, key: string, value: string) => {
+    const updated = [...activities];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("activities", updated);
+  };
+
+  const removeActivity = (index: number) => {
+    updateField("activities", activities.filter((_, i) => i !== index));
+  };
+
+  const addPackingItem = () => {
+    updateField("packingList", [...packingList, { item: "", packed: false }]);
+  };
+
+  const updatePackingItem = (index: number, key: string, value: unknown) => {
+    const updated = [...packingList];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("packingList", updated);
+  };
+
+  const removePackingItem = (index: number) => {
+    updateField("packingList", packingList.filter((_, i) => i !== index));
+  };
+
+  const addDocument = () => {
+    updateField("documents", [...documents, { document: "", status: "", expirationDate: "" }]);
+  };
+
+  const updateDocument = (index: number, key: string, value: string) => {
+    const updated = [...documents];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("documents", updated);
+  };
+
+  const removeDocument = (index: number) => {
+    updateField("documents", documents.filter((_, i) => i !== index));
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const packedCount = packingList.filter(item => item.packed).length;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* Destination & Overview */}
+        <div className="mb-10 p-6 bg-gradient-to-br from-blue-50 to-warm-50 border border-warm-200 rounded">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Map className="w-5 h-5 text-blue-500" />
+                <Label className="text-warm-600 font-medium">Destination</Label>
+              </div>
+              <Input
+                value={(fields.destination as string) || ""}
+                onChange={(e) => updateField("destination", e.target.value)}
+                placeholder="Where are you going? (e.g., Bali, Indonesia)"
+                className="text-lg"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <DollarSign className="w-5 h-5 text-green-500" />
+                <Label className="text-warm-600 font-medium">Budget</Label>
+              </div>
+              <Input
+                type="number"
+                value={(fields.budget as string) || ""}
+                onChange={(e) => updateField("budget", e.target.value)}
+                placeholder="Total budget"
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-warm-200">
+            <div className="space-y-1">
+              <Label className="text-xs text-warm-500">Departure</Label>
+              <Input
+                type="date"
+                value={(fields.departureDate as string) || ""}
+                onChange={(e) => updateField("departureDate", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-warm-500">Return</Label>
+              <Input
+                type="date"
+                value={(fields.returnDate as string) || ""}
+                onChange={(e) => updateField("returnDate", e.target.value)}
+              />
+            </div>
+            <div className="col-span-2 flex items-end">
+              {tripDays !== null && tripDays > 0 && (
+                <div className="text-center w-full p-2 bg-white rounded">
+                  <span className="text-2xl font-light text-blue-600">{tripDays}</span>
+                  <span className="text-sm text-warm-500 ml-2">nights</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Flights */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Plane className="w-5 h-5 text-sky-500" />
+              <h3 className="text-lg font-medium text-warm-700">Flights</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addFlight}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Flight
+            </Button>
+          </div>
+
+          {flights.length > 0 ? (
+            <div className="space-y-3">
+              {flights.map((flight, index) => (
+                <div key={index} className="p-4 border border-warm-200 rounded group">
+                  <div className="grid grid-cols-6 gap-3">
+                    <Input
+                      value={(flight.airline as string) || ""}
+                      onChange={(e) => updateFlight(index, "airline", e.target.value)}
+                      placeholder="Airline"
+                    />
+                    <Input
+                      value={(flight.flightNumber as string) || ""}
+                      onChange={(e) => updateFlight(index, "flightNumber", e.target.value)}
+                      placeholder="Flight #"
+                    />
+                    <Input
+                      value={(flight.departure as string) || ""}
+                      onChange={(e) => updateFlight(index, "departure", e.target.value)}
+                      placeholder="From"
+                    />
+                    <Input
+                      value={(flight.arrival as string) || ""}
+                      onChange={(e) => updateFlight(index, "arrival", e.target.value)}
+                      placeholder="To"
+                    />
+                    <Input
+                      type="date"
+                      value={(flight.date as string) || ""}
+                      onChange={(e) => updateFlight(index, "date", e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={(flight.confirmationCode as string) || ""}
+                        onChange={(e) => updateFlight(index, "confirmationCode", e.target.value)}
+                        placeholder="Confirmation"
+                        className="flex-1"
+                      />
+                      <button
+                        onClick={() => removeFlight(index)}
+                        className="p-2 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No flights added yet
+            </p>
+          )}
+        </div>
+
+        {/* Accommodations */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Hotel className="w-5 h-5 text-purple-500" />
+              <h3 className="text-lg font-medium text-warm-700">Accommodations</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addAccommodation}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Hotel
+            </Button>
+          </div>
+
+          {accommodations.length > 0 ? (
+            <div className="space-y-3">
+              {accommodations.map((acc, index) => (
+                <div key={index} className="p-4 border border-warm-200 rounded group">
+                  <div className="grid grid-cols-5 gap-3 mb-2">
+                    <Input
+                      value={(acc.name as string) || ""}
+                      onChange={(e) => updateAccommodation(index, "name", e.target.value)}
+                      placeholder="Hotel/Resort name"
+                      className="col-span-2 font-medium"
+                    />
+                    <Input
+                      type="date"
+                      value={(acc.checkIn as string) || ""}
+                      onChange={(e) => updateAccommodation(index, "checkIn", e.target.value)}
+                      placeholder="Check In"
+                    />
+                    <Input
+                      type="date"
+                      value={(acc.checkOut as string) || ""}
+                      onChange={(e) => updateAccommodation(index, "checkOut", e.target.value)}
+                      placeholder="Check Out"
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={(acc.confirmationCode as string) || ""}
+                        onChange={(e) => updateAccommodation(index, "confirmationCode", e.target.value)}
+                        placeholder="Confirmation"
+                        className="flex-1"
+                      />
+                      <button
+                        onClick={() => removeAccommodation(index)}
+                        className="p-2 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <Input
+                    value={(acc.address as string) || ""}
+                    onChange={(e) => updateAccommodation(index, "address", e.target.value)}
+                    placeholder="Address"
+                    className="text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No accommodations added yet
+            </p>
+          )}
+        </div>
+
+        {/* Activities */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              <h3 className="text-lg font-medium text-warm-700">Activities & Reservations</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addActivity}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Activity
+            </Button>
+          </div>
+
+          {activities.length > 0 ? (
+            <div className="space-y-2">
+              {activities.map((activity, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 border border-warm-200 rounded group">
+                  <Input
+                    value={(activity.activity as string) || ""}
+                    onChange={(e) => updateActivity(index, "activity", e.target.value)}
+                    placeholder="Activity name"
+                    className="flex-1"
+                  />
+                  <Input
+                    type="date"
+                    value={(activity.date as string) || ""}
+                    onChange={(e) => updateActivity(index, "date", e.target.value)}
+                    className="w-36"
+                  />
+                  <Input
+                    value={(activity.time as string) || ""}
+                    onChange={(e) => updateActivity(index, "time", e.target.value)}
+                    placeholder="Time"
+                    className="w-24"
+                  />
+                  <Input
+                    value={(activity.confirmationCode as string) || ""}
+                    onChange={(e) => updateActivity(index, "confirmationCode", e.target.value)}
+                    placeholder="Confirmation"
+                    className="w-32"
+                  />
+                  <button
+                    onClick={() => removeActivity(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No activities planned yet. Add tours, dinners, or experiences!
+            </p>
+          )}
+        </div>
+
+        {/* Two Column Layout: Documents & Packing */}
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Travel Documents */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-red-500" />
+                <h3 className="text-lg font-medium text-warm-700">Documents</h3>
+              </div>
+              <Button variant="ghost" size="sm" onClick={addDocument}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {documents.length > 0 ? (
+              <div className="space-y-2">
+                {documents.map((doc, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 border border-warm-200 rounded group">
+                    <Input
+                      value={(doc.document as string) || ""}
+                      onChange={(e) => updateDocument(index, "document", e.target.value)}
+                      placeholder="Document"
+                      className="flex-1 text-sm"
+                    />
+                    <select
+                      value={(doc.status as string) || ""}
+                      onChange={(e) => updateDocument(index, "status", e.target.value)}
+                      className="w-28 px-2 py-1.5 border border-warm-300 text-sm rounded bg-white"
+                    >
+                      <option value="">Status</option>
+                      <option value="Have it">Have it</option>
+                      <option value="Need to get">Need to get</option>
+                      <option value="Applied">Applied</option>
+                      <option value="Expired">Expired</option>
+                    </select>
+                    <button
+                      onClick={() => removeDocument(index)}
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-warm-400 italic text-center py-4 bg-warm-50 rounded">
+                Add passports, visas, etc.
+              </p>
+            )}
+          </div>
+
+          {/* Packing List */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-teal-500" />
+                <h3 className="text-lg font-medium text-warm-700">Packing</h3>
+                {packingList.length > 0 && (
+                  <span className="text-xs text-warm-500">
+                    {packedCount}/{packingList.length} packed
+                  </span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={addPackingItem}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {packingList.length > 0 ? (
+              <div className="space-y-1">
+                {packingList.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 border border-warm-200 rounded group hover:bg-warm-50">
+                    <input
+                      type="checkbox"
+                      checked={(item.packed as boolean) || false}
+                      onChange={(e) => updatePackingItem(index, "packed", e.target.checked)}
+                      className="w-4 h-4 accent-teal-500"
+                    />
+                    <Input
+                      value={(item.item as string) || ""}
+                      onChange={(e) => updatePackingItem(index, "item", e.target.value)}
+                      placeholder="Item"
+                      className={`flex-1 text-sm border-0 bg-transparent ${item.packed ? "line-through text-warm-400" : ""}`}
+                    />
+                    <button
+                      onClick={() => removePackingItem(index)}
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-warm-400 italic text-center py-4 bg-warm-50 rounded">
+                Start your packing list!
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className="mt-10">
+          <Label className="text-warm-600 mb-2 block">Notes</Label>
+          <Textarea
+            value={(fields.notes as string) || ""}
+            onChange={(e) => updateField("notes", e.target.value)}
+            placeholder="Any other notes, ideas, or things to remember..."
+            rows={4}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// REGISTRY TRACKER RENDERER
+// ============================================================================
+
+interface RegistryTrackerRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+function RegistryTrackerRenderer({ page, fields, updateField }: RegistryTrackerRendererProps) {
+  const registries = (fields.registries as Record<string, unknown>[]) || [];
+  const items = (fields.items as Record<string, unknown>[]) || [];
+
+  const addRegistry = () => {
+    updateField("registries", [...registries, { store: "", url: "" }]);
+  };
+
+  const updateRegistry = (index: number, key: string, value: string) => {
+    const updated = [...registries];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("registries", updated);
+  };
+
+  const removeRegistry = (index: number) => {
+    updateField("registries", registries.filter((_, i) => i !== index));
+  };
+
+  const addItem = () => {
+    updateField("items", [...items, { item: "", store: "", price: "", quantity: 1, received: 0, priority: "" }]);
+  };
+
+  const updateItem = (index: number, key: string, value: unknown) => {
+    const updated = [...items];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("items", updated);
+  };
+
+  const removeItem = (index: number) => {
+    updateField("items", items.filter((_, i) => i !== index));
+  };
+
+  // Stats
+  const totalItems = items.reduce((sum, item) => sum + (parseInt(String(item.quantity)) || 1), 0);
+  const receivedItems = items.reduce((sum, item) => sum + (parseInt(String(item.received)) || 0), 0);
+  const totalValue = items.reduce((sum, item) => {
+    const price = parseFloat(String(item.price)) || 0;
+    const qty = parseInt(String(item.quantity)) || 1;
+    return sum + (price * qty);
+  }, 0);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-10">
+          <div className="text-center p-4 bg-warm-50 border border-warm-200">
+            <p className="text-2xl font-light text-warm-700">{registries.length}</p>
+            <p className="text-xs tracking-wider uppercase text-warm-500">Registries</p>
+          </div>
+          <div className="text-center p-4 bg-warm-50 border border-warm-200">
+            <p className="text-2xl font-light text-warm-700">
+              {receivedItems}<span className="text-lg text-warm-400">/{totalItems}</span>
+            </p>
+            <p className="text-xs tracking-wider uppercase text-warm-500">Items Received</p>
+          </div>
+          <div className="text-center p-4 bg-warm-50 border border-warm-200">
+            <p className="text-2xl font-light text-green-600">{formatCurrency(totalValue)}</p>
+            <p className="text-xs tracking-wider uppercase text-warm-500">Total Value</p>
+          </div>
+        </div>
+
+        {/* Registries */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-purple-500" />
+              <h3 className="text-lg font-medium text-warm-700">Your Registries</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addRegistry}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Registry
+            </Button>
+          </div>
+
+          {registries.length > 0 ? (
+            <div className="grid md:grid-cols-2 gap-3">
+              {registries.map((registry, index) => (
+                <div key={index} className="flex items-center gap-2 p-3 border border-warm-200 rounded group">
+                  <ShoppingBag className="w-4 h-4 text-warm-400 flex-shrink-0" />
+                  <Input
+                    value={(registry.store as string) || ""}
+                    onChange={(e) => updateRegistry(index, "store", e.target.value)}
+                    placeholder="Store name"
+                    className="w-32"
+                  />
+                  <Input
+                    value={(registry.url as string) || ""}
+                    onChange={(e) => updateRegistry(index, "url", e.target.value)}
+                    placeholder="Registry URL"
+                    className="flex-1 text-sm"
+                  />
+                  {(registry.url as string) && (
+                    <a
+                      href={(registry.url as string)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 text-warm-500 hover:text-warm-700"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => removeRegistry(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-6 bg-warm-50 rounded">
+              No registries added yet. Add links to your registries!
+            </p>
+          )}
+        </div>
+
+        {/* Items */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Gift className="w-5 h-5 text-pink-500" />
+              <h3 className="text-lg font-medium text-warm-700">Registry Items</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={addItem}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Item
+            </Button>
+          </div>
+
+          {items.length > 0 ? (
+            <>
+              {/* Table Header */}
+              <div className="border-b-2 border-warm-800 pb-2 grid grid-cols-[2fr,1fr,80px,80px,80px,100px,40px] gap-2 mb-2">
+                <span className="text-[10px] tracking-wider uppercase text-warm-500">Item</span>
+                <span className="text-[10px] tracking-wider uppercase text-warm-500">Store</span>
+                <span className="text-[10px] tracking-wider uppercase text-warm-500">Price</span>
+                <span className="text-[10px] tracking-wider uppercase text-warm-500">Wanted</span>
+                <span className="text-[10px] tracking-wider uppercase text-warm-500">Received</span>
+                <span className="text-[10px] tracking-wider uppercase text-warm-500">Priority</span>
+                <span></span>
+              </div>
+
+              <div className="space-y-2">
+                {items.map((item, index) => {
+                  const qty = parseInt(String(item.quantity)) || 1;
+                  const rec = parseInt(String(item.received)) || 0;
+                  const isComplete = rec >= qty;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`border-b border-warm-200 pb-2 grid grid-cols-[2fr,1fr,80px,80px,80px,100px,40px] gap-2 items-center group ${
+                        isComplete ? "bg-green-50" : ""
+                      }`}
+                    >
+                      <Input
+                        value={(item.item as string) || ""}
+                        onChange={(e) => updateItem(index, "item", e.target.value)}
+                        placeholder="Item name"
+                        className={isComplete ? "line-through text-warm-400" : ""}
+                      />
+                      <Input
+                        value={(item.store as string) || ""}
+                        onChange={(e) => updateItem(index, "store", e.target.value)}
+                        placeholder="Store"
+                        className="text-sm"
+                      />
+                      <Input
+                        type="number"
+                        value={(item.price as string) || ""}
+                        onChange={(e) => updateItem(index, "price", e.target.value)}
+                        placeholder="$0"
+                        className="text-sm"
+                      />
+                      <Input
+                        type="number"
+                        value={(item.quantity as string) || "1"}
+                        onChange={(e) => updateItem(index, "quantity", e.target.value)}
+                        className="text-sm text-center"
+                        min={1}
+                      />
+                      <Input
+                        type="number"
+                        value={(item.received as string) || "0"}
+                        onChange={(e) => updateItem(index, "received", e.target.value)}
+                        className={`text-sm text-center ${isComplete ? "text-green-600" : ""}`}
+                        min={0}
+                      />
+                      <select
+                        value={(item.priority as string) || ""}
+                        onChange={(e) => updateItem(index, "priority", e.target.value)}
+                        className="px-2 py-1.5 border border-warm-300 text-sm focus:outline-none focus:border-warm-500 bg-white"
+                      >
+                        <option value="">Priority</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                      <button
+                        onClick={() => removeItem(index)}
+                        className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-warm-400 italic text-center py-8 bg-warm-50 rounded">
+              No items tracked yet. Add items from your registries to track what you&apos;ve received!
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// GIFT LOG RENDERER
+// ============================================================================
+
+interface GiftLogRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+  allPages: Page[];
+}
+
+function GiftLogRenderer({ page, fields, updateField, allPages }: GiftLogRendererProps) {
+  const gifts = (fields.gifts as Record<string, unknown>[]) || [];
+
+  const addGift = () => {
+    updateField("gifts", [...gifts, { from: "", item: "", event: "", dateReceived: "", thankYouSent: false, notes: "" }]);
+  };
+
+  const updateGift = (index: number, key: string, value: unknown) => {
+    const updated = [...gifts];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("gifts", updated);
+  };
+
+  const removeGift = (index: number) => {
+    updateField("gifts", gifts.filter((_, i) => i !== index));
+  };
+
+  // Stats
+  const totalGifts = gifts.length;
+  const thankYousSent = gifts.filter(g => g.thankYouSent).length;
+  const thankYousPending = totalGifts - thankYousSent;
+
+  // Group by event
+  const weddingGifts = gifts.filter(g => g.event === "Wedding");
+  const showerGifts = gifts.filter(g => g.event === "Bridal Shower");
+  const engagementGifts = gifts.filter(g => g.event === "Engagement Party");
+  const otherGifts = gifts.filter(g => g.event === "Other" || !g.event);
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-10">
+          <div className="text-center p-4 bg-warm-50 border border-warm-200">
+            <p className="text-2xl font-light text-warm-700">{totalGifts}</p>
+            <p className="text-xs tracking-wider uppercase text-warm-500">Total Gifts</p>
+          </div>
+          <div className="text-center p-4 bg-green-50 border border-green-200">
+            <p className="text-2xl font-light text-green-600">{thankYousSent}</p>
+            <p className="text-xs tracking-wider uppercase text-green-600">Thank Yous Sent</p>
+          </div>
+          <div className="text-center p-4 bg-amber-50 border border-amber-200">
+            <p className="text-2xl font-light text-amber-600">{thankYousPending}</p>
+            <p className="text-xs tracking-wider uppercase text-amber-600">Thank Yous Pending</p>
+          </div>
+        </div>
+
+        {/* Quick Stats by Event */}
+        {totalGifts > 0 && (
+          <div className="flex flex-wrap gap-3 mb-6">
+            {weddingGifts.length > 0 && (
+              <span className="px-3 py-1 bg-pink-100 text-pink-700 text-sm rounded-full">
+                Wedding: {weddingGifts.length}
+              </span>
+            )}
+            {showerGifts.length > 0 && (
+              <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full">
+                Bridal Shower: {showerGifts.length}
+              </span>
+            )}
+            {engagementGifts.length > 0 && (
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
+                Engagement: {engagementGifts.length}
+              </span>
+            )}
+            {otherGifts.length > 0 && (
+              <span className="px-3 py-1 bg-warm-100 text-warm-700 text-sm rounded-full">
+                Other: {otherGifts.length}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Add Gift Button */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-pink-500" />
+            <h3 className="text-lg font-medium text-warm-700">Gifts Received</h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={addGift}>
+            <Plus className="w-4 h-4 mr-1" />
+            Add Gift
+          </Button>
+        </div>
+
+        {/* Gifts Table */}
+        {gifts.length > 0 ? (
+          <>
+            {/* Table Header */}
+            <div className="border-b-2 border-warm-800 pb-2 grid grid-cols-[1.5fr,1.5fr,120px,100px,80px,1fr,40px] gap-2 mb-2">
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">From</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Gift</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Event</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Date</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Thank You</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Notes</span>
+              <span></span>
+            </div>
+
+            <div className="space-y-2">
+              {gifts.map((gift, index) => (
+                <div
+                  key={index}
+                  className={`border-b border-warm-200 pb-2 grid grid-cols-[1.5fr,1.5fr,120px,100px,80px,1fr,40px] gap-2 items-center group ${
+                    gift.thankYouSent ? "bg-green-50/50" : ""
+                  }`}
+                >
+                  <Input
+                    value={(gift.from as string) || ""}
+                    onChange={(e) => updateGift(index, "from", e.target.value)}
+                    placeholder="Who gave it?"
+                  />
+                  <Input
+                    value={(gift.item as string) || ""}
+                    onChange={(e) => updateGift(index, "item", e.target.value)}
+                    placeholder="What was it?"
+                  />
+                  <select
+                    value={(gift.event as string) || ""}
+                    onChange={(e) => updateGift(index, "event", e.target.value)}
+                    className="px-2 py-1.5 border border-warm-300 text-sm focus:outline-none focus:border-warm-500 bg-white"
+                  >
+                    <option value="">Event...</option>
+                    <option value="Wedding">Wedding</option>
+                    <option value="Bridal Shower">Bridal Shower</option>
+                    <option value="Engagement Party">Engagement Party</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <Input
+                    type="date"
+                    value={(gift.dateReceived as string) || ""}
+                    onChange={(e) => updateGift(index, "dateReceived", e.target.value)}
+                    className="text-sm"
+                  />
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={(gift.thankYouSent as boolean) || false}
+                      onChange={(e) => updateGift(index, "thankYouSent", e.target.checked)}
+                      className="w-5 h-5 accent-green-500"
+                    />
+                  </div>
+                  <Input
+                    value={(gift.notes as string) || ""}
+                    onChange={(e) => updateGift(index, "notes", e.target.value)}
+                    placeholder="Notes for thank you"
+                    className="text-sm"
+                  />
+                  <button
+                    onClick={() => removeGift(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-warm-400 italic text-center py-8 bg-warm-50 rounded">
+            No gifts logged yet. Add gifts as you receive them to track thank-you notes!
+          </p>
+        )}
+      </div>
     </div>
   );
 }
