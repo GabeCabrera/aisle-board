@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { 
-  Plus, Trash2, Star, GripVertical, User, Users as UsersIcon, Check, 
+  Plus, Trash2, User, Users as UsersIcon, Check, 
   ChevronDown, ChevronUp, CheckCircle2, Circle, Clock, Sparkles,
-  Calendar, ArrowRight, ListTodo, Zap, Target
+  Calendar, ListTodo, Zap, Target
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { type RendererWithAllPagesProps, type Task } from "./types";
@@ -38,7 +37,6 @@ const STATUS_CONFIG = {
     color: "text-warm-500",
     bg: "bg-warm-100",
     headerBg: "bg-gradient-to-r from-warm-100 to-warm-50",
-    accent: "warm"
   },
   "in-progress": { 
     label: "In Progress", 
@@ -46,7 +44,6 @@ const STATUS_CONFIG = {
     color: "text-amber-600",
     bg: "bg-amber-100",
     headerBg: "bg-gradient-to-r from-amber-100 to-amber-50",
-    accent: "amber"
   },
   done: { 
     label: "Done", 
@@ -54,9 +51,343 @@ const STATUS_CONFIG = {
     color: "text-green-600",
     bg: "bg-green-100",
     headerBg: "bg-gradient-to-r from-green-100 to-green-50",
-    accent: "green"
   },
 };
+
+// ============================================================================
+// TASK CARD COMPONENT (Memoized and extracted)
+// ============================================================================
+interface TaskCardProps {
+  task: Task;
+  isMobile?: boolean;
+  isDragging: boolean;
+  isExpanded: boolean;
+  partner1Name: string;
+  partner2Name: string;
+  onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onDragEnd: () => void;
+  onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onDeleteTask: (taskId: string) => void;
+  onMoveTask: (taskId: string, status: Task["status"]) => void;
+  onToggleExpand: (taskId: string | null) => void;
+}
+
+const TaskCard = memo(function TaskCard({
+  task,
+  isMobile = false,
+  isDragging,
+  isExpanded,
+  partner1Name,
+  partner2Name,
+  onDragStart,
+  onDragEnd,
+  onUpdateTask,
+  onDeleteTask,
+  onMoveTask,
+  onToggleExpand,
+}: TaskCardProps) {
+  const colors = TASK_COLORS[task.color];
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+
+  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "done";
+  const isDueSoon = task.dueDate && !isOverdue && task.status !== "done" && 
+    new Date(task.dueDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const getAssigneeName = (assignee: Task["assignee"]) => {
+    switch (assignee) {
+      case "partner1": return partner1Name;
+      case "partner2": return partner2Name;
+      case "both": return "Both";
+      default: return "Unassigned";
+    }
+  };
+
+  const getAssigneeInitial = (assignee: Task["assignee"]) => {
+    switch (assignee) {
+      case "partner1": return partner1Name.charAt(0).toUpperCase();
+      case "partner2": return partner2Name.charAt(0).toUpperCase();
+      case "both": return "2";
+      default: return "?";
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent) => {
+    if (isMobile || isEditing) {
+      e.preventDefault();
+      return;
+    }
+    // Set drag image
+    const dragElement = e.currentTarget as HTMLElement;
+    e.dataTransfer.setDragImage(dragElement, dragElement.offsetWidth / 2, 20);
+    onDragStart(e, task.id);
+  };
+
+  const handleTitleSave = () => {
+    if (editTitle.trim() !== task.title) {
+      onUpdateTask(task.id, { title: editTitle.trim() || task.title });
+    }
+    setIsEditing(false);
+  };
+
+  return (
+    <div
+      draggable={!isMobile && !isEditing}
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+      className={`
+        group relative rounded-xl border-2 transition-all duration-200
+        ${colors.bg} ${colors.border}
+        ${isDragging ? 'opacity-50 scale-[1.02] shadow-lg z-50' : 'hover:shadow-md'}
+        ${!isMobile && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
+      `}
+    >
+      {/* Color indicator bar */}
+      <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-[10px] ${colors.dot}`} />
+
+      <div className="p-4 pt-5">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          {/* Checkbox / Status indicator */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveTask(task.id, task.status !== "done" ? "done" : "todo");
+            }}
+            className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+              task.status === "done" 
+                ? "bg-green-500 border-green-500 text-white" 
+                : "border-warm-300 hover:border-green-400 hover:bg-green-50"
+            }`}
+          >
+            {task.status === "done" && <Check className="w-3 h-3" />}
+          </button>
+
+          {/* Title */}
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={handleTitleSave}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleTitleSave();
+                  if (e.key === "Escape") {
+                    setEditTitle(task.title);
+                    setIsEditing(false);
+                  }
+                }}
+                className="w-full bg-white/50 border border-warm-200 rounded px-2 py-1 text-sm font-medium text-warm-800 focus:outline-none focus:ring-2 focus:ring-warm-400"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditTitle(task.title);
+                  setIsEditing(true);
+                }}
+                className={`font-medium text-warm-800 cursor-text leading-snug ${
+                  task.status === "done" ? "line-through text-warm-400" : ""
+                }`}
+              >
+                {task.title}
+              </p>
+            )}
+
+            {/* Meta info */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {/* Assignee badge */}
+              {task.assignee !== "unassigned" && (
+                <div className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+                  {task.assignee === "both" ? (
+                    <UsersIcon className="w-3 h-3" />
+                  ) : (
+                    <span className="w-4 h-4 rounded-full bg-warm-200 text-warm-600 text-[10px] flex items-center justify-center font-medium">
+                      {getAssigneeInitial(task.assignee)}
+                    </span>
+                  )}
+                  <span>{getAssigneeName(task.assignee)}</span>
+                </div>
+              )}
+
+              {/* Due date */}
+              {task.dueDate && (
+                <div className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+                  isOverdue ? "bg-red-100 text-red-700" :
+                  isDueSoon ? "bg-amber-100 text-amber-700" :
+                  "bg-warm-100 text-warm-600"
+                }`}>
+                  <Calendar className="w-3 h-3" />
+                  {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isMobile ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand(isExpanded ? null : task.id);
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/50 text-warm-400"
+              >
+                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteTask(task.id);
+                }}
+                className="p-1.5 rounded-lg hover:bg-red-100 text-warm-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Expanded actions (mobile) */}
+        {isMobile && isExpanded && (
+          <div className="mt-4 pt-3 border-t border-warm-200/50 space-y-3">
+            {/* Assignee */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-warm-500 w-16">Assign to</Label>
+              <div className="flex-1 flex gap-1">
+                {(["unassigned", "partner1", "partner2", "both"] as const).map((assignee) => (
+                  <button
+                    key={assignee}
+                    onClick={() => onUpdateTask(task.id, { assignee })}
+                    className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${
+                      task.assignee === assignee
+                        ? "border-warm-500 bg-warm-100 text-warm-700"
+                        : "border-warm-200 bg-white text-warm-500 hover:border-warm-300"
+                    }`}
+                  >
+                    {assignee === "partner1" ? partner1Name.split(" ")[0] :
+                     assignee === "partner2" ? partner2Name.split(" ")[0] :
+                     assignee === "both" ? "Both" : "None"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Due Date */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-warm-500 w-16">Due</Label>
+              <Input
+                type="date"
+                value={task.dueDate || ""}
+                onChange={(e) => onUpdateTask(task.id, { dueDate: e.target.value || undefined })}
+                className="flex-1 text-xs h-8"
+              />
+            </div>
+
+            {/* Color */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-warm-500 w-16">Color</Label>
+              <div className="flex gap-2">
+                {(["blue", "green", "purple", "pink", "yellow"] as const).map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => onUpdateTask(task.id, { color })}
+                    className={`w-7 h-7 rounded-full transition-all ${TASK_COLORS[color].dot} ${
+                      task.color === color ? "ring-2 ring-offset-2 ring-warm-400 scale-110" : "hover:scale-105"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Move / Delete buttons */}
+            <div className="flex gap-2 pt-2">
+              {task.status !== "todo" && (
+                <Button variant="outline" size="sm" onClick={() => onMoveTask(task.id, "todo")} className="flex-1 text-xs h-8">
+                  To Do
+                </Button>
+              )}
+              {task.status !== "in-progress" && (
+                <Button variant="outline" size="sm" onClick={() => onMoveTask(task.id, "in-progress")} className="flex-1 text-xs h-8">
+                  <Clock className="w-3 h-3 mr-1" />
+                  In Progress
+                </Button>
+              )}
+              {task.status !== "done" && (
+                <Button size="sm" onClick={() => onMoveTask(task.id, "done")} className="flex-1 text-xs h-8 bg-green-600 hover:bg-green-700">
+                  <Check className="w-3 h-3 mr-1" />
+                  Done
+                </Button>
+              )}
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDeleteTask(task.id)}
+              className="w-full text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="w-3 h-3 mr-1" />
+              Delete Task
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop quick actions bar */}
+      {!isMobile && (
+        <div className="absolute bottom-0 left-0 right-0 h-10 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-white/80 to-transparent rounded-b-xl flex items-end justify-between px-3 pb-2">
+          {/* Color picker */}
+          <div className="flex gap-1">
+            {(["blue", "green", "purple", "pink", "yellow"] as const).map((color) => (
+              <button
+                key={color}
+                onClick={(e) => { e.stopPropagation(); onUpdateTask(task.id, { color }); }}
+                className={`w-4 h-4 rounded-full transition-all ${TASK_COLORS[color].dot} ${
+                  task.color === color ? "ring-2 ring-offset-1 ring-warm-400" : "opacity-60 hover:opacity-100"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Status buttons */}
+          <div className="flex gap-1">
+            {task.status !== "todo" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMoveTask(task.id, "todo"); }}
+                className="px-2 py-1 text-xs bg-warm-200 hover:bg-warm-300 rounded text-warm-600 transition-colors"
+              >
+                To Do
+              </button>
+            )}
+            {task.status !== "in-progress" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMoveTask(task.id, "in-progress"); }}
+                className="px-2 py-1 text-xs bg-amber-200 hover:bg-amber-300 rounded text-amber-700 transition-colors"
+              >
+                Progress
+              </button>
+            )}
+            {task.status !== "done" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMoveTask(task.id, "done"); }}
+                className="px-2 py-1 text-xs bg-green-200 hover:bg-green-300 rounded text-green-700 transition-colors flex items-center gap-1"
+              >
+                <Check className="w-3 h-3" />
+                Done
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 // ============================================================================
 // MAIN COMPONENT
@@ -69,7 +400,6 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
   // State
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<Task["status"] | null>(null);
-  const [editingTask, setEditingTask] = useState<string | null>(null);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -120,7 +450,6 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     
     const partner1Tasks = tasks.filter(t => t.assignee === "partner1" && t.status !== "done").length;
     const partner2Tasks = tasks.filter(t => t.assignee === "partner2" && t.status !== "done").length;
-    const unassignedTasks = tasks.filter(t => t.assignee === "unassigned" && t.status !== "done").length;
 
     // Tasks with due dates
     const today = new Date();
@@ -146,16 +475,15 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
       completionPercent,
       partner1Tasks,
       partner2Tasks,
-      unassignedTasks,
       overdueTasks,
       dueSoonTasks,
     };
   }, [tasks, filterAssignee]);
 
   // ============================================================================
-  // HANDLERS
+  // HANDLERS (memoized with useCallback)
   // ============================================================================
-  const addTask = () => {
+  const addTask = useCallback(() => {
     if (!newTaskTitle.trim()) return;
     
     const newTask: Task = {
@@ -172,9 +500,9 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     setNewTaskDueDate("");
     setShowAddTask(false);
     toast.success("Task added!");
-  };
+  }, [newTaskTitle, newTaskAssignee, newTaskColor, newTaskDueDate, tasks, updateField]);
 
-  const addSuggestedTask = (title: string, category: string) => {
+  const addSuggestedTask = useCallback((title: string, category: string) => {
     const colorMap: Record<string, Task["color"]> = {
       "Venue": "blue",
       "Catering": "green",
@@ -204,9 +532,9 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     
     updateField("tasks", [...tasks, newTask]);
     toast.success(`Added: ${title}`);
-  };
+  }, [tasks, updateField]);
 
-  const addAllFromCategory = (category: string, categoryTasks: string[]) => {
+  const addAllFromCategory = useCallback((category: string, categoryTasks: string[]) => {
     const colorMap: Record<string, Task["color"]> = {
       "Venue": "blue",
       "Catering": "green",
@@ -226,341 +554,65 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     
     updateField("tasks", [...tasks, ...newTasks]);
     toast.success(`Added ${categoryTasks.length} tasks from ${category}`);
-  };
+  }, [tasks, updateField]);
 
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
+  const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
     const updated = tasks.map(t => 
       t.id === taskId ? { ...t, ...updates } : t
     );
     updateField("tasks", updated);
-  };
+  }, [tasks, updateField]);
 
-  const deleteTask = (taskId: string) => {
+  const deleteTask = useCallback((taskId: string) => {
     updateField("tasks", tasks.filter(t => t.id !== taskId));
     toast.success("Task deleted");
-  };
+  }, [tasks, updateField]);
 
-  const moveTask = (taskId: string, newStatus: Task["status"]) => {
-    updateTask(taskId, { status: newStatus });
+  const moveTask = useCallback((taskId: string, newStatus: Task["status"]) => {
+    const updated = tasks.map(t => 
+      t.id === taskId ? { ...t, status: newStatus } : t
+    );
+    updateField("tasks", updated);
     if (newStatus === "done") {
       toast.success("Task completed! 🎉");
     }
-  };
-
-  const getAssigneeName = (assignee: Task["assignee"]) => {
-    switch (assignee) {
-      case "partner1": return partner1Name;
-      case "partner2": return partner2Name;
-      case "both": return "Both";
-      default: return "Unassigned";
-    }
-  };
-
-  const getAssigneeInitial = (assignee: Task["assignee"]) => {
-    switch (assignee) {
-      case "partner1": return partner1Name.charAt(0).toUpperCase();
-      case "partner2": return partner2Name.charAt(0).toUpperCase();
-      case "both": return "2";
-      default: return "?";
-    }
-  };
+  }, [tasks, updateField]);
 
   // Drag handlers
-  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+  const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
-  };
+  }, []);
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     setDraggedTaskId(null);
     setDragOverColumn(null);
-  };
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent, status: Task["status"]) => {
+  const handleDragOver = useCallback((e: React.DragEvent, status: Task["status"]) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverColumn(status);
-  };
+  }, []);
 
-  const handleDragLeave = () => {
+  const handleDragLeave = useCallback(() => {
     setDragOverColumn(null);
-  };
+  }, []);
 
-  const handleDrop = (e: React.DragEvent, newStatus: Task["status"]) => {
+  const handleDrop = useCallback((e: React.DragEvent, newStatus: Task["status"]) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('text/plain');
-    if (taskId && draggedTaskId) {
+    if (taskId) {
       moveTask(taskId, newStatus);
     }
     setDraggedTaskId(null);
     setDragOverColumn(null);
-  };
+  }, [moveTask]);
 
-  // ============================================================================
-  // TASK CARD COMPONENT
-  // ============================================================================
-  const TaskCard = ({ task, isMobile = false }: { task: Task; isMobile?: boolean }) => {
-    const colors = TASK_COLORS[task.color];
-    const isExpanded = expandedTaskId === task.id;
-    const isEditing = editingTask === task.id;
-    const [editTitle, setEditTitle] = useState(task.title);
-    const isDragging = draggedTaskId === task.id;
-
-    const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "done";
-    const isDueSoon = task.dueDate && !isOverdue && task.status !== "done" && 
-      new Date(task.dueDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    return (
-      <div
-        draggable={!isMobile && !isEditing}
-        onDragStart={(e) => !isMobile && handleDragStart(e, task.id)}
-        onDragEnd={handleDragEnd}
-        className={`
-          group relative rounded-xl border-2 transition-all duration-200
-          ${colors.bg} ${colors.border}
-          ${isDragging ? 'opacity-50 scale-[1.02] shadow-lg' : 'hover:shadow-md'}
-          ${!isMobile && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
-        `}
-      >
-        {/* Color indicator bar */}
-        <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-lg ${colors.dot}`} />
-
-        <div className="p-4 pt-5">
-          {/* Header */}
-          <div className="flex items-start gap-3">
-            {/* Checkbox / Status indicator */}
-            <button
-              onClick={() => task.status !== "done" ? moveTask(task.id, "done") : moveTask(task.id, "todo")}
-              className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                task.status === "done" 
-                  ? "bg-green-500 border-green-500 text-white" 
-                  : "border-warm-300 hover:border-green-400 hover:bg-green-50"
-              }`}
-            >
-              {task.status === "done" && <Check className="w-3 h-3" />}
-            </button>
-
-            {/* Title */}
-            <div className="flex-1 min-w-0">
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  onBlur={() => {
-                    updateTask(task.id, { title: editTitle });
-                    setEditingTask(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      updateTask(task.id, { title: editTitle });
-                      setEditingTask(null);
-                    }
-                    if (e.key === "Escape") {
-                      setEditTitle(task.title);
-                      setEditingTask(null);
-                    }
-                  }}
-                  className="w-full bg-white/50 border border-warm-200 rounded px-2 py-1 text-sm font-medium text-warm-800 focus:outline-none focus:ring-2 focus:ring-warm-400"
-                  autoFocus
-                />
-              ) : (
-                <p
-                  onClick={() => setEditingTask(task.id)}
-                  className={`font-medium text-warm-800 cursor-text leading-snug ${
-                    task.status === "done" ? "line-through text-warm-400" : ""
-                  }`}
-                >
-                  {task.title}
-                </p>
-              )}
-
-              {/* Meta info */}
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {/* Assignee badge */}
-                {task.assignee !== "unassigned" && (
-                  <div className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
-                    {task.assignee === "both" ? (
-                      <UsersIcon className="w-3 h-3" />
-                    ) : (
-                      <span className="w-4 h-4 rounded-full bg-warm-200 text-warm-600 text-[10px] flex items-center justify-center font-medium">
-                        {getAssigneeInitial(task.assignee)}
-                      </span>
-                    )}
-                    <span>{getAssigneeName(task.assignee)}</span>
-                  </div>
-                )}
-
-                {/* Due date */}
-                {task.dueDate && (
-                  <div className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
-                    isOverdue ? "bg-red-100 text-red-700" :
-                    isDueSoon ? "bg-amber-100 text-amber-700" :
-                    "bg-warm-100 text-warm-600"
-                  }`}>
-                    <Calendar className="w-3 h-3" />
-                    {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {isMobile ? (
-                <button
-                  onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
-                  className="p-1.5 rounded-lg hover:bg-white/50 text-warm-400"
-                >
-                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
-              ) : (
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  className="p-1.5 rounded-lg hover:bg-red-100 text-warm-400 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Expanded actions (mobile) or hover actions */}
-          {(isMobile && isExpanded) && (
-            <div className="mt-4 pt-3 border-t border-warm-200/50 space-y-3">
-              {/* Assignee */}
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-warm-500 w-16">Assign to</Label>
-                <div className="flex-1 flex gap-1">
-                  {(["unassigned", "partner1", "partner2", "both"] as const).map((assignee) => (
-                    <button
-                      key={assignee}
-                      onClick={() => updateTask(task.id, { assignee })}
-                      className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${
-                        task.assignee === assignee
-                          ? "border-warm-500 bg-warm-100 text-warm-700"
-                          : "border-warm-200 bg-white text-warm-500 hover:border-warm-300"
-                      }`}
-                    >
-                      {assignee === "partner1" ? partner1Name.split(" ")[0] :
-                       assignee === "partner2" ? partner2Name.split(" ")[0] :
-                       assignee === "both" ? "Both" : "None"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Due Date */}
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-warm-500 w-16">Due</Label>
-                <Input
-                  type="date"
-                  value={task.dueDate || ""}
-                  onChange={(e) => updateTask(task.id, { dueDate: e.target.value || undefined })}
-                  className="flex-1 text-xs h-8"
-                />
-              </div>
-
-              {/* Color */}
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-warm-500 w-16">Color</Label>
-                <div className="flex gap-2">
-                  {(["blue", "green", "purple", "pink", "yellow"] as const).map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => updateTask(task.id, { color })}
-                      className={`w-7 h-7 rounded-full transition-all ${TASK_COLORS[color].dot} ${
-                        task.color === color ? "ring-2 ring-offset-2 ring-warm-400 scale-110" : "hover:scale-105"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Move / Delete buttons */}
-              <div className="flex gap-2 pt-2">
-                {task.status !== "todo" && (
-                  <Button variant="outline" size="sm" onClick={() => moveTask(task.id, "todo")} className="flex-1 text-xs h-8">
-                    To Do
-                  </Button>
-                )}
-                {task.status !== "in-progress" && (
-                  <Button variant="outline" size="sm" onClick={() => moveTask(task.id, "in-progress")} className="flex-1 text-xs h-8">
-                    <Clock className="w-3 h-3 mr-1" />
-                    In Progress
-                  </Button>
-                )}
-                {task.status !== "done" && (
-                  <Button size="sm" onClick={() => moveTask(task.id, "done")} className="flex-1 text-xs h-8 bg-green-600 hover:bg-green-700">
-                    <Check className="w-3 h-3 mr-1" />
-                    Done
-                  </Button>
-                )}
-              </div>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteTask(task.id)}
-                className="w-full text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-3 h-3 mr-1" />
-                Delete Task
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Desktop quick actions bar */}
-        {!isMobile && (
-          <div className="absolute bottom-0 left-0 right-0 h-10 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-white/80 to-transparent rounded-b-xl flex items-end justify-between px-3 pb-2">
-            {/* Color picker */}
-            <div className="flex gap-1">
-              {(["blue", "green", "purple", "pink", "yellow"] as const).map((color) => (
-                <button
-                  key={color}
-                  onClick={(e) => { e.stopPropagation(); updateTask(task.id, { color }); }}
-                  className={`w-4 h-4 rounded-full transition-all ${TASK_COLORS[color].dot} ${
-                    task.color === color ? "ring-2 ring-offset-1 ring-warm-400" : "opacity-60 hover:opacity-100"
-                  }`}
-                />
-              ))}
-            </div>
-
-            {/* Status buttons */}
-            <div className="flex gap-1">
-              {task.status !== "todo" && (
-                <button
-                  onClick={() => moveTask(task.id, "todo")}
-                  className="px-2 py-1 text-xs bg-warm-200 hover:bg-warm-300 rounded text-warm-600 transition-colors"
-                >
-                  To Do
-                </button>
-              )}
-              {task.status !== "in-progress" && (
-                <button
-                  onClick={() => moveTask(task.id, "in-progress")}
-                  className="px-2 py-1 text-xs bg-amber-200 hover:bg-amber-300 rounded text-amber-700 transition-colors"
-                >
-                  Progress
-                </button>
-              )}
-              {task.status !== "done" && (
-                <button
-                  onClick={() => moveTask(task.id, "done")}
-                  className="px-2 py-1 text-xs bg-green-200 hover:bg-green-300 rounded text-green-700 transition-colors flex items-center gap-1"
-                >
-                  <Check className="w-3 h-3" />
-                  Done
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const handleToggleExpand = useCallback((taskId: string | null) => {
+    setExpandedTaskId(taskId);
+  }, []);
 
   // ============================================================================
   // COLUMN COMPONENT
@@ -594,14 +646,27 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
             bg-warm-50/50 rounded-b-xl p-3 min-h-[400px] space-y-3
             border border-t-0 border-warm-200
             transition-all duration-200
-            ${isDropTarget ? 'bg-warm-100 ring-2 ring-warm-400 ring-inset' : ''}
+            ${isDropTarget ? 'bg-warm-100 ring-2 ring-violet-400 ring-inset' : ''}
           `}
           onDragOver={(e) => handleDragOver(e, status)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, status)}
         >
           {columnTasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard 
+              key={task.id} 
+              task={task}
+              isDragging={draggedTaskId === task.id}
+              isExpanded={expandedTaskId === task.id}
+              partner1Name={partner1Name}
+              partner2Name={partner2Name}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onUpdateTask={updateTask}
+              onDeleteTask={deleteTask}
+              onMoveTask={moveTask}
+              onToggleExpand={handleToggleExpand}
+            />
           ))}
           
           {columnTasks.length === 0 && (
@@ -822,7 +887,21 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
           <div className="md:hidden space-y-3">
             {getMobileColumnTasks().length > 0 ? (
               getMobileColumnTasks().map((task) => (
-                <TaskCard key={task.id} task={task} isMobile />
+                <TaskCard 
+                  key={task.id} 
+                  task={task}
+                  isMobile
+                  isDragging={false}
+                  isExpanded={expandedTaskId === task.id}
+                  partner1Name={partner1Name}
+                  partner2Name={partner2Name}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onUpdateTask={updateTask}
+                  onDeleteTask={deleteTask}
+                  onMoveTask={moveTask}
+                  onToggleExpand={handleToggleExpand}
+                />
               ))
             ) : (
               <div className="text-center py-12 bg-warm-50 rounded-xl border border-dashed border-warm-200">
