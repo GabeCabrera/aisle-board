@@ -33,6 +33,8 @@ import {
   Target,
   Percent,
   Eye,
+  Settings,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -355,6 +357,12 @@ export default function AdminDashboard() {
                 <Button variant="outline" size="sm">
                   <FileText className="w-4 h-4 mr-2" />
                   Templates
+                </Button>
+              </Link>
+              <Link href="/manage-x7k9/settings">
+                <Button variant="outline" size="sm">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
                 </Button>
               </Link>
             </div>
