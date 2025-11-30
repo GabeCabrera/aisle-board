@@ -18,8 +18,15 @@ import {
   Circle,
   Clock,
   StickyNote,
+  Kanban,
+  Gift,
+  Package,
+  Plane,
+  Music,
+  ScrollText,
 } from "lucide-react";
 
+// Map ALL template icons to their Lucide components
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Book,
   LayoutDashboard,
@@ -31,6 +38,12 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Circle,
   Clock,
   StickyNote,
+  Kanban,
+  Gift,
+  Package,
+  Plane,
+  Music,
+  ScrollText,
 };
 
 interface PageSidebarItemProps {

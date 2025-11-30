@@ -226,7 +226,7 @@ function PlannerEditorContent({
                     <Link href="/templates?mode=add" className="block">
                       <Button variant="outline" size="sm" className="w-full">
                         <Plus className="w-4 h-4 mr-2" />
-                        Add Page
+                        Add Template
                       </Button>
                     </Link>
                     <Link href="/" className="block">
@@ -310,7 +310,7 @@ function PlannerEditorContent({
                   <Link href="/templates?mode=add" className="block">
                     <Button variant="outline" size="sm" className="w-full">
                       <Plus className="w-4 h-4 mr-2" />
-                      Add Page
+                      Add Template
                     </Button>
                   </Link>
                   <Link href="/" className="block">

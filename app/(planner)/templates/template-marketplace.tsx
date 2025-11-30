@@ -41,15 +41,19 @@ import {
   Music,
   Utensils,
   Gift,
+  Package,
   Plane,
   Home,
   Star,
   CheckCircle,
   List,
   Clipboard,
+  Kanban,
+  ScrollText,
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Map ALL template icons to their Lucide components
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Book,
   LayoutDashboard,
@@ -67,12 +71,15 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Music,
   Utensils,
   Gift,
+  Package,
   Plane,
   Home,
   Star,
   CheckCircle,
   List,
   Clipboard,
+  Kanban,
+  ScrollText,
 };
 
 interface TemplateMarketplaceProps {
