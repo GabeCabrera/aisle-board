@@ -96,14 +96,14 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="name">Your Name</Label>
+            <Label htmlFor="name">Your Names</Label>
             <Input
               id="name"
               name="name"
               type="text"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Jane Smith"
+              placeholder="Sarah & James"
               required
               disabled={isLoading}
             />
