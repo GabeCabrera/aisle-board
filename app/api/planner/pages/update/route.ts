@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getPlannerByTenantId, getPageById, updatePageFields } from "@/lib/db/queries";
-import { pageUpdateSchema, validateRequest } from "@/lib/validation";
+import { pageUpdateSchema, sanitizeForDb } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,15 +27,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate input
-    const validation = validateRequest(pageUpdateSchema, body);
-    if (!validation.success) {
+    const result = pageUpdateSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: result.error.errors[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
-    const { pageId, fields } = validation.data;
+    const { pageId, fields } = result.data;
+
+    // Sanitize fields
+    const sanitizedFields = sanitizeForDb(fields as Record<string, unknown>);
 
     // Verify the page belongs to this tenant's planner
     const planner = await getPlannerByTenantId(session.user.tenantId);
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update with sanitized fields
-    await updatePageFields(pageId, fields);
+    await updatePageFields(pageId, sanitizedFields);
 
     return NextResponse.json({ success: true });
   } catch (error) {

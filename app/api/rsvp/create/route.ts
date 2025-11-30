@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { rsvpForms, pages, tenants, planners } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { rsvpFormSchema, validateRequest, sanitizeString } from "@/lib/validation";
+import { rsvpFormSchema, sanitizeString } from "@/lib/validation";
 
 // Generate a cute slug from couple names
 function generateSlug(displayName: string): string {
@@ -37,15 +37,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate input
-    const validation = validateRequest(rsvpFormSchema, body);
-    if (!validation.success) {
+    const result = rsvpFormSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: result.error.errors[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
-    const { pageId, title, message, fields, mealOptions } = validation.data;
+    const data = result.data;
+    const pageId = data.pageId;
+    const title = data.title ? sanitizeString(data.title) : "RSVP";
+    const message = data.message ? sanitizeString(data.message) : null;
+    const fields = data.fields;
+    const mealOptions = data.mealOptions?.map(o => sanitizeString(o)) || [];
 
     // Verify the page belongs to this tenant's planner
     const [page] = await db
@@ -92,10 +97,10 @@ export async function POST(request: NextRequest) {
       const [updatedForm] = await db
         .update(rsvpForms)
         .set({
-          title: title || "RSVP",
-          message: message || null,
+          title,
+          message,
           fields: fields || existingForm.fields,
-          mealOptions: mealOptions || [],
+          mealOptions,
           updatedAt: new Date(),
         })
         .where(eq(rsvpForms.id, existingForm.id))
@@ -140,8 +145,8 @@ export async function POST(request: NextRequest) {
         tenantId: session.user.tenantId,
         pageId,
         slug,
-        title: title || "RSVP",
-        message: message || null,
+        title,
+        message,
         weddingDate: tenant.weddingDate,
         fields: fields || {
           name: true,
@@ -157,7 +162,7 @@ export async function POST(request: NextRequest) {
           songRequest: false,
           notes: false,
         },
-        mealOptions: mealOptions || [],
+        mealOptions,
       })
       .returning();
 

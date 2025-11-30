@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getPlannerByTenantId, reorderPages } from "@/lib/db/queries";
 import { z } from "zod";
-import { validateRequest } from "@/lib/validation";
 
 const reorderSchema = z.object({
   plannerId: z.string().uuid("Invalid planner ID"),
@@ -35,15 +34,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate input
-    const validation = validateRequest(reorderSchema, body);
-    if (!validation.success) {
+    const result = reorderSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: result.error.errors[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
-    const { plannerId, pageIds } = validation.data;
+    const { plannerId, pageIds } = result.data;
 
     // Verify the planner belongs to this tenant
     const planner = await getPlannerByTenantId(session.user.tenantId);

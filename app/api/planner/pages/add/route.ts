@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getPlannerByTenantId, getPagesByPlannerId, createPage } from "@/lib/db/queries";
 import { getTemplateById } from "@/lib/templates/registry";
-import { addPagesSchema, validateRequest } from "@/lib/validation";
+import { addPagesSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,15 +28,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate input
-    const validation = validateRequest(addPagesSchema, body);
-    if (!validation.success) {
+    const result = addPagesSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: result.error.errors[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
-    const { templateIds } = validation.data;
+    const { templateIds } = result.data;
 
     const planner = await getPlannerByTenantId(session.user.tenantId);
 

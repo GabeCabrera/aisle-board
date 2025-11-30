@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getPlannerByTenantId, getPageById, deletePage } from "@/lib/db/queries";
-import { deletePageSchema, validateRequest } from "@/lib/validation";
+import { deletePageSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,15 +27,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate input
-    const validation = validateRequest(deletePageSchema, body);
-    if (!validation.success) {
+    const result = deletePageSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: result.error.errors[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
-    const { pageId } = validation.data;
+    const { pageId } = result.data;
 
     // Verify the page belongs to this tenant's planner
     const planner = await getPlannerByTenantId(session.user.tenantId);

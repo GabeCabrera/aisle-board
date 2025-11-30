@@ -83,94 +83,15 @@ export function sanitizeForDb(obj: Record<string, unknown>): Record<string, unkn
 
 // Registration
 export const registerSchema = z.object({
-  name: z.string()
-    .min(1, "Name is required")
-    .max(100, "Name is too long")
-    .transform(sanitizeString),
-  email: z.string()
-    .email("Invalid email address")
-    .max(254, "Email is too long")
-    .transform(s => s.toLowerCase().trim()),
-  password: z.string()
-    .min(8, "Password must be at least 8 characters")
-    .max(128, "Password is too long"),
-});
-
-// Login
-export const loginSchema = z.object({
-  email: z.string()
-    .email("Invalid email address")
-    .transform(s => s.toLowerCase().trim()),
-  password: z.string().min(1, "Password is required"),
-});
-
-// RSVP submission (public form)
-export const rsvpSubmissionSchema = z.object({
-  name: z.string()
-    .min(1, "Name is required")
-    .max(200, "Name is too long")
-    .transform(sanitizeString),
-  email: z.string()
-    .max(254)
-    .optional()
-    .transform(val => val ? sanitizeEmail(val) : null),
-  phone: z.string()
-    .max(20)
-    .optional()
-    .transform(val => val ? sanitizePhone(val) : null),
-  address: z.string()
-    .max(500, "Address is too long")
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  attending: z.boolean().nullable().optional(),
-  mealChoice: z.string()
-    .max(100)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  dietaryRestrictions: z.string()
-    .max(500)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  plusOne: z.boolean().optional().default(false),
-  plusOneName: z.string()
-    .max(200)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  plusOneMeal: z.string()
-    .max(100)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  songRequest: z.string()
-    .max(200)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  notes: z.string()
-    .max(1000, "Notes are too long")
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
+  name: z.string().min(1, "Name is required").max(100, "Name is too long"),
+  email: z.string().email("Invalid email address").max(254, "Email is too long"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128, "Password is too long"),
 });
 
 // Page update
 export const pageUpdateSchema = z.object({
   pageId: z.string().uuid("Invalid page ID"),
-  fields: z.record(z.unknown()).transform(sanitizeForDb),
-});
-
-// RSVP form creation/update
-export const rsvpFormSchema = z.object({
-  pageId: z.string().uuid("Invalid page ID"),
-  title: z.string()
-    .max(100)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : "RSVP"),
-  message: z.string()
-    .max(500)
-    .optional()
-    .transform(val => val ? sanitizeString(val) : null),
-  fields: z.record(z.boolean()).optional(),
-  mealOptions: z.array(z.string().max(100).transform(sanitizeString))
-    .max(20, "Too many meal options")
-    .optional(),
+  fields: z.record(z.unknown()),
 });
 
 // Template IDs for adding pages
@@ -188,9 +109,13 @@ export const deletePageSchema = z.object({
   pageId: z.string().uuid("Invalid page ID"),
 });
 
-// Reorder pages
-export const reorderPagesSchema = z.object({
-  pageIds: z.array(z.string().uuid()).min(1).max(100),
+// RSVP form creation/update
+export const rsvpFormSchema = z.object({
+  pageId: z.string().uuid("Invalid page ID"),
+  title: z.string().max(100).optional(),
+  message: z.string().max(500).optional(),
+  fields: z.record(z.boolean()).optional(),
+  mealOptions: z.array(z.string().max(100)).max(20, "Too many meal options").optional(),
 });
 
 // ============================================================================
@@ -220,33 +145,14 @@ export function checkRateLimit(
   return { allowed: true, remaining: maxRequests - record.count };
 }
 
-// Clean up old entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of rateLimitMap.entries()) {
-    if (now > record.resetAt) {
-      rateLimitMap.delete(key);
+// Clean up old entries periodically (only in non-edge environments)
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, record] of rateLimitMap.entries()) {
+      if (now > record.resetAt) {
+        rateLimitMap.delete(key);
+      }
     }
-  }
-}, 60000);
-
-// ============================================================================
-// VALIDATION HELPER
-// ============================================================================
-
-export function validateRequest<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown
-): { success: true; data: T } | { success: false; error: string } {
-  const result = schema.safeParse(data);
-  
-  if (!result.success) {
-    const firstError = result.error.errors[0];
-    return { 
-      success: false, 
-      error: firstError?.message || "Validation failed" 
-    };
-  }
-  
-  return { success: true, data: result.data };
+  }, 60000);
 }

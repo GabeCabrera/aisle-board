@@ -5,11 +5,7 @@ import { db } from "@/lib/db";
 import { tenants, users } from "@/lib/db/schema";
 import { getUserByEmail } from "@/lib/db/queries";
 import { nanoid } from "nanoid";
-import { 
-  registerSchema, 
-  validateRequest, 
-  checkRateLimit 
-} from "@/lib/validation";
+import { registerSchema, checkRateLimit, sanitizeString } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,15 +35,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate input
-    const validation = validateRequest(registerSchema, body);
-    if (!validation.success) {
+    const result = registerSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: validation.error },
+        { error: result.error.errors[0]?.message || "Validation failed" },
         { status: 400 }
       );
     }
 
-    const { name, email, password } = validation.data;
+    // Sanitize
+    const name = sanitizeString(result.data.name);
+    const email = result.data.email.toLowerCase().trim();
+    const password = result.data.password;
 
     // Check if user already exists
     const existingUser = await getUserByEmail(email);
