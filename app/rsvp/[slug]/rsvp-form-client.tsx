@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Heart, Check, Calendar } from "lucide-react";
+import { Heart, Check, Calendar, Mail } from "lucide-react";
 import { toast } from "sonner";
 import type { RsvpForm } from "@/lib/db/schema";
 
@@ -84,7 +84,7 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
       }
 
       setIsSubmitted(true);
-      toast.success("Thank you for your RSVP!");
+      toast.success("Thank you!");
     } catch (error) {
       toast.error("Something went wrong. Please try again.");
     } finally {
@@ -110,19 +110,19 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full text-center"
         >
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Check className="w-8 h-8 text-green-600" />
+          <div className="w-16 h-16 bg-warm-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Heart className="w-8 h-8 text-warm-500" />
           </div>
           <h1 className="text-3xl font-serif font-light tracking-wide mb-4">
-            Thank You!
+            You&apos;re All Set!
           </h1>
           <p className="text-warm-600 mb-2">
-            Your RSVP has been received.
+            Thanks for sending your details.
           </p>
           <p className="text-warm-500 text-sm">
             {formData.attending 
-              ? `We can't wait to celebrate with you!`
-              : `We're sorry you can't make it, but we appreciate you letting us know.`
+              ? `${coupleNames} can't wait to celebrate with you!`
+              : `${coupleNames} appreciate you letting them know.`
             }
           </p>
         </motion.div>
@@ -139,18 +139,22 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10"
         >
-          <Heart className="w-8 h-8 text-warm-400 mx-auto mb-4" />
+          <Mail className="w-8 h-8 text-warm-400 mx-auto mb-6" />
           
-          <h1 className="text-4xl font-serif font-light tracking-wide mb-2">
-            {form.title || "RSVP"}
-          </h1>
-          
-          <p className="text-lg text-warm-600 mb-4">
+          <p className="text-sm tracking-[0.3em] uppercase text-warm-500 mb-3">
             {coupleNames}
           </p>
           
+          <h1 className="text-4xl font-serif font-light tracking-wide mb-2">
+            We Need Your Address
+          </h1>
+          
+          <p className="text-warm-500 mt-4">
+            So we can send you something special
+          </p>
+          
           {weddingDate && (
-            <div className="flex items-center justify-center gap-2 text-warm-500">
+            <div className="flex items-center justify-center gap-2 text-warm-400 mt-4">
               <Calendar className="w-4 h-4" />
               <span className="text-sm">{formatDate(weddingDate)}</span>
             </div>
@@ -162,7 +166,7 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
             </p>
           )}
           
-          <div className="w-16 h-px bg-warm-400 mx-auto mt-8" />
+          <div className="w-16 h-px bg-warm-300 mx-auto mt-8" />
         </motion.div>
 
         {/* Form */}
@@ -300,7 +304,7 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
                       onChange={(e) => updateField("plusOne", e.target.checked)}
                       className="w-4 h-4 border border-warm-400 accent-warm-500"
                     />
-                    <span>I will be bringing a guest</span>
+                    <span>I&apos;ll be bringing a guest</span>
                   </label>
 
                   {formData.plusOne && fields.plusOneName && (
@@ -351,11 +355,11 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
           {/* Notes - always available */}
           {fields.notes && (
             <div className="space-y-2">
-              <Label>Additional Notes</Label>
+              <Label>Anything Else?</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
-                placeholder="Anything else you'd like us to know?"
+                placeholder="Notes, well-wishes, or anything you'd like us to know"
                 rows={3}
               />
             </div>
@@ -367,13 +371,13 @@ export function RsvpFormClient({ form, coupleNames, weddingDate }: RsvpFormClien
             disabled={isSubmitting}
             className="w-full bg-warm-600 hover:bg-warm-700 text-white py-3"
           >
-            {isSubmitting ? "Submitting..." : "Submit RSVP"}
+            {isSubmitting ? "Sending..." : "Send My Details"}
           </Button>
         </motion.form>
 
         {/* Footer */}
         <p className="text-center text-xs text-warm-400 mt-8">
-          Powered by Aisle
+          Made with love using Aisle
         </p>
       </div>
     </main>

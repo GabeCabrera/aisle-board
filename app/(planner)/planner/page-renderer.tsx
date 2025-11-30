@@ -706,9 +706,9 @@ function GuestListRenderer({ page, fields, updateField }: GuestListRendererProps
             <div className="flex items-center gap-3">
               <Share2 className="w-5 h-5 text-warm-500" />
               <div>
-                <h3 className="font-medium text-warm-700">Collect RSVPs & Addresses</h3>
+                <h3 className="font-medium text-warm-700">We Need Your Address</h3>
                 <p className="text-sm text-warm-500">
-                  Share a link for guests to submit their info directly
+                  Share a link for guests to send you their details
                 </p>
               </div>
             </div>
@@ -732,7 +732,7 @@ function GuestListRenderer({ page, fields, updateField }: GuestListRendererProps
             ) : (
               <Button onClick={() => setShowRsvpSetup(true)}>
                 <Share2 className="w-4 h-4 mr-2" />
-                Create RSVP Link
+                Create Link
               </Button>
             )}
           </div>
@@ -872,22 +872,22 @@ function GuestListRenderer({ page, fields, updateField }: GuestListRendererProps
       <Dialog open={showRsvpSetup} onOpenChange={setShowRsvpSetup}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Create RSVP Link</DialogTitle>
+            <DialogTitle>We Need Your Address</DialogTitle>
             <DialogDescription>
-              Generate a shareable link for guests to submit their information.
+              Create a shareable link for guests to send you their details.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-warm-600 mb-4">
-              Your guests will be able to submit:
+              Your guests will be able to share:
             </p>
             <ul className="text-sm text-warm-600 space-y-1 mb-6">
-              <li>• Name & contact info</li>
+              <li>• Their name & contact info</li>
               <li>• Mailing address</li>
               <li>• RSVP status</li>
               <li>• Dietary restrictions</li>
               <li>• Plus one details</li>
-              <li>• Additional notes</li>
+              <li>• Notes & well-wishes</li>
             </ul>
             <p className="text-xs text-warm-500">
               Responses will automatically appear in your guest list.

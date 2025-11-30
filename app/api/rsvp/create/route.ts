@@ -4,7 +4,18 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { rsvpForms, pages, tenants } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { nanoid } from "nanoid";
+
+// Generate a cute slug from couple names
+function generateSlug(displayName: string): string {
+  // "Sarah & Gabe" -> "sarah-and-gabe"
+  // "The Johnsons" -> "the-johnsons"
+  return displayName
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,8 +50,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
-    // Generate unique slug
-    const slug = `${tenant.slug}-${nanoid(6)}`;
+    // Generate cute slug from couple names
+    const baseSlug = generateSlug(tenant.displayName);
+    
+    // Check if slug exists, if so add a short suffix
+    let slug = baseSlug;
+    const [existing] = await db
+      .select()
+      .from(rsvpForms)
+      .where(eq(rsvpForms.slug, slug))
+      .limit(1);
+    
+    if (existing) {
+      // Add last 4 chars of tenant ID to make unique
+      slug = `${baseSlug}-${tenant.id.slice(-4)}`;
+    }
 
     // Check if form already exists for this page
     const [existingForm] = await db
