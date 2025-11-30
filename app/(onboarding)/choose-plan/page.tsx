@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { Check, Download, Sparkles, Calendar, Users, Heart, Clock, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -37,11 +37,20 @@ const COMPLETE_BENEFITS = [
   "Lifetime access - no subscriptions",
 ];
 
-export default function ChoosePlanPage() {
+function ChoosePlanContent() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [selectedPlan, setSelectedPlan] = useState<"free" | "complete" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Show loading while session is being fetched
+  if (status === "loading") {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-warm-300 border-t-warm-600 rounded-full animate-spin" />
+      </main>
+    );
+  }
 
   const handleSelectFree = () => {
     setSelectedPlan("free");
@@ -54,7 +63,6 @@ export default function ChoosePlanPage() {
   const handleContinueWithFree = async () => {
     setIsLoading(true);
     try {
-      // Update plan to free
       await fetch("/api/plan/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +80,6 @@ export default function ChoosePlanPage() {
   const handlePurchaseComplete = async () => {
     setIsLoading(true);
     try {
-      // Create Stripe checkout session
       const response = await fetch("/api/stripe/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -268,4 +275,8 @@ export default function ChoosePlanPage() {
       </div>
     </main>
   );
+}
+
+export default function ChoosePlanPage() {
+  return <ChoosePlanContent />;
 }
