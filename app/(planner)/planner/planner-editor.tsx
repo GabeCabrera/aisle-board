@@ -40,22 +40,25 @@ interface PlannerEditorProps {
   plannerId: string;
   initialPages: Page[];
   displayName: string;
+  userPlan: "free" | "complete";
 }
 
-export function PlannerEditor({ plannerId, initialPages, displayName }: PlannerEditorProps) {
+export function PlannerEditor({ plannerId, initialPages, displayName, userPlan }: PlannerEditorProps) {
   return (
     <PlannerProvider plannerId={plannerId} initialPages={initialPages}>
-      <PlannerEditorContent displayName={displayName} plannerId={plannerId} />
+      <PlannerEditorContent displayName={displayName} plannerId={plannerId} userPlan={userPlan} />
     </PlannerProvider>
   );
 }
 
 function PlannerEditorContent({ 
   displayName, 
-  plannerId 
+  plannerId,
+  userPlan,
 }: { 
   displayName: string; 
   plannerId: string;
+  userPlan: "free" | "complete";
 }) {
   const {
     state,
@@ -92,7 +95,7 @@ function PlannerEditorContent({
   };
 
   return (
-    <WeddingDataProvider pages={pages}>
+    <WeddingDataProvider pages={pages} userPlan={userPlan}>
       <div className="min-h-screen flex bg-warm-50">
       {/* Sidebar */}
       <motion.aside

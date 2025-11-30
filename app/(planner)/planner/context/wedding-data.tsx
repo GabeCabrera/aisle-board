@@ -186,7 +186,8 @@ export interface EmergencyContact {
 // MAIN DATA INTERFACE
 // ============================================================================
 
-export interface WeddingData {
+// Internal type for extracted data (without userPlan)
+interface ExtractedWeddingData {
   // Core info
   wedding: WeddingInfo;
   venues: VenueInfo;
@@ -218,6 +219,11 @@ export interface WeddingData {
   getPageFields: (templateId: string) => Record<string, unknown>;
 }
 
+// Full type exposed to consumers (includes userPlan)
+export interface WeddingData extends ExtractedWeddingData {
+  userPlan: "free" | "complete";
+}
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -243,7 +249,7 @@ function safeString(value: unknown, defaultValue = ""): string {
 // DATA EXTRACTION
 // ============================================================================
 
-function extractWeddingData(pages: Page[]): WeddingData {
+function extractWeddingData(pages: Page[]): ExtractedWeddingData {
   // Helper to get page by template
   const getPage = (templateId: string) => pages.find(p => p.templateId === templateId);
   const getPageFields = (templateId: string): Record<string, unknown> => {
@@ -557,13 +563,18 @@ function extractWeddingData(pages: Page[]): WeddingData {
 const WeddingDataContext = createContext<WeddingData | null>(null);
 
 export function WeddingDataProvider({ 
-  pages, 
+  pages,
+  userPlan = "free",
   children 
 }: { 
-  pages: Page[]; 
+  pages: Page[];
+  userPlan?: "free" | "complete";
   children: ReactNode;
 }) {
-  const data = useMemo(() => extractWeddingData(pages), [pages]);
+  const data = useMemo(() => ({
+    ...extractWeddingData(pages),
+    userPlan,
+  }), [pages, userPlan]);
 
   return (
     <WeddingDataContext.Provider value={data}>
@@ -625,4 +636,13 @@ export function useSeating() {
   const { tables, seatingStats, guests, guestStats } = useWeddingData();
   const confirmedGuests = guests.filter(g => g.rsvp);
   return { tables, stats: seatingStats, confirmedGuests, guestStats };
+}
+
+export function useUserPlan() {
+  const { userPlan } = useWeddingData();
+  return {
+    plan: userPlan,
+    isFree: userPlan === "free",
+    isComplete: userPlan === "complete",
+  };
 }

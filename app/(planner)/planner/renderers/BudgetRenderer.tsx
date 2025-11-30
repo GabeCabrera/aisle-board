@@ -13,9 +13,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { type BaseRendererProps, type BudgetItem, type Payment } from "./types";
-import { formatCurrency, BUDGET_CATEGORIES } from "./shared";
+import { formatCurrency, BUDGET_CATEGORIES, UpgradePrompt, UPGRADE_SUGGESTIONS } from "./shared";
+import { useUserPlan } from "../context";
+import { Contact } from "lucide-react";
 
 export function BudgetRenderer({ page, fields, updateField }: BaseRendererProps) {
+  const { isFree } = useUserPlan();
   // Ensure items is always an array
   const rawItems = fields.items;
   const items: BudgetItem[] = Array.isArray(rawItems) ? rawItems : [];
@@ -279,6 +282,17 @@ export function BudgetRenderer({ page, fields, updateField }: BaseRendererProps)
                 })}
             </div>
           </div>
+        )}
+
+        {/* Upgrade Prompt for Free Users */}
+        {isFree && items.length > 0 && (
+          <UpgradePrompt
+            variant="banner"
+            title={UPGRADE_SUGGESTIONS.vendorContacts.title}
+            description={UPGRADE_SUGGESTIONS.vendorContacts.description}
+            featureName={UPGRADE_SUGGESTIONS.vendorContacts.featureName}
+            icon={<Contact className="w-5 h-5 text-purple-600" />}
+          />
         )}
 
         {/* Add Item Button */}

@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { type RendererWithAllPagesProps, type ScheduleEvent, type PartyMember } from "./types";
+import { UpgradePrompt, UPGRADE_SUGGESTIONS } from "./shared";
+import { useUserPlan } from "../context";
+import { Heart as WeddingPartyIcon } from "lucide-react";
 
 const EVENT_CATEGORIES = [
   { id: "prep", label: "Getting Ready", icon: Sparkles, color: "bg-pink-100 border-pink-300 text-pink-700" },
@@ -45,6 +48,8 @@ const COMMON_EVENTS = [
 ];
 
 export function DayOfScheduleRenderer({ page, fields, updateField, allPages }: RendererWithAllPagesProps) {
+  const { isFree } = useUserPlan();
+  
   // Ensure events is always an array
   const rawEvents = fields.events;
   const events: ScheduleEvent[] = Array.isArray(rawEvents) ? rawEvents : [];
@@ -506,6 +511,19 @@ export function DayOfScheduleRenderer({ page, fields, updateField, allPages }: R
                 Add Event
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Upgrade Prompt for Free Users */}
+        {isFree && events.length > 0 && (
+          <div className="mt-8">
+            <UpgradePrompt
+              variant="banner"
+              title={UPGRADE_SUGGESTIONS.weddingParty.title}
+              description={UPGRADE_SUGGESTIONS.weddingParty.description}
+              featureName={UPGRADE_SUGGESTIONS.weddingParty.featureName}
+              icon={<WeddingPartyIcon className="w-5 h-5 text-purple-600" />}
+            />
           </div>
         )}
       </div>

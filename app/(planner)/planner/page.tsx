@@ -34,6 +34,7 @@ export default async function PlannerPage() {
       plannerId={planner.id}
       initialPages={pages}
       displayName={tenant.displayName}
+      userPlan={tenant.plan as "free" | "complete"}
     />
   );
 }

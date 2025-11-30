@@ -15,9 +15,12 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { type BaseRendererProps, type RsvpFormData } from "./types";
-import { RSVP_FIELD_OPTIONS } from "./shared";
+import { RSVP_FIELD_OPTIONS, UpgradePrompt, UPGRADE_SUGGESTIONS } from "./shared";
+import { useUserPlan } from "../context";
+import { LayoutGrid } from "lucide-react";
 
 export function GuestListRenderer({ page, fields, updateField }: BaseRendererProps) {
+  const { isFree } = useUserPlan();
   const guests = (fields.guests as Record<string, unknown>[]) || [];
   const [rsvpForm, setRsvpForm] = useState<RsvpFormData | null>(null);
   const [isLoadingRsvp, setIsLoadingRsvp] = useState(true);
@@ -230,6 +233,17 @@ export function GuestListRenderer({ page, fields, updateField }: BaseRendererPro
             <p className="text-xs tracking-wider uppercase text-amber-600">Pending</p>
           </div>
         </div>
+
+        {/* Upgrade Prompt for Free Users */}
+        {isFree && confirmedGuests > 0 && (
+          <UpgradePrompt
+            variant="banner"
+            title={UPGRADE_SUGGESTIONS.seatingChart.title}
+            description={UPGRADE_SUGGESTIONS.seatingChart.description}
+            featureName={UPGRADE_SUGGESTIONS.seatingChart.featureName}
+            icon={<LayoutGrid className="w-5 h-5 text-purple-600" />}
+          />
+        )}
 
         {/* Add Guest Button */}
         <div className="flex justify-between items-center mb-6">

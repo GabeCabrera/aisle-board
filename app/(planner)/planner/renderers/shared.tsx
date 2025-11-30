@@ -2,7 +2,8 @@
 
 import { isSharedField } from "@/lib/state";
 import { Label } from "@/components/ui/label";
-import { Link as LinkIcon } from "lucide-react";
+import { Link as LinkIcon, Sparkles, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import {
   Tooltip,
   TooltipContent,
@@ -34,6 +35,143 @@ export function FieldLabel({ label, fieldKey }: { label: string; fieldKey: strin
     </div>
   );
 }
+
+// ============================================================================
+// UPGRADE PROMPT COMPONENT
+// ============================================================================
+
+interface UpgradePromptProps {
+  title: string;
+  description: string;
+  featureName: string;
+  icon?: React.ReactNode;
+  variant?: "inline" | "card" | "banner";
+}
+
+export function UpgradePrompt({ 
+  title, 
+  description, 
+  featureName,
+  icon,
+  variant = "card" 
+}: UpgradePromptProps) {
+  if (variant === "inline") {
+    return (
+      <Link 
+        href="/settings?tab=plan"
+        className="inline-flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 transition-colors group"
+      >
+        <Sparkles className="w-4 h-4" />
+        <span>{title}</span>
+        <ArrowRight className="w-3 h-3 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+      </Link>
+    );
+  }
+
+  if (variant === "banner") {
+    return (
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              {icon || <Sparkles className="w-5 h-5 text-purple-600" />}
+            </div>
+            <div>
+              <p className="font-medium text-purple-900">{title}</p>
+              <p className="text-sm text-purple-600">{description}</p>
+            </div>
+          </div>
+          <Link 
+            href="/settings?tab=plan"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+          >
+            Upgrade
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Default card variant
+  return (
+    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-6 text-center">
+      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        {icon || <Sparkles className="w-6 h-6 text-purple-600" />}
+      </div>
+      <h3 className="font-medium text-purple-900 mb-2">{title}</h3>
+      <p className="text-sm text-purple-600 mb-4 max-w-xs mx-auto">{description}</p>
+      <Link 
+        href="/settings?tab=plan"
+        className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+      >
+        Upgrade to Complete
+        <ArrowRight className="w-4 h-4" />
+      </Link>
+      <p className="text-xs text-purple-400 mt-3">
+        One-time payment • Lifetime access
+      </p>
+    </div>
+  );
+}
+
+// Contextual upgrade suggestions for specific features
+export const UPGRADE_SUGGESTIONS = {
+  seatingChart: {
+    title: "Visual Seating Chart",
+    description: "Drag and drop guests to tables with our interactive seating chart.",
+    featureName: "Seating Chart",
+  },
+  vendorContacts: {
+    title: "Vendor Contact Manager",
+    description: "Keep all your vendor info, contracts, and payments in one place.",
+    featureName: "Vendor Contacts",
+  },
+  weddingParty: {
+    title: "Wedding Party Manager",
+    description: "Organize your bridesmaids, groomsmen, and assign responsibilities.",
+    featureName: "Wedding Party",
+  },
+  overview: {
+    title: "Wedding Dashboard",
+    description: "See your entire wedding at a glance with live stats and countdown.",
+    featureName: "Wedding Overview",
+  },
+  taskBoard: {
+    title: "Task Board",
+    description: "Visual post-it style task management with assignments and due dates.",
+    featureName: "Task Board",
+  },
+  timeline: {
+    title: "Planning Timeline",
+    description: "Month-by-month checklist to keep you on track.",
+    featureName: "Planning Timeline",
+  },
+  honeymoon: {
+    title: "Honeymoon Planner",
+    description: "Plan flights, hotels, activities, and packing lists for your getaway.",
+    featureName: "Honeymoon Planner",
+  },
+  music: {
+    title: "Music & Playlist",
+    description: "Plan your first dance, must-plays, and do-not-plays.",
+    featureName: "Music & Playlist",
+  },
+  ceremony: {
+    title: "Ceremony Script Builder",
+    description: "Build your ceremony with readings, vows, and special moments.",
+    featureName: "Ceremony Script",
+  },
+  gifts: {
+    title: "Gift & Registry Tracker",
+    description: "Track gifts received and thank-you notes sent.",
+    featureName: "Gift Log",
+  },
+};
+
+// ============================================================================
+// EXISTING EXPORTS
+// ============================================================================
 
 // Currency formatter
 export const formatCurrency = (amount: number) => {

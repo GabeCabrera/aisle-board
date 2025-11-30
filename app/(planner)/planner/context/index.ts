@@ -9,6 +9,7 @@ export {
   useWeddingParty,
   useSchedule,
   useSeating,
+  useUserPlan,
   type WeddingData,
   type WeddingInfo,
   type Guest,
