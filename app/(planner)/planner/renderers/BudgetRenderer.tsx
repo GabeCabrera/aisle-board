@@ -16,7 +16,10 @@ import { type BaseRendererProps, type BudgetItem, type Payment } from "./types";
 import { formatCurrency, BUDGET_CATEGORIES } from "./shared";
 
 export function BudgetRenderer({ page, fields, updateField }: BaseRendererProps) {
-  const items = (fields.items as BudgetItem[]) || [];
+  // Ensure items is always an array
+  const rawItems = fields.items;
+  const items: BudgetItem[] = Array.isArray(rawItems) ? rawItems : [];
+  
   const totalBudget = parseFloat((fields.totalBudget as string) || "0") || 0;
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);

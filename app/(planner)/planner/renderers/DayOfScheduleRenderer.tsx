@@ -45,7 +45,10 @@ const COMMON_EVENTS = [
 ];
 
 export function DayOfScheduleRenderer({ page, fields, updateField, allPages }: RendererWithAllPagesProps) {
-  const events = (fields.events as ScheduleEvent[]) || [];
+  // Ensure events is always an array
+  const rawEvents = fields.events;
+  const events: ScheduleEvent[] = Array.isArray(rawEvents) ? rawEvents : [];
+  
   const [showTemplates, setShowTemplates] = useState(false);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -53,14 +56,18 @@ export function DayOfScheduleRenderer({ page, fields, updateField, allPages }: R
   // Get wedding party for assignee suggestions
   const weddingPartyPage = allPages.find(p => p.templateId === "wedding-party");
   const partyFields = (weddingPartyPage?.fields || {}) as Record<string, unknown>;
-  const bridesmaids = (partyFields.bridesmaids as PartyMember[]) || [];
-  const groomsmen = (partyFields.groomsmen as PartyMember[]) || [];
-  const otherParty = (partyFields.others as PartyMember[]) || [];
+  const rawBridesmaids = partyFields.bridesmaids;
+  const rawGroomsmen = partyFields.groomsmen;
+  const rawOtherParty = partyFields.others;
+  const bridesmaids: PartyMember[] = Array.isArray(rawBridesmaids) ? rawBridesmaids : [];
+  const groomsmen: PartyMember[] = Array.isArray(rawGroomsmen) ? rawGroomsmen : [];
+  const otherParty: PartyMember[] = Array.isArray(rawOtherParty) ? rawOtherParty : [];
 
   // Get vendor contacts for assignee suggestions
   const vendorPage = allPages.find(p => p.templateId === "vendor-contacts");
   const vendorFields = (vendorPage?.fields || {}) as Record<string, unknown>;
-  const vendors = (vendorFields.vendors as { company: string; category: string }[]) || [];
+  const rawVendors = vendorFields.vendors;
+  const vendors: { company: string; category: string }[] = Array.isArray(rawVendors) ? rawVendors : [];
 
   // Build assignee suggestions
   const assigneeSuggestions = [

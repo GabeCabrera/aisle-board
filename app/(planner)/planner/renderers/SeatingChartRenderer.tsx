@@ -26,7 +26,10 @@ const TABLE_SHAPES = [
 ];
 
 export function SeatingChartRenderer({ page, fields, updateField, allPages }: RendererWithAllPagesProps) {
-  const tables = (fields.tables as Table[]) || [];
+  // Ensure tables is always an array
+  const rawTables = fields.tables;
+  const tables: Table[] = Array.isArray(rawTables) ? rawTables : [];
+  
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [guestSearch, setGuestSearch] = useState("");
@@ -35,7 +38,8 @@ export function SeatingChartRenderer({ page, fields, updateField, allPages }: Re
   // Get guests from guest list
   const guestListPage = allPages.find(p => p.templateId === "guest-list");
   const guestListFields = (guestListPage?.fields || {}) as Record<string, unknown>;
-  const guestListGuests = (guestListFields.guests as GuestListGuest[]) || [];
+  const rawGuests = guestListFields.guests;
+  const guestListGuests: GuestListGuest[] = Array.isArray(rawGuests) ? rawGuests : [];
   
   // Only show confirmed guests
   const confirmedGuests = guestListGuests.filter(g => g.rsvp && g.name);

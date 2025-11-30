@@ -23,14 +23,18 @@ import { type RendererWithAllPagesProps, type Vendor, type BudgetItem } from "./
 import { formatCurrency, BUDGET_CATEGORIES } from "./shared";
 
 export function VendorContactsRenderer({ page, fields, updateField, allPages }: RendererWithAllPagesProps) {
-  const vendors = (fields.vendors as Vendor[]) || [];
+  // Ensure vendors is always an array
+  const rawVendors = fields.vendors;
+  const vendors: Vendor[] = Array.isArray(rawVendors) ? rawVendors : [];
+  
   const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
 
   // Get budget page data for importing vendors
   const budgetPage = allPages.find(p => p.templateId === "budget");
   const budgetFields = (budgetPage?.fields || {}) as Record<string, unknown>;
-  const budgetItems = (budgetFields.items as BudgetItem[]) || [];
+  const rawBudgetItems = budgetFields.items;
+  const budgetItems: BudgetItem[] = Array.isArray(rawBudgetItems) ? rawBudgetItems : [];
 
   // Find vendors from budget that aren't already in vendor contacts
   const importableVendors = budgetItems.filter(item => {
