@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -117,7 +117,7 @@ const TaskCard = memo(function TaskCard({
     if (trimmed && trimmed !== task.title) {
       onUpdate(task.id, { title: trimmed });
     } else {
-      setEditValue(task.title); // Reset if empty
+      setEditValue(task.title);
     }
     setIsEditing(false);
   };
@@ -129,13 +129,10 @@ const TaskCard = memo(function TaskCard({
 
   return (
     <div className="group bg-white rounded-lg border border-warm-200 hover:border-warm-300 hover:shadow-sm transition-all">
-      {/* Color bar */}
       <div className={`h-1 ${colors.dot} rounded-t-lg`} />
       
       <div className="p-3">
-        {/* Title row */}
         <div className="flex items-start gap-2">
-          {/* Checkbox */}
           <button
             onClick={() => onMove(task.id, task.status === "done" ? "todo" : "done")}
             className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
@@ -147,7 +144,6 @@ const TaskCard = memo(function TaskCard({
             {task.status === "done" && <Check className="w-2.5 h-2.5" />}
           </button>
 
-          {/* Title */}
           <div className="flex-1 min-w-0">
             {isEditing ? (
               <input
@@ -177,7 +173,6 @@ const TaskCard = memo(function TaskCard({
             )}
           </div>
 
-          {/* Actions dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="p-1 rounded hover:bg-warm-100 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -215,9 +210,7 @@ const TaskCard = memo(function TaskCard({
           </DropdownMenu>
         </div>
 
-        {/* Meta row */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {/* Assignee */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded hover:bg-warm-100 transition-colors ${
@@ -250,7 +243,6 @@ const TaskCard = memo(function TaskCard({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Due date */}
           {task.dueDate && (
             <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${
               isOverdue ? "bg-red-100 text-red-700" :
@@ -262,7 +254,6 @@ const TaskCard = memo(function TaskCard({
             </span>
           )}
 
-          {/* Color picker */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={`w-3 h-3 rounded-full ${colors.dot} hover:ring-2 hover:ring-offset-1 hover:ring-warm-300 transition-all`} />
@@ -285,6 +276,18 @@ const TaskCard = memo(function TaskCard({
       </div>
     </div>
   );
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if the task itself changed
+  return (
+    prevProps.task.id === nextProps.task.id &&
+    prevProps.task.title === nextProps.task.title &&
+    prevProps.task.status === nextProps.task.status &&
+    prevProps.task.assignee === nextProps.task.assignee &&
+    prevProps.task.color === nextProps.task.color &&
+    prevProps.task.dueDate === nextProps.task.dueDate &&
+    prevProps.partner1Name === nextProps.partner1Name &&
+    prevProps.partner2Name === nextProps.partner2Name
+  );
 });
 
 // ============================================================================
@@ -294,6 +297,12 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
   const partner1Name = (fields.partner1Name as string) || "Partner 1";
   const partner2Name = (fields.partner2Name as string) || "Partner 2";
   const tasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+
+  // Use ref to always have access to latest tasks without causing re-renders
+  const tasksRef = useRef(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   // State
   const [showAddTask, setShowAddTask] = useState(false);
@@ -328,9 +337,7 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     return suggestions;
   }, [tasks, budgetCategories]);
 
-  // ============================================================================
-  // CALCULATIONS
-  // ============================================================================
+  // Calculations
   const calculations = useMemo(() => {
     const filtered = filterAssignee === "all" 
       ? tasks 
@@ -375,28 +382,27 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
   }, [tasks, filterAssignee]);
 
   // ============================================================================
-  // HANDLERS - Use functional updates to avoid stale closure
+  // STABLE HANDLERS - Use refs to avoid dependency on tasks
   // ============================================================================
   const generateId = () => `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const handleUpdateTask = useCallback((taskId: string, updates: Partial<Task>) => {
-    // Use functional form to get latest tasks
-    const currentTasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+    const currentTasks = tasksRef.current;
     const newTasks = currentTasks.map(t => 
       t.id === taskId ? { ...t, ...updates } : t
     );
     updateField("tasks", newTasks);
-  }, [fields.tasks, updateField]);
+  }, [updateField]);
 
   const handleDeleteTask = useCallback((taskId: string) => {
-    const currentTasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+    const currentTasks = tasksRef.current;
     const newTasks = currentTasks.filter(t => t.id !== taskId);
     updateField("tasks", newTasks);
     toast.success("Task deleted");
-  }, [fields.tasks, updateField]);
+  }, [updateField]);
 
   const handleMoveTask = useCallback((taskId: string, newStatus: Task["status"]) => {
-    const currentTasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+    const currentTasks = tasksRef.current;
     const newTasks = currentTasks.map(t => 
       t.id === taskId ? { ...t, status: newStatus } : t
     );
@@ -404,12 +410,12 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     if (newStatus === "done") {
       toast.success("Task completed! 🎉");
     }
-  }, [fields.tasks, updateField]);
+  }, [updateField]);
 
   const handleAddTask = useCallback(() => {
     if (!newTaskTitle.trim()) return;
     
-    const currentTasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+    const currentTasks = tasksRef.current;
     const newTask: Task = {
       id: generateId(),
       title: newTaskTitle.trim(),
@@ -424,14 +430,14 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     setNewTaskDueDate("");
     setShowAddTask(false);
     toast.success("Task added!");
-  }, [newTaskTitle, newTaskAssignee, newTaskColor, newTaskDueDate, fields.tasks, updateField]);
+  }, [newTaskTitle, newTaskAssignee, newTaskColor, newTaskDueDate, updateField]);
 
   const handleAddSuggestedTask = useCallback((title: string, category: string) => {
     const colorMap: Record<string, Task["color"]> = {
       "Venue": "blue", "Catering": "green", "Photography": "purple",
       "Florist": "pink", "Music / DJ": "yellow",
     };
-    const currentTasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+    const currentTasks = tasksRef.current;
     const newTask: Task = {
       id: generateId(),
       title,
@@ -441,13 +447,13 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     };
     updateField("tasks", [...currentTasks, newTask]);
     toast.success(`Added: ${title}`);
-  }, [fields.tasks, updateField]);
+  }, [updateField]);
 
   const handleAddAllFromCategory = useCallback((category: string, categoryTasks: string[]) => {
     const colorMap: Record<string, Task["color"]> = {
       "Venue": "blue", "Catering": "green", "Photography": "purple",
     };
-    const currentTasks: Task[] = Array.isArray(fields.tasks) ? fields.tasks : [];
+    const currentTasks = tasksRef.current;
     const newTasks = categoryTasks.map(title => ({
       id: generateId(),
       title,
@@ -457,18 +463,15 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     }));
     updateField("tasks", [...currentTasks, ...newTasks]);
     toast.success(`Added ${categoryTasks.length} tasks`);
-  }, [fields.tasks, updateField]);
+  }, [updateField]);
 
-  // ============================================================================
-  // COLUMN COMPONENT
-  // ============================================================================
+  // Column component
   const Column = ({ status, columnTasks }: { status: Task["status"]; columnTasks: Task[] }) => {
     const config = STATUS_CONFIG[status];
     const StatusIcon = config.icon;
 
     return (
       <div className="flex-1 min-w-[280px] flex flex-col">
-        {/* Header */}
         <div className={`${config.header} rounded-t-lg px-3 py-2.5 border ${config.border} border-b-0`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -481,7 +484,6 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
           </div>
         </div>
 
-        {/* Tasks */}
         <div className={`flex-1 ${config.bg} rounded-b-lg p-2 border ${config.border} border-t-0 space-y-2 min-h-[300px]`}>
           {columnTasks.map((task) => (
             <TaskCard
@@ -502,7 +504,6 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
             </div>
           )}
 
-          {/* Quick add in To Do */}
           {status === "todo" && (
             <button
               onClick={() => setShowAddTask(true)}
@@ -517,7 +518,6 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     );
   };
 
-  // Mobile tasks
   const getMobileColumnTasks = () => {
     switch (mobileColumn) {
       case "todo": return calculations.todoTasks;
@@ -526,9 +526,6 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
     }
   };
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white shadow-lg">
