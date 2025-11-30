@@ -5,7 +5,7 @@ export const REDDIT_PIXEL_ID = process.env.NEXT_PUBLIC_REDDIT_PIXEL_ID;
 
 declare global {
   interface Window {
-    rdt: (...args: unknown[]) => void;
+    rdt?: ((...args: unknown[]) => void) & { callQueue?: unknown[]; sendEvent?: (...args: unknown[]) => void };
   }
 }
 
@@ -19,12 +19,15 @@ export const init = () => {
   // Reddit Pixel base code
   (function(w: Window, d: Document) {
     if (!w.rdt) {
-      const p = w.rdt = function(...args: unknown[]) {
-        // @ts-expect-error - Reddit pixel pattern
-        p.sendEvent ? p.sendEvent.apply(p, args) : p.callQueue.push(args);
-      };
-      // @ts-expect-error - Reddit pixel pattern
-      p.callQueue = [];
+      const rdt = function(...args: unknown[]) {
+        if (rdt.sendEvent) {
+          rdt.sendEvent.apply(rdt, args);
+        } else {
+          rdt.callQueue.push(args);
+        }
+      } as NonNullable<Window['rdt']>;
+      rdt.callQueue = [];
+      w.rdt = rdt;
       const t = d.createElement('script');
       t.src = 'https://www.redditstatic.com/ads/pixel.js';
       t.async = true;
