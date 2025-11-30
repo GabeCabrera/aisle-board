@@ -28,13 +28,12 @@ export default function WelcomePage() {
   const router = useRouter();
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
-  const [isTyping, setIsTyping] = useState(true);
   const [showContinue, setShowContinue] = useState(false);
   const [displayedLines, setDisplayedLines] = useState<string[]>([]);
+  const [isLineComplete, setIsLineComplete] = useState(false);
 
   useEffect(() => {
     if (currentLineIndex >= welcomeLines.length) {
-      setIsTyping(false);
       setTimeout(() => setShowContinue(true), 500);
       return;
     }
@@ -50,6 +49,17 @@ export default function WelcomePage() {
       return;
     }
 
+    // If line is complete, add to displayed and move to next
+    if (isLineComplete) {
+      setDisplayedLines((prev) => [...prev, currentLine]);
+      setCurrentText("");
+      setIsLineComplete(false);
+      setTimeout(() => {
+        setCurrentLineIndex((prev) => prev + 1);
+      }, 400);
+      return;
+    }
+
     // Type out the current line
     if (currentText.length < currentLine.length) {
       const timeout = setTimeout(() => {
@@ -57,14 +67,10 @@ export default function WelcomePage() {
       }, 40);
       return () => clearTimeout(timeout);
     } else {
-      // Line complete, move to next
-      setDisplayedLines((prev) => [...prev, currentLine]);
-      setCurrentText("");
-      setTimeout(() => {
-        setCurrentLineIndex((prev) => prev + 1);
-      }, 400);
+      // Line typing complete, mark it
+      setIsLineComplete(true);
     }
-  }, [currentLineIndex, currentText]);
+  }, [currentLineIndex, currentText, isLineComplete]);
 
   const handleContinue = async () => {
     // Mark onboarding as complete
@@ -78,6 +84,8 @@ export default function WelcomePage() {
     router.push("/");
     router.refresh();
   };
+
+  const isTyping = currentLineIndex < welcomeLines.length && !isLineComplete;
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-white">
@@ -110,7 +118,7 @@ export default function WelcomePage() {
               }`}
             >
               {currentText}
-              <span className="animate-cursor-blink">|</span>
+              <span className="animate-pulse">|</span>
             </p>
           )}
         </div>
