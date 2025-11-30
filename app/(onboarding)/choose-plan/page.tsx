@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Check, Sparkles, Calendar, Users, Heart, Clock, FileText, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import * as redditPixel from "@/lib/reddit-pixel";
 
 const FREE_TEMPLATES = [
   {
@@ -76,6 +77,9 @@ function ChoosePlanContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ onboardingComplete: true }),
       });
+      
+      // Track lead conversion (free plan selection)
+      redditPixel.trackLead();
       
       // Go to welcome flow
       router.push("/welcome");

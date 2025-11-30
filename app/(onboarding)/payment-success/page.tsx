@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import * as redditPixel from "@/lib/reddit-pixel";
 
 function PaymentSuccessContent() {
   const router = useRouter();
@@ -29,6 +30,10 @@ function PaymentSuccessContent() {
 
         if (data.success) {
           setVerified(true);
+          
+          // Track purchase conversion
+          // $29 is the Complete plan price
+          redditPixel.trackPurchase(29, "USD", 1);
         } else {
           router.push("/choose-plan");
         }

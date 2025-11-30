@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import * as redditPixel from "@/lib/reddit-pixel";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -71,6 +72,9 @@ export default function RegisterPage() {
       }
 
       toast.success("Account created!");
+      
+      // Track sign up conversion
+      redditPixel.trackSignUp();
       
       // Redirect to plan selection
       window.location.href = "/choose-plan";

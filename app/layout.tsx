@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
+import { RedditPixelTracker } from "@/components/reddit-pixel-tracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen antialiased">
         <Providers>
+          <RedditPixelTracker />
           {children}
         </Providers>
         <Toaster
