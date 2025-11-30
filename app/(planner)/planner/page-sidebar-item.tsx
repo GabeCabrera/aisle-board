@@ -100,7 +100,9 @@ export function PageSidebarItem({
 
           {/* Completion Indicator */}
           {!isComplete && (
-            <Pencil className="w-3 h-3 text-warm-400" title="In progress" />
+            <span title="In progress">
+              <Pencil className="w-3 h-3 text-warm-400" />
+            </span>
           )}
 
           {/* Delete Button */}
