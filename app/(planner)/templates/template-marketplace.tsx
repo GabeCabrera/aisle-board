@@ -50,8 +50,10 @@ import {
   Clipboard,
   Kanban,
   ScrollText,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDiscount } from "@/components/price-display";
 
 // Map ALL template icons to their Lucide components
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -102,6 +104,7 @@ export function TemplateMarketplace({
   const [showStarterPackDialog, setShowStarterPackDialog] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const { finalPrice, hasDiscount, discountText } = useDiscount();
 
   const starterPackTemplates = allTemplates.filter((t) => t.suggestedInStarterPack);
   const freeTemplates = allTemplates.filter((t) => t.isFree);
@@ -251,7 +254,14 @@ export function TemplateMarketplace({
             </div>
             <Link href="/choose-plan">
               <Button variant="outline" className="border-warm-400">
-                Upgrade — $29
+                {hasDiscount ? (
+                  <span className="flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    Upgrade — ${finalPrice.toFixed(0)}
+                  </span>
+                ) : (
+                  "Upgrade — $29"
+                )}
               </Button>
             </Link>
           </motion.div>
@@ -400,7 +410,20 @@ export function TemplateMarketplace({
               and everything you need to plan your perfect wedding.
             </p>
             <div className="text-center">
-              <p className="text-2xl font-light text-warm-700">$29</p>
+              {hasDiscount ? (
+                <>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded mb-2">
+                    <Tag className="w-3 h-3" />
+                    {discountText}
+                  </span>
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-2xl font-light text-green-600">${finalPrice.toFixed(0)}</p>
+                    <p className="text-lg text-warm-400 line-through">$29</p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-2xl font-light text-warm-700">$29</p>
+              )}
               <p className="text-xs text-warm-500">one-time payment</p>
             </div>
           </div>

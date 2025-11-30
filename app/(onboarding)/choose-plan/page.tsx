@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Check, Sparkles, Calendar, Users, Heart, Clock, FileText, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PriceDisplay, useDiscount } from "@/components/price-display";
 import { toast } from "sonner";
 import * as redditPixel from "@/lib/reddit-pixel";
 
@@ -43,6 +44,7 @@ function ChoosePlanContent() {
   const { data: session, status } = useSession();
   const [selectedPlan, setSelectedPlan] = useState<"free" | "complete" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { finalPrice, hasDiscount } = useDiscount();
 
   // Show loading while session is being fetched
   if (status === "loading") {
@@ -200,10 +202,7 @@ function ChoosePlanContent() {
               <h2 className="text-xl font-serif tracking-wider uppercase mb-2">
                 Complete
               </h2>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-light text-warm-700">$29</p>
-                <span className="text-warm-500 text-sm">one-time</span>
-              </div>
+              <PriceDisplay />
             </div>
 
             <p className="text-warm-600 mb-6">
@@ -255,7 +254,7 @@ function ChoosePlanContent() {
                 disabled={isLoading}
                 className="px-12 bg-warm-600 hover:bg-warm-700 text-white"
               >
-                {isLoading ? "Loading..." : "Get Complete Access — $29"}
+                {isLoading ? "Loading..." : `Get Complete Access — ${finalPrice.toFixed(0)}`}
               </Button>
             )}
 
