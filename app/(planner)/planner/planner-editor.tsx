@@ -220,6 +220,7 @@ function PlannerEditorContent({
                 <PageRenderer
                   page={selectedPage}
                   onFieldChange={(fields) => handleFieldChange(selectedPage.id, fields)}
+                  allPages={pages}
                 />
               </motion.div>
             )}

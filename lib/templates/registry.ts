@@ -71,22 +71,33 @@ export const templates: TemplateDefinition[] = [
   {
     id: "overview",
     name: "Wedding Overview",
-    description: "Key details about your wedding at a glance",
+    description: "Your wedding dashboard with live stats and key details",
     category: "essentials",
-    timelineFilters: ["12-months", "9-months", "6-months"],
+    timelineFilters: ["12-months", "9-months", "6-months", "3-months", "1-month", "week-of"],
     icon: "LayoutDashboard",
     suggestedInStarterPack: true,
     isFree: false,
     fields: [
-      { key: "weddingDate", label: "Wedding Date", type: "date", required: true },
-      { key: "ceremonyTime", label: "Ceremony Time", type: "text" },
+      // Venue details
       { key: "ceremonyVenue", label: "Ceremony Venue", type: "text" },
+      { key: "ceremonyAddress", label: "Ceremony Address", type: "text" },
+      { key: "ceremonyTime", label: "Ceremony Time", type: "text" },
       { key: "receptionVenue", label: "Reception Venue", type: "text" },
-      { key: "colorPalette", label: "Color Palette", type: "text" },
+      { key: "receptionAddress", label: "Reception Address", type: "text" },
+      { key: "receptionTime", label: "Reception Time", type: "text" },
+      // Style
       { key: "theme", label: "Theme / Style", type: "text" },
-      { key: "partySize", label: "Wedding Party Size", type: "number" },
-      { key: "primaryContact", label: "Primary Contact", type: "text" },
-      { key: "phone", label: "Phone", type: "text" },
+      { key: "colorPalette", label: "Color Palette", type: "array", arrayItemSchema: [
+        { key: "color", label: "Color", type: "text" },
+        { key: "hex", label: "Hex Code", type: "text" },
+      ]},
+      // Contacts
+      { key: "emergencyContacts", label: "Day-Of Contacts", type: "array", arrayItemSchema: [
+        { key: "name", label: "Name", type: "text" },
+        { key: "role", label: "Role", type: "text" },
+        { key: "phone", label: "Phone", type: "text" },
+      ]},
+      // Notes
       { key: "notes", label: "Notes", type: "textarea" },
     ],
   },
