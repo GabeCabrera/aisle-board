@@ -25,11 +25,12 @@ export function TaskBoardRenderer({ page, fields, updateField, allPages }: Rende
   const taskRotations = useMemo(() => {
     const rotations: Record<string, number> = {};
     tasks.forEach(task => {
+      if (!task.id) return;
       const hash = task.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       rotations[task.id] = ((hash % 100) - 50) / 50 * 2;
     });
     return rotations;
-  }, [tasks.map(t => t.id).join(',')]);
+  }, [tasks]);
 
   // Drag and drop state
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
