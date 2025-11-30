@@ -23,6 +23,7 @@ import { PageSidebarItem } from "./page-sidebar-item";
 import { PageRenderer } from "./page-renderer";
 import { type Page } from "@/lib/db/schema";
 import { PlannerProvider, usePlanner } from "@/lib/state";
+import { WeddingDataProvider } from "./context";
 import { validatePage } from "@/lib/templates/validation";
 import {
   LogOut,
@@ -91,7 +92,8 @@ function PlannerEditorContent({
   };
 
   return (
-    <div className="min-h-screen flex bg-warm-50">
+    <WeddingDataProvider pages={pages}>
+      <div className="min-h-screen flex bg-warm-50">
       {/* Sidebar */}
       <motion.aside
         animate={{ width: sidebarCollapsed ? 60 : 280 }}
@@ -227,6 +229,7 @@ function PlannerEditorContent({
           </AnimatePresence>
         </div>
       </main>
-    </div>
+      </div>
+    </WeddingDataProvider>
   );
 }

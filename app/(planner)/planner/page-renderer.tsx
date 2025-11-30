@@ -82,14 +82,13 @@ export function PageRenderer({ page, onFieldChange, allPages = [] }: PageRendere
     );
   }
 
-  // Special rendering for wedding overview dashboard
+  // Special rendering for wedding overview dashboard (uses context, no allPages needed)
   if (page.templateId === "overview") {
     return (
       <OverviewRenderer
         page={page}
         fields={fields}
         updateField={updateField}
-        allPages={allPages}
       />
     );
   }
