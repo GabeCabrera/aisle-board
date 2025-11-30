@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { nanoid } from "nanoid";
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { tenants, users } from "@/lib/db/schema";
 import { getUserByEmail } from "@/lib/db/queries";
+import { nanoid } from "nanoid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate a unique slug for the tenant
+    // Generate a unique slug for the tenant (using nanoid for slug only)
     const baseSlug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -43,16 +44,16 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create tenant and user in a transaction-like manner
-    const tenantId = nanoid();
-    const userId = nanoid();
+    // Use proper UUIDs for database IDs
+    const tenantId = randomUUID();
+    const userId = randomUUID();
 
     // Create tenant first
     await db.insert(tenants).values({
       id: tenantId,
       slug,
       displayName: name,
-      plan: "free", // Start with free plan
+      plan: "free",
       onboardingComplete: false,
     });
 
