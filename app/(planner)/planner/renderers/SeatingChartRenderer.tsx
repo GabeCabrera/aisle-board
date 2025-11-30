@@ -41,8 +41,10 @@ export function SeatingChartRenderer({ page, fields, updateField, allPages }: Re
   const rawGuests = guestListFields.guests;
   const guestListGuests: GuestListGuest[] = Array.isArray(rawGuests) ? rawGuests : [];
   
-  // Only show confirmed guests
-  const confirmedGuests = guestListGuests.filter(g => g.rsvp && g.name);
+  // Only show confirmed guests - with defensive checks
+  const confirmedGuests = useMemo(() => {
+    return guestListGuests.filter(g => g && g.rsvp && g.name);
+  }, [guestListGuests]);
 
   // Generate unique ID
   const generateId = () => `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -52,9 +54,11 @@ export function SeatingChartRenderer({ page, fields, updateField, allPages }: Re
   const seatedGuestNames = useMemo(() => {
     const names = new Set<string>();
     tables.forEach(table => {
-      table.guests?.forEach(guest => {
-        if (guest.name) names.add(guest.name.toLowerCase());
-      });
+      if (table && Array.isArray(table.guests)) {
+        table.guests.forEach(guest => {
+          if (guest && guest.name) names.add(guest.name.toLowerCase());
+        });
+      }
     });
     return names;
   }, [tables]);
@@ -62,7 +66,7 @@ export function SeatingChartRenderer({ page, fields, updateField, allPages }: Re
   // Find unseated guests
   const unseatedGuests = useMemo(() => {
     return confirmedGuests.filter(g => 
-      !seatedGuestNames.has(g.name.toLowerCase())
+      g && g.name && !seatedGuestNames.has(g.name.toLowerCase())
     );
   }, [confirmedGuests, seatedGuestNames]);
 
@@ -71,13 +75,13 @@ export function SeatingChartRenderer({ page, fields, updateField, allPages }: Re
     if (!guestSearch) return unseatedGuests;
     const search = guestSearch.toLowerCase();
     return unseatedGuests.filter(g => 
-      g.name.toLowerCase().includes(search)
+      g && g.name && g.name.toLowerCase().includes(search)
     );
   }, [unseatedGuests, guestSearch]);
 
-  // Stats
-  const totalSeats = tables.reduce((sum, t) => sum + t.capacity, 0);
-  const totalSeated = tables.reduce((sum, t) => sum + (t.guests?.length || 0), 0);
+  // Stats - with defensive checks
+  const totalSeats = tables.reduce((sum, t) => sum + (t?.capacity || 0), 0);
+  const totalSeated = tables.reduce((sum, t) => sum + (Array.isArray(t?.guests) ? t.guests.length : 0), 0);
   const totalTables = tables.length;
 
   const addTable = (shape: Table["shape"] = "round") => {
