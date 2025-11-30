@@ -34,6 +34,7 @@ export const tenants = pgTable(
 export const tenantsRelations = relations(tenants, ({ many, one }) => ({
   users: many(users),
   planner: one(planners),
+  rsvpForms: many(rsvpForms),
 }));
 
 // ============================================================================
@@ -145,6 +146,94 @@ export const customTemplates = pgTable("custom_templates", {
 });
 
 // ============================================================================
+// RSVP FORMS - Shareable forms for collecting guest information
+// ============================================================================
+export const rsvpForms = pgTable(
+  "rsvp_forms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }), // Links to guest-list page
+    slug: text("slug").notNull().unique(), // URL slug like "sarah-gabe-abc123"
+    title: text("title").notNull().default("RSVP"), // Form title shown to guests
+    message: text("message"), // Optional welcome message
+    weddingDate: timestamp("wedding_date"), // Display on form
+    isActive: boolean("is_active").default(true).notNull(),
+    // Customizable fields - which ones to show
+    fields: jsonb("fields").notNull().default({
+      name: true,
+      email: true,
+      phone: false,
+      address: true,
+      attending: true,
+      mealChoice: false,
+      dietaryRestrictions: false,
+      plusOne: false,
+      plusOneName: false,
+      plusOneMeal: false,
+      songRequest: false,
+      notes: false,
+    }),
+    // Meal options if meal choice is enabled
+    mealOptions: jsonb("meal_options").notNull().default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("rsvp_form_slug_idx").on(table.slug),
+  })
+);
+
+export const rsvpFormsRelations = relations(rsvpForms, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [rsvpForms.tenantId],
+    references: [tenants.id],
+  }),
+  page: one(pages, {
+    fields: [rsvpForms.pageId],
+    references: [pages.id],
+  }),
+  responses: many(rsvpResponses),
+}));
+
+// ============================================================================
+// RSVP RESPONSES - Guest submissions
+// ============================================================================
+export const rsvpResponses = pgTable("rsvp_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  formId: uuid("form_id")
+    .notNull()
+    .references(() => rsvpForms.id, { onDelete: "cascade" }),
+  // Guest info
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  attending: boolean("attending"),
+  mealChoice: text("meal_choice"),
+  dietaryRestrictions: text("dietary_restrictions"),
+  plusOne: boolean("plus_one"),
+  plusOneName: text("plus_one_name"),
+  plusOneMeal: text("plus_one_meal"),
+  songRequest: text("song_request"),
+  notes: text("notes"),
+  // Sync status
+  syncedToGuestList: boolean("synced_to_guest_list").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const rsvpResponsesRelations = relations(rsvpResponses, ({ one }) => ({
+  form: one(rsvpForms, {
+    fields: [rsvpResponses.formId],
+    references: [rsvpForms.id],
+  }),
+}));
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 export type Tenant = typeof tenants.$inferSelect;
@@ -161,3 +250,9 @@ export type NewPage = typeof pages.$inferInsert;
 
 export type CustomTemplate = typeof customTemplates.$inferSelect;
 export type NewCustomTemplate = typeof customTemplates.$inferInsert;
+
+export type RsvpForm = typeof rsvpForms.$inferSelect;
+export type NewRsvpForm = typeof rsvpForms.$inferInsert;
+
+export type RsvpResponse = typeof rsvpResponses.$inferSelect;
+export type NewRsvpResponse = typeof rsvpResponses.$inferInsert;

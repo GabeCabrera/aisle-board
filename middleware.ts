@@ -9,6 +9,7 @@ const publicRoutes = [
   "/register",
   "/forgot-password", 
   "/reset-password",
+  "/rsvp", // Public RSVP forms
 ];
 
 // Routes that require auth but should bypass other checks

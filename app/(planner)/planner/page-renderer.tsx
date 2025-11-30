@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Link as LinkIcon } from "lucide-react";
+import { Plus, Trash2, Link as LinkIcon, Share2, Copy, ExternalLink, Settings } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -81,6 +81,17 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
   if (page.templateId === "budget") {
     return (
       <BudgetRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+      />
+    );
+  }
+
+  // Special rendering for guest list page
+  if (page.templateId === "guest-list") {
+    return (
+      <GuestListRenderer
         page={page}
         fields={fields}
         updateField={updateField}
@@ -554,6 +565,348 @@ function ArrayField({ label, schema, value, onChange }: ArrayFieldProps) {
           No items yet. Click &quot;Add&quot; to get started.
         </p>
       )}
+    </div>
+  );
+}
+
+// Guest List renderer with RSVP link management
+interface GuestListRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
+function GuestListRenderer({ page, fields, updateField }: GuestListRendererProps) {
+  const guests = (fields.guests as Record<string, unknown>[]) || [];
+  const [rsvpForm, setRsvpForm] = useState<{ slug: string; isActive: boolean } | null>(null);
+  const [isLoadingRsvp, setIsLoadingRsvp] = useState(true);
+  const [showRsvpSetup, setShowRsvpSetup] = useState(false);
+  const [isCreatingLink, setIsCreatingLink] = useState(false);
+
+  // Fetch existing RSVP form
+  useEffect(() => {
+    const fetchRsvpForm = async () => {
+      try {
+        const response = await fetch(`/api/rsvp/create?pageId=${page.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setRsvpForm(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch RSVP form:", error);
+      } finally {
+        setIsLoadingRsvp(false);
+      }
+    };
+    fetchRsvpForm();
+  }, [page.id]);
+
+  const createRsvpLink = async () => {
+    setIsCreatingLink(true);
+    try {
+      const response = await fetch("/api/rsvp/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId: page.id,
+          title: "RSVP",
+          fields: {
+            name: true,
+            email: true,
+            phone: true,
+            address: true,
+            attending: true,
+            mealChoice: false,
+            dietaryRestrictions: true,
+            plusOne: true,
+            plusOneName: true,
+            plusOneMeal: false,
+            songRequest: false,
+            notes: true,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRsvpForm(data);
+        toast.success("RSVP link created!");
+        setShowRsvpSetup(false);
+      } else {
+        throw new Error("Failed to create");
+      }
+    } catch (error) {
+      toast.error("Failed to create RSVP link");
+    } finally {
+      setIsCreatingLink(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (rsvpForm) {
+      const link = `${window.location.origin}/rsvp/${rsvpForm.slug}`;
+      navigator.clipboard.writeText(link);
+      toast.success("Link copied to clipboard!");
+    }
+  };
+
+  const addGuest = () => {
+    const newGuest = {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      rsvp: false,
+      meal: "",
+      giftReceived: false,
+      thankYouSent: false,
+    };
+    updateField("guests", [...guests, newGuest]);
+  };
+
+  const updateGuest = (index: number, key: string, value: unknown) => {
+    const updated = [...guests];
+    updated[index] = { ...updated[index], [key]: value };
+    updateField("guests", updated);
+  };
+
+  const removeGuest = (index: number) => {
+    updateField("guests", guests.filter((_, i) => i !== index));
+  };
+
+  // Calculate stats
+  const totalGuests = guests.length;
+  const confirmedGuests = guests.filter((g) => g.rsvp === true).length;
+  const pendingGuests = totalGuests - confirmedGuests;
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* RSVP Link Section */}
+        <div className="mb-10 p-6 bg-warm-50 border border-warm-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Share2 className="w-5 h-5 text-warm-500" />
+              <div>
+                <h3 className="font-medium text-warm-700">Collect RSVPs & Addresses</h3>
+                <p className="text-sm text-warm-500">
+                  Share a link for guests to submit their info directly
+                </p>
+              </div>
+            </div>
+            {isLoadingRsvp ? (
+              <span className="text-sm text-warm-400">Loading...</span>
+            ) : rsvpForm ? (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={copyLink}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Link
+                </Button>
+                <a
+                  href={`/rsvp/${rsvpForm.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-warm-500 hover:text-warm-700 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            ) : (
+              <Button onClick={() => setShowRsvpSetup(true)}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Create RSVP Link
+              </Button>
+            )}
+          </div>
+          {rsvpForm && (
+            <div className="mt-4 pt-4 border-t border-warm-200">
+              <div className="flex items-center gap-2 text-sm text-warm-600">
+                <span className="font-mono bg-warm-100 px-2 py-1 text-xs">
+                  {typeof window !== "undefined" ? `${window.location.origin}/rsvp/${rsvpForm.slug}` : `/rsvp/${rsvpForm.slug}`}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-10">
+          <div className="text-center p-4 bg-warm-50 border border-warm-200">
+            <p className="text-2xl font-light text-warm-700">{totalGuests}</p>
+            <p className="text-xs tracking-wider uppercase text-warm-500">Total Guests</p>
+          </div>
+          <div className="text-center p-4 bg-green-50 border border-green-200">
+            <p className="text-2xl font-light text-green-600">{confirmedGuests}</p>
+            <p className="text-xs tracking-wider uppercase text-green-600">Confirmed</p>
+          </div>
+          <div className="text-center p-4 bg-amber-50 border border-amber-200">
+            <p className="text-2xl font-light text-amber-600">{pendingGuests}</p>
+            <p className="text-xs tracking-wider uppercase text-amber-600">Pending</p>
+          </div>
+        </div>
+
+        {/* Add Guest Button */}
+        <div className="flex justify-between items-center mb-6">
+          <Label>Guests</Label>
+          <Button variant="ghost" size="sm" onClick={addGuest}>
+            <Plus className="w-4 h-4 mr-1" />
+            Add Guest
+          </Button>
+        </div>
+
+        {/* Guests Table */}
+        {guests.length > 0 && (
+          <>
+            {/* Table Header */}
+            <div className="border-b-2 border-warm-800 pb-2 grid grid-cols-[1.5fr,1fr,1fr,1.5fr,60px,80px,60px,60px,40px] gap-2 mb-2">
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Name</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Email</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Phone</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Address</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">RSVP</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Meal</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Gift</span>
+              <span className="text-[10px] tracking-wider uppercase text-warm-500">Thanks</span>
+              <span></span>
+            </div>
+
+            {/* Table Rows */}
+            <div className="space-y-2">
+              {guests.map((guest, index) => (
+                <div
+                  key={index}
+                  className="border-b border-warm-200 pb-2 grid grid-cols-[1.5fr,1fr,1fr,1.5fr,60px,80px,60px,60px,40px] gap-2 items-center group"
+                >
+                  <Input
+                    value={(guest.name as string) || ""}
+                    onChange={(e) => updateGuest(index, "name", e.target.value)}
+                    className="text-sm"
+                    placeholder="Name"
+                  />
+                  <Input
+                    value={(guest.email as string) || ""}
+                    onChange={(e) => updateGuest(index, "email", e.target.value)}
+                    className="text-sm"
+                    placeholder="Email"
+                  />
+                  <Input
+                    value={(guest.phone as string) || ""}
+                    onChange={(e) => updateGuest(index, "phone", e.target.value)}
+                    className="text-sm"
+                    placeholder="Phone"
+                  />
+                  <Input
+                    value={(guest.address as string) || ""}
+                    onChange={(e) => updateGuest(index, "address", e.target.value)}
+                    className="text-sm"
+                    placeholder="Address"
+                  />
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={(guest.rsvp as boolean) || false}
+                      onChange={(e) => updateGuest(index, "rsvp", e.target.checked)}
+                      className="w-4 h-4 border border-warm-400 accent-warm-400"
+                    />
+                  </div>
+                  <Input
+                    value={(guest.meal as string) || ""}
+                    onChange={(e) => updateGuest(index, "meal", e.target.value)}
+                    className="text-sm"
+                    placeholder="Meal"
+                  />
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={(guest.giftReceived as boolean) || false}
+                      onChange={(e) => updateGuest(index, "giftReceived", e.target.checked)}
+                      className="w-4 h-4 border border-warm-400 accent-warm-400"
+                    />
+                  </div>
+                  <div className="flex justify-center">
+                    <input
+                      type="checkbox"
+                      checked={(guest.thankYouSent as boolean) || false}
+                      onChange={(e) => updateGuest(index, "thankYouSent", e.target.checked)}
+                      className="w-4 h-4 border border-warm-400 accent-warm-400"
+                    />
+                  </div>
+                  <button
+                    onClick={() => removeGuest(index)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {guests.length === 0 && (
+          <p className="text-sm text-warm-400 italic text-center py-8">
+            No guests yet. Add guests manually or share your RSVP link to collect responses.
+          </p>
+        )}
+      </div>
+
+      {/* RSVP Setup Dialog */}
+      <Dialog open={showRsvpSetup} onOpenChange={setShowRsvpSetup}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create RSVP Link</DialogTitle>
+            <DialogDescription>
+              Generate a shareable link for guests to submit their information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-warm-600 mb-4">
+              Your guests will be able to submit:
+            </p>
+            <ul className="text-sm text-warm-600 space-y-1 mb-6">
+              <li>• Name & contact info</li>
+              <li>• Mailing address</li>
+              <li>• RSVP status</li>
+              <li>• Dietary restrictions</li>
+              <li>• Plus one details</li>
+              <li>• Additional notes</li>
+            </ul>
+            <p className="text-xs text-warm-500">
+              Responses will automatically appear in your guest list.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setShowRsvpSetup(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button 
+              onClick={createRsvpLink} 
+              disabled={isCreatingLink}
+              className="flex-1 bg-warm-600 hover:bg-warm-700 text-white"
+            >
+              {isCreatingLink ? "Creating..." : "Create Link"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
