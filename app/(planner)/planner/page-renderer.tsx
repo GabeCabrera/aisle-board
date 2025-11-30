@@ -612,7 +612,7 @@ interface GuestListRendererProps {
   updateField: (key: string, value: unknown) => void;
 }
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -2207,6 +2207,21 @@ function TaskBoardRenderer({ page, fields, updateField, allPages }: TaskBoardRen
   const partner2Name = (fields.partner2Name as string) || "Partner 2";
   const tasks = (fields.tasks as Task[]) || [];
 
+  // Memoize stable rotation values for each task to prevent jitter
+  const taskRotations = useMemo(() => {
+    const rotations: Record<string, number> = {};
+    tasks.forEach(task => {
+      // Use task ID to generate a stable "random" rotation
+      const hash = task.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      rotations[task.id] = ((hash % 100) - 50) / 50 * 2; // Range: -2 to 2 degrees
+    });
+    return rotations;
+  }, [tasks.map(t => t.id).join(',')]);
+
+  // Drag and drop state
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<Task["status"] | null>(null);
+
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -2374,30 +2389,81 @@ function TaskBoardRenderer({ page, fields, updateField, allPages }: TaskBoardRen
   const partner1Tasks = tasks.filter(t => t.assignee === "partner1" && t.status !== "done").length;
   const partner2Tasks = tasks.filter(t => t.assignee === "partner2" && t.status !== "done").length;
 
+  // Drag handlers
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+    // Add a slight delay to allow the drag image to be captured
+    setTimeout(() => {
+      (e.target as HTMLElement).style.opacity = '0.5';
+    }, 0);
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedTaskId(null);
+    setDragOverColumn(null);
+    (e.target as HTMLElement).style.opacity = '1';
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: Task["status"]) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColumn(status);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: Task["status"]) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (taskId && draggedTaskId) {
+      moveTask(taskId, newStatus);
+    }
+    setDraggedTaskId(null);
+    setDragOverColumn(null);
+  };
+
   // Post-it card component
   const PostItCard = ({ task }: { task: Task }) => {
     const isEditing = editingTask === task.id;
     const [editTitle, setEditTitle] = useState(task.title);
+    const rotation = taskRotations[task.id] || 0;
+    const isDragging = draggedTaskId === task.id;
 
     return (
       <div
+        draggable={!isEditing}
+        onDragStart={(e) => handleDragStart(e, task.id)}
+        onDragEnd={handleDragEnd}
         className={`
           relative p-4 border-2 rounded-sm
           ${POST_IT_COLORS[task.color]}
           shadow-md ${POST_IT_SHADOWS[task.color]}
-          transform rotate-[${Math.random() > 0.5 ? '0.5' : '-0.5'}deg]
           transition-all duration-200
           group
+          ${isDragging ? 'opacity-50 scale-105' : ''}
+          ${!isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
         `}
         style={{ 
-          transform: `rotate(${(Math.random() - 0.5) * 2}deg)`,
+          transform: `rotate(${rotation}deg)`,
           minHeight: '120px'
         }}
       >
+        {/* Drag handle */}
+        <div className="absolute top-1 right-1 text-warm-400 opacity-0 group-hover:opacity-50 transition-opacity cursor-grab">
+          <GripVertical className="w-4 h-4" />
+        </div>
+
         {/* Delete button */}
         <button
-          onClick={() => deleteTask(task.id)}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs shadow-md hover:bg-red-600"
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteTask(task.id);
+          }}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs shadow-md hover:bg-red-600 z-10"
         >
           ×
         </button>
@@ -2521,26 +2587,39 @@ function TaskBoardRenderer({ page, fields, updateField, allPages }: TaskBoardRen
     tasks: Task[]; 
     status: Task["status"];
     headerColor: string;
-  }) => (
-    <div className="flex-1 min-w-[280px]">
-      <div className={`${headerColor} rounded-t-lg px-4 py-3 flex items-center justify-between`}>
-        <h3 className="font-medium text-warm-800">{title}</h3>
-        <span className="text-sm text-warm-600 bg-white/50 px-2 py-0.5 rounded-full">
-          {columnTasks.length}
-        </span>
+  }) => {
+    const isDropTarget = dragOverColumn === status;
+    
+    return (
+      <div className="flex-1 min-w-[280px]">
+        <div className={`${headerColor} rounded-t-lg px-4 py-3 flex items-center justify-between`}>
+          <h3 className="font-medium text-warm-800">{title}</h3>
+          <span className="text-sm text-warm-600 bg-white/50 px-2 py-0.5 rounded-full">
+            {columnTasks.length}
+          </span>
+        </div>
+        <div 
+          className={`
+            bg-warm-100/50 rounded-b-lg p-4 min-h-[400px] space-y-4
+            transition-colors duration-200
+            ${isDropTarget ? 'bg-warm-200/70 ring-2 ring-warm-400 ring-inset' : ''}
+          `}
+          onDragOver={(e) => handleDragOver(e, status)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, status)}
+        >
+          {columnTasks.map((task) => (
+            <PostItCard key={task.id} task={task} />
+          ))}
+          {columnTasks.length === 0 && (
+            <p className={`text-center text-sm py-8 italic ${isDropTarget ? 'text-warm-600' : 'text-warm-400'}`}>
+              {isDropTarget ? 'Drop here!' : 'No tasks here yet'}
+            </p>
+          )}
+        </div>
       </div>
-      <div className="bg-warm-100/50 rounded-b-lg p-4 min-h-[400px] space-y-4">
-        {columnTasks.map((task) => (
-          <PostItCard key={task.id} task={task} />
-        ))}
-        {columnTasks.length === 0 && (
-          <p className="text-center text-warm-400 text-sm py-8 italic">
-            No tasks here yet
-          </p>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
