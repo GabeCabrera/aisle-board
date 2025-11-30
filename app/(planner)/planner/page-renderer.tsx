@@ -2,11 +2,18 @@
 
 import { type Page } from "@/lib/db/schema";
 import { getTemplateById } from "@/lib/templates/registry";
+import { isSharedField } from "@/lib/state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Link as LinkIcon } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PageRendererProps {
   page: Page;
@@ -47,7 +54,7 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
           
           <div className="w-full max-w-xs space-y-8">
             <div>
-              <Label className="mb-4 block text-center">Names</Label>
+              <FieldLabel label="Names" fieldKey="names" />
               <Input
                 value={(fields.names as string) || ""}
                 onChange={(e) => updateField("names", e.target.value)}
@@ -56,7 +63,7 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
               />
             </div>
             <div>
-              <Label className="mb-4 block text-center">Wedding Date</Label>
+              <FieldLabel label="Wedding Date" fieldKey="weddingDate" />
               <Input
                 type="date"
                 value={(fields.weddingDate as string) || ""}
@@ -87,7 +94,7 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
             <div key={field.key}>
               {field.type === "text" && (
                 <div className="space-y-2">
-                  <Label>{field.label}</Label>
+                  <FieldLabel label={field.label} fieldKey={field.key} />
                   <Input
                     value={(fields[field.key] as string) || ""}
                     onChange={(e) => updateField(field.key, e.target.value)}
@@ -98,7 +105,7 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
 
               {field.type === "date" && (
                 <div className="space-y-2">
-                  <Label>{field.label}</Label>
+                  <FieldLabel label={field.label} fieldKey={field.key} />
                   <Input
                     type="date"
                     value={(fields[field.key] as string) || ""}
@@ -109,7 +116,7 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
 
               {field.type === "number" && (
                 <div className="space-y-2">
-                  <Label>{field.label}</Label>
+                  <FieldLabel label={field.label} fieldKey={field.key} />
                   <Input
                     type="number"
                     value={(fields[field.key] as string) || ""}
@@ -121,7 +128,7 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
 
               {field.type === "textarea" && (
                 <div className="space-y-2">
-                  <Label>{field.label}</Label>
+                  <FieldLabel label={field.label} fieldKey={field.key} />
                   <Textarea
                     value={(fields[field.key] as string) || ""}
                     onChange={(e) => updateField(field.key, e.target.value)}
@@ -155,6 +162,31 @@ export function PageRenderer({ page, onFieldChange }: PageRendererProps) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Field label component with shared field indicator
+function FieldLabel({ label, fieldKey }: { label: string; fieldKey: string }) {
+  const isShared = isSharedField(fieldKey);
+
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <Label>{label}</Label>
+      {isShared && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center">
+                <LinkIcon className="w-3 h-3 text-warm-400" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p className="text-xs">Synced across all pages</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 }
