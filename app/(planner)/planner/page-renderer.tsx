@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Link as LinkIcon, Share2, Copy, ExternalLink, Settings, MessageSquare, Mail, Smartphone, Send, Users2, Crown, Star } from "lucide-react";
+import { Plus, Trash2, Link as LinkIcon, Share2, Copy, ExternalLink, Settings, MessageSquare, Mail, Smartphone, Send, Users2, Crown, Star, GripVertical, CalendarDays, User, Users as UsersIcon, Check } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -116,6 +116,17 @@ export function PageRenderer({ page, onFieldChange, allPages = [] }: PageRendere
   if (page.templateId === "wedding-party") {
     return (
       <WeddingPartyRenderer
+        page={page}
+        fields={fields}
+        updateField={updateField}
+      />
+    );
+  }
+
+  // Special rendering for task board
+  if (page.templateId === "task-board") {
+    return (
+      <TaskBoardRenderer
         page={page}
         fields={fields}
         updateField={updateField}
@@ -2011,6 +2022,476 @@ function WeddingPartyRenderer({ page, fields, updateField }: WeddingPartyRendere
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ============================================================================
+// TASK BOARD - Post-it style task management
+// ============================================================================
+
+interface Task {
+  id: string;
+  title: string;
+  assignee: "partner1" | "partner2" | "both" | "unassigned";
+  status: "todo" | "in-progress" | "done";
+  color: "yellow" | "pink" | "blue" | "green" | "purple";
+  dueDate?: string;
+}
+
+interface TaskBoardRendererProps {
+  page: Page;
+  fields: Record<string, unknown>;
+  updateField: (key: string, value: unknown) => void;
+}
+
+const POST_IT_COLORS = {
+  yellow: "bg-yellow-100 border-yellow-300 hover:bg-yellow-50",
+  pink: "bg-pink-100 border-pink-300 hover:bg-pink-50",
+  blue: "bg-blue-100 border-blue-300 hover:bg-blue-50",
+  green: "bg-green-100 border-green-300 hover:bg-green-50",
+  purple: "bg-purple-100 border-purple-300 hover:bg-purple-50",
+};
+
+const POST_IT_SHADOWS = {
+  yellow: "shadow-yellow-200/50",
+  pink: "shadow-pink-200/50",
+  blue: "shadow-blue-200/50",
+  green: "shadow-green-200/50",
+  purple: "shadow-purple-200/50",
+};
+
+function TaskBoardRenderer({ page, fields, updateField }: TaskBoardRendererProps) {
+  const partner1Name = (fields.partner1Name as string) || "Partner 1";
+  const partner2Name = (fields.partner2Name as string) || "Partner 2";
+  const tasks = (fields.tasks as Task[]) || [];
+
+  const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskAssignee, setNewTaskAssignee] = useState<Task["assignee"]>("unassigned");
+  const [newTaskColor, setNewTaskColor] = useState<Task["color"]>("yellow");
+  const [filterAssignee, setFilterAssignee] = useState<Task["assignee"] | "all">("all");
+
+  // Generate unique ID
+  const generateId = () => `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Group tasks by status
+  const todoTasks = tasks.filter(t => t.status === "todo" && (filterAssignee === "all" || t.assignee === filterAssignee));
+  const inProgressTasks = tasks.filter(t => t.status === "in-progress" && (filterAssignee === "all" || t.assignee === filterAssignee));
+  const doneTasks = tasks.filter(t => t.status === "done" && (filterAssignee === "all" || t.assignee === filterAssignee));
+
+  const addTask = () => {
+    if (!newTaskTitle.trim()) return;
+    
+    const newTask: Task = {
+      id: generateId(),
+      title: newTaskTitle.trim(),
+      assignee: newTaskAssignee,
+      status: "todo",
+      color: newTaskColor,
+    };
+    
+    updateField("tasks", [...tasks, newTask]);
+    setNewTaskTitle("");
+    setShowAddTask(false);
+  };
+
+  const updateTask = (taskId: string, updates: Partial<Task>) => {
+    const updated = tasks.map(t => 
+      t.id === taskId ? { ...t, ...updates } : t
+    );
+    updateField("tasks", updated);
+  };
+
+  const deleteTask = (taskId: string) => {
+    updateField("tasks", tasks.filter(t => t.id !== taskId));
+  };
+
+  const moveTask = (taskId: string, newStatus: Task["status"]) => {
+    updateTask(taskId, { status: newStatus });
+  };
+
+  const getAssigneeName = (assignee: Task["assignee"]) => {
+    switch (assignee) {
+      case "partner1": return partner1Name;
+      case "partner2": return partner2Name;
+      case "both": return "Both";
+      default: return "Unassigned";
+    }
+  };
+
+  const getAssigneeIcon = (assignee: Task["assignee"]) => {
+    switch (assignee) {
+      case "partner1":
+      case "partner2":
+        return <User className="w-3 h-3" />;
+      case "both":
+        return <UsersIcon className="w-3 h-3" />;
+      default:
+        return null;
+    }
+  };
+
+  // Stats
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === "done").length;
+  const partner1Tasks = tasks.filter(t => t.assignee === "partner1" && t.status !== "done").length;
+  const partner2Tasks = tasks.filter(t => t.assignee === "partner2" && t.status !== "done").length;
+
+  // Post-it card component
+  const PostItCard = ({ task }: { task: Task }) => {
+    const isEditing = editingTask === task.id;
+    const [editTitle, setEditTitle] = useState(task.title);
+
+    return (
+      <div
+        className={`
+          relative p-4 border-2 rounded-sm
+          ${POST_IT_COLORS[task.color]}
+          shadow-md ${POST_IT_SHADOWS[task.color]}
+          transform rotate-[${Math.random() > 0.5 ? '0.5' : '-0.5'}deg]
+          transition-all duration-200
+          group
+        `}
+        style={{ 
+          transform: `rotate(${(Math.random() - 0.5) * 2}deg)`,
+          minHeight: '120px'
+        }}
+      >
+        {/* Delete button */}
+        <button
+          onClick={() => deleteTask(task.id)}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs shadow-md hover:bg-red-600"
+        >
+          ×
+        </button>
+
+        {/* Task content */}
+        {isEditing ? (
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={() => {
+              updateTask(task.id, { title: editTitle });
+              setEditingTask(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                updateTask(task.id, { title: editTitle });
+                setEditingTask(null);
+              }
+            }}
+            className="w-full bg-transparent border-none font-medium text-warm-800 focus:outline-none"
+            autoFocus
+          />
+        ) : (
+          <p
+            onClick={() => setEditingTask(task.id)}
+            className="font-medium text-warm-800 cursor-text min-h-[40px]"
+          >
+            {task.title}
+          </p>
+        )}
+
+        {/* Task metadata */}
+        <div className="mt-3 pt-2 border-t border-warm-200/50 flex items-center justify-between">
+          {/* Assignee */}
+          <div className="flex items-center gap-1 text-xs text-warm-600">
+            {getAssigneeIcon(task.assignee)}
+            <span>{getAssigneeName(task.assignee)}</span>
+          </div>
+
+          {/* Due date if set */}
+          {task.dueDate && (
+            <div className="flex items-center gap-1 text-xs text-warm-500">
+              <CalendarDays className="w-3 h-3" />
+              <span>{new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick actions */}
+        <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {task.status !== "todo" && (
+            <button
+              onClick={() => moveTask(task.id, "todo")}
+              className="w-6 h-6 bg-warm-200 rounded text-warm-600 text-xs hover:bg-warm-300 flex items-center justify-center"
+              title="Move to To Do"
+            >
+              ←
+            </button>
+          )}
+          {task.status !== "in-progress" && (
+            <button
+              onClick={() => moveTask(task.id, "in-progress")}
+              className="w-6 h-6 bg-amber-200 rounded text-amber-700 text-xs hover:bg-amber-300 flex items-center justify-center"
+              title="Move to In Progress"
+            >
+              ●
+            </button>
+          )}
+          {task.status !== "done" && (
+            <button
+              onClick={() => moveTask(task.id, "done")}
+              className="w-6 h-6 bg-green-200 rounded text-green-700 text-xs hover:bg-green-300 flex items-center justify-center"
+              title="Mark Done"
+            >
+              <Check className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Color picker */}
+        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {(["yellow", "pink", "blue", "green", "purple"] as const).map((color) => (
+            <button
+              key={color}
+              onClick={() => updateTask(task.id, { color })}
+              className={`w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+                color === "yellow" ? "bg-yellow-300" :
+                color === "pink" ? "bg-pink-300" :
+                color === "blue" ? "bg-blue-300" :
+                color === "green" ? "bg-green-300" :
+                "bg-purple-300"
+              } ${task.color === color ? "ring-2 ring-warm-400" : ""}`}
+            />
+          ))}
+        </div>
+
+        {/* Assignee picker */}
+        <select
+          value={task.assignee}
+          onChange={(e) => updateTask(task.id, { assignee: e.target.value as Task["assignee"] })}
+          className="absolute bottom-2 left-2 text-xs bg-white/50 border border-warm-200 rounded px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <option value="unassigned">Unassigned</option>
+          <option value="partner1">{partner1Name}</option>
+          <option value="partner2">{partner2Name}</option>
+          <option value="both">Both</option>
+        </select>
+      </div>
+    );
+  };
+
+  // Column component
+  const Column = ({ 
+    title, 
+    tasks: columnTasks, 
+    status, 
+    headerColor 
+  }: { 
+    title: string; 
+    tasks: Task[]; 
+    status: Task["status"];
+    headerColor: string;
+  }) => (
+    <div className="flex-1 min-w-[280px]">
+      <div className={`${headerColor} rounded-t-lg px-4 py-3 flex items-center justify-between`}>
+        <h3 className="font-medium text-warm-800">{title}</h3>
+        <span className="text-sm text-warm-600 bg-white/50 px-2 py-0.5 rounded-full">
+          {columnTasks.length}
+        </span>
+      </div>
+      <div className="bg-warm-100/50 rounded-b-lg p-4 min-h-[400px] space-y-4">
+        {columnTasks.map((task) => (
+          <PostItCard key={task.id} task={task} />
+        ))}
+        {columnTasks.length === 0 && (
+          <p className="text-center text-warm-400 text-sm py-8 italic">
+            No tasks here yet
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="bg-white shadow-lg p-8 md:p-12">
+        {/* Page Header */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-serif font-light tracking-wide">
+            {page.title}
+          </h2>
+          <div className="w-10 h-px bg-warm-400 mx-auto mt-4" />
+        </div>
+
+        {/* Partner Names Setup */}
+        <div className="mb-8 p-6 bg-warm-50 border border-warm-200 rounded-lg">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-warm-600 whitespace-nowrap">Partner 1:</Label>
+              <Input
+                value={partner1Name === "Partner 1" ? "" : partner1Name}
+                onChange={(e) => updateField("partner1Name", e.target.value || "Partner 1")}
+                placeholder="Partner 1"
+                className="w-32 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-warm-600 whitespace-nowrap">Partner 2:</Label>
+              <Input
+                value={partner2Name === "Partner 2" ? "" : partner2Name}
+                onChange={(e) => updateField("partner2Name", e.target.value || "Partner 2")}
+                placeholder="Partner 2"
+                className="w-32 text-sm"
+              />
+            </div>
+            <div className="flex-1" />
+            <Button
+              onClick={() => setShowAddTask(true)}
+              className="bg-warm-600 hover:bg-warm-700 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Task
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats & Filter */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <p className="text-2xl font-light text-warm-700">{totalTasks}</p>
+              <p className="text-xs tracking-wider uppercase text-warm-500">Total</p>
+            </div>
+            <div className="h-8 w-px bg-warm-200" />
+            <div className="text-center">
+              <p className="text-xl font-light text-green-600">{completedTasks}</p>
+              <p className="text-xs tracking-wider uppercase text-warm-500">Done</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-light text-warm-600">{partner1Tasks}</p>
+              <p className="text-xs tracking-wider uppercase text-warm-500">{partner1Name}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-light text-warm-600">{partner2Tasks}</p>
+              <p className="text-xs tracking-wider uppercase text-warm-500">{partner2Name}</p>
+            </div>
+          </div>
+
+          {/* Filter */}
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-warm-500">Filter:</Label>
+            <select
+              value={filterAssignee}
+              onChange={(e) => setFilterAssignee(e.target.value as Task["assignee"] | "all")}
+              className="px-3 py-1.5 border border-warm-300 text-sm rounded bg-white"
+            >
+              <option value="all">All Tasks</option>
+              <option value="partner1">{partner1Name}</option>
+              <option value="partner2">{partner2Name}</option>
+              <option value="both">Both</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Task Board Columns */}
+        <div className="flex gap-6 overflow-x-auto pb-4">
+          <Column
+            title="To Do"
+            tasks={todoTasks}
+            status="todo"
+            headerColor="bg-warm-200"
+          />
+          <Column
+            title="In Progress"
+            tasks={inProgressTasks}
+            status="in-progress"
+            headerColor="bg-amber-200"
+          />
+          <Column
+            title="Done"
+            tasks={doneTasks}
+            status="done"
+            headerColor="bg-green-200"
+          />
+        </div>
+      </div>
+
+      {/* Add Task Dialog */}
+      <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Task</DialogTitle>
+            <DialogDescription>
+              Create a new task and assign it to yourself or your partner.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-4">
+            {/* Task title */}
+            <div className="space-y-2">
+              <Label>What needs to be done?</Label>
+              <Input
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="e.g., Book photographer"
+                onKeyDown={(e) => e.key === "Enter" && addTask()}
+                autoFocus
+              />
+            </div>
+
+            {/* Assignee */}
+            <div className="space-y-2">
+              <Label>Who&apos;s responsible?</Label>
+              <div className="flex gap-2">
+                {(["unassigned", "partner1", "partner2", "both"] as const).map((assignee) => (
+                  <button
+                    key={assignee}
+                    onClick={() => setNewTaskAssignee(assignee)}
+                    className={`flex-1 px-3 py-2 border rounded-lg text-sm transition-colors ${
+                      newTaskAssignee === assignee
+                        ? "border-warm-500 bg-warm-50 text-warm-700"
+                        : "border-warm-200 hover:border-warm-300"
+                    }`}
+                  >
+                    {assignee === "partner1" ? partner1Name :
+                     assignee === "partner2" ? partner2Name :
+                     assignee === "both" ? "Both" : "Unassigned"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color */}
+            <div className="space-y-2">
+              <Label>Post-it color</Label>
+              <div className="flex gap-3">
+                {(["yellow", "pink", "blue", "green", "purple"] as const).map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setNewTaskColor(color)}
+                    className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                      color === "yellow" ? "bg-yellow-200 border-yellow-300" :
+                      color === "pink" ? "bg-pink-200 border-pink-300" :
+                      color === "blue" ? "bg-blue-200 border-blue-300" :
+                      color === "green" ? "bg-green-200 border-green-300" :
+                      "bg-purple-200 border-purple-300"
+                    } ${newTaskColor === color ? "ring-2 ring-warm-500 ring-offset-2" : "hover:scale-105"}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-warm-200">
+            <Button variant="outline" onClick={() => setShowAddTask(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button
+              onClick={addTask}
+              disabled={!newTaskTitle.trim()}
+              className="flex-1 bg-warm-600 hover:bg-warm-700 text-white"
+            >
+              Add Task
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

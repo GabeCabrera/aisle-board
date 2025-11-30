@@ -330,6 +330,34 @@ export const templates: TemplateDefinition[] = [
     ],
   },
 
+  // Planning - Task Board
+  {
+    id: "task-board",
+    name: "Task Board",
+    description: "Post-it style tasks to track who's doing what",
+    category: "planning",
+    timelineFilters: ["12-months", "9-months", "6-months", "3-months", "1-month", "week-of"],
+    icon: "Kanban",
+    suggestedInStarterPack: false,
+    isFree: false,
+    fields: [
+      { key: "partner1Name", label: "Partner 1 Name", type: "text" },
+      { key: "partner2Name", label: "Partner 2 Name", type: "text" },
+      {
+        key: "tasks",
+        label: "Tasks",
+        type: "array",
+        arrayItemSchema: [
+          { key: "title", label: "Task", type: "text", required: true },
+          { key: "assignee", label: "Assignee", type: "select", options: ["partner1", "partner2", "both", "unassigned"] },
+          { key: "status", label: "Status", type: "select", options: ["todo", "in-progress", "done"] },
+          { key: "color", label: "Color", type: "select", options: ["yellow", "pink", "blue", "green", "purple"] },
+          { key: "dueDate", label: "Due Date", type: "date" },
+        ],
+      },
+    ],
+  },
+
   // Extras
   {
     id: "notes",
