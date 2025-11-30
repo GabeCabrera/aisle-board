@@ -204,7 +204,7 @@ export function GiftLogRenderer({ page, fields, updateField }: RendererWithAllPa
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {gift.thankYouSent && (
+                      {gift.thankYouSent === true && (
                         <Check className="w-4 h-4 text-green-500" />
                       )}
                       {expandedGift === index ? (
