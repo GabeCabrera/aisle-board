@@ -99,7 +99,7 @@ export const templates: TemplateDefinition[] = [
   {
     id: "budget",
     name: "Budget Tracker",
-    description: "Track estimated vs actual costs",
+    description: "Track costs, payments, and remaining balances",
     category: "planning",
     timelineFilters: ["12-months", "9-months", "6-months", "3-months"],
     icon: "DollarSign",
@@ -112,9 +112,11 @@ export const templates: TemplateDefinition[] = [
         type: "array",
         arrayItemSchema: [
           { key: "category", label: "Category", type: "text", required: true },
-          { key: "estimated", label: "Estimated", type: "number" },
-          { key: "actual", label: "Actual", type: "number" },
-          { key: "paid", label: "Paid", type: "checkbox" },
+          { key: "vendor", label: "Vendor", type: "text" },
+          { key: "estimated", label: "Estimated Cost", type: "number" },
+          { key: "totalCost", label: "Total Cost", type: "number" },
+          { key: "amountPaid", label: "Amount Paid", type: "number" },
+          { key: "notes", label: "Notes", type: "text" },
         ],
       },
     ],
