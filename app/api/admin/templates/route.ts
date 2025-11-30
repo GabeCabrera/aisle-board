@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { customTemplates } from "@/lib/db/schema";
 import { getUserByEmail } from "@/lib/db/queries";
+import { eq } from "drizzle-orm";
 
 const ADMIN_EMAILS = [
   "gabecabr@gmail.com",
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     const existing = await db
       .select()
       .from(customTemplates)
-      .where((t) => t.templateId === templateId)
+      .where(eq(customTemplates.templateId, templateId))
       .limit(1);
 
     if (existing.length > 0) {
