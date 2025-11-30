@@ -383,7 +383,7 @@ export function GuestListRenderer({ page, fields, updateField }: BaseRendererPro
                       </p>
                       <p className="text-xs text-warm-500">
                         {hasRsvp ? "Confirmed" : "Pending RSVP"}
-                        {guest.meal && ` • ${guest.meal}`}
+                        {guest.meal && ` • ${guest.meal as string}`}
                       </p>
                     </div>
                   </div>
