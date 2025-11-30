@@ -20,6 +20,8 @@ export const tenants = pgTable(
     slug: text("slug").notNull().unique(), // subdomain: "sarahandgabe"
     displayName: text("display_name").notNull(), // "Sarah & Gabe"
     weddingDate: timestamp("wedding_date"),
+    plan: text("plan").notNull().default("free"), // "free" | "complete"
+    stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID after payment
     onboardingComplete: boolean("onboarding_complete").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -47,6 +49,7 @@ export const users = pgTable(
     email: text("email").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
     name: text("name"),
+    role: text("role").notNull().default("member"), // "owner" | "member"
     mustChangePassword: boolean("must_change_password").default(true).notNull(),
     emailVerified: timestamp("email_verified"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

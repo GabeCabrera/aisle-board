@@ -18,20 +18,36 @@ export default async function HomePage() {
           <h1 className="text-5xl font-serif font-light tracking-widest uppercase mb-2">
             Aisle
           </h1>
-          <p className="text-sm tracking-[0.3em] uppercase text-warm-500 mb-12">
+          <p className="text-sm tracking-[0.3em] uppercase text-warm-500 mb-8">
             Wedding Planner
+          </p>
+          
+          <p className="text-warm-600 mb-12 leading-relaxed">
+            Plan your perfect day with elegance and ease. 
+            Beautiful templates, powerful tools, and everything 
+            you need in one place.
           </p>
           
           <div className="w-16 h-px bg-warm-400 mx-auto mb-12" />
           
-          <Link
-            href="/login"
-            className="inline-block px-8 py-3 border border-warm-400 text-warm-600 
-                       tracking-widest uppercase text-sm hover:bg-warm-50 
-                       transition-colors duration-300"
-          >
-            Sign In
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/register"
+              className="inline-block px-8 py-3 bg-warm-600 text-white
+                         tracking-widest uppercase text-sm hover:bg-warm-700 
+                         transition-colors duration-300"
+            >
+              Get Started
+            </Link>
+            <Link
+              href="/login"
+              className="inline-block px-8 py-3 border border-warm-400 text-warm-600 
+                         tracking-widest uppercase text-sm hover:bg-warm-50 
+                         transition-colors duration-300"
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -44,7 +60,12 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  // If onboarding not complete, redirect to welcome
+  // If plan not selected yet, redirect to choose plan
+  if (tenant.plan === "free" && !tenant.onboardingComplete) {
+    redirect("/choose-plan");
+  }
+
+  // If onboarding not complete (paid users), redirect to welcome
   if (!tenant.onboardingComplete) {
     redirect("/welcome");
   }

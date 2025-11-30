@@ -22,38 +22,30 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
-      console.log("Attempting sign in...");
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
-      console.log("Sign in result:", result);
-
       if (result?.error) {
-        console.error("Sign in error:", result.error);
         toast.error(result.error);
         setIsLoading(false);
       } else if (result?.ok) {
-        console.log("Sign in successful, redirecting to:", callbackUrl);
         toast.success("Signed in successfully!");
-        // Use window.location for a full page reload to ensure cookies are read
         window.location.href = callbackUrl;
       } else {
-        console.log("Unexpected result:", result);
         toast.error("Something went wrong");
         setIsLoading(false);
       }
     } catch (error) {
-      console.error("Sign in exception:", error);
       toast.error("Something went wrong. Please try again.");
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -111,10 +103,19 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-3">
+          <p className="text-xs tracking-wider text-warm-500">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="uppercase text-warm-600 hover:text-warm-700 transition-colors underline"
+            >
+              Create one
+            </Link>
+          </p>
           <Link
             href="/forgot-password"
-            className="text-xs tracking-wider uppercase text-warm-500 hover:text-warm-600 transition-colors"
+            className="block text-xs tracking-wider uppercase text-warm-500 hover:text-warm-600 transition-colors"
           >
             Forgot your password?
           </Link>
