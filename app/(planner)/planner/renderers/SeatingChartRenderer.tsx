@@ -313,7 +313,9 @@ export function SeatingChartRenderer({ page, fields, updateField, allPages }: Re
                               <Users className="w-3 h-3 text-warm-400" />
                               <span className="truncate">{guest.name}</span>
                               {guest.dietaryRestrictions && (
-                                <Utensils className="w-3 h-3 text-amber-500 flex-shrink-0" title={guest.dietaryRestrictions} />
+                                <span title={guest.dietaryRestrictions}>
+                                  <Utensils className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                                </span>
                               )}
                             </div>
                           ))}
