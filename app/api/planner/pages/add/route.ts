@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-import { getPlannerByTenantId, getPagesByPlannerId, createPage } from "@/lib/db/queries";
+import { getPlannerByTenantId, getPagesByPlannerId, createPage, getTenantById } from "@/lib/db/queries";
 import { getTemplateById } from "@/lib/templates/registry";
 import { addPagesSchema } from "@/lib/validation";
 
@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
     // Get current pages to determine position
     const existingPages = await getPagesByPlannerId(planner.id);
     
+    // Get tenant info for pre-populating user data
+    const tenant = await getTenantById(session.user.tenantId);
+    
     // Limit total pages per planner
     if (existingPages.length + templateIds.length > 50) {
       return NextResponse.json(
@@ -79,6 +82,18 @@ export async function POST(request: NextRequest) {
           defaultFields[field.key] = false;
         } else {
           defaultFields[field.key] = "";
+        }
+      }
+
+      // Pre-populate shared fields with tenant data for personalization
+      if (tenant) {
+        // Pre-populate names field if this template has it
+        if ("names" in defaultFields && tenant.displayName) {
+          defaultFields.names = tenant.displayName;
+        }
+        // Pre-populate wedding date if set
+        if ("weddingDate" in defaultFields && tenant.weddingDate) {
+          defaultFields.weddingDate = tenant.weddingDate.toISOString().split("T")[0];
         }
       }
 
