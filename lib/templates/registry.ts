@@ -237,7 +237,7 @@ export const templates: TemplateDefinition[] = [
   {
     id: "wedding-party",
     name: "Wedding Party",
-    description: "Bridesmaids, groomsmen, and special roles",
+    description: "Bridesmaids, groomsmen, and special roles with messaging",
     category: "people",
     timelineFilters: ["12-months", "9-months", "6-months"],
     icon: "Heart",
@@ -250,7 +250,9 @@ export const templates: TemplateDefinition[] = [
         type: "array",
         arrayItemSchema: [
           { key: "name", label: "Name", type: "text", required: true },
-          { key: "contact", label: "Phone / Email", type: "text" },
+          { key: "role", label: "Role", type: "select", options: ["Maid of Honor", "Bridesmaid", "Junior Bridesmaid"] },
+          { key: "email", label: "Email", type: "text" },
+          { key: "phone", label: "Phone", type: "text" },
         ],
       },
       {
@@ -259,13 +261,22 @@ export const templates: TemplateDefinition[] = [
         type: "array",
         arrayItemSchema: [
           { key: "name", label: "Name", type: "text", required: true },
-          { key: "contact", label: "Phone / Email", type: "text" },
+          { key: "role", label: "Role", type: "select", options: ["Best Man", "Groomsman", "Junior Groomsman"] },
+          { key: "email", label: "Email", type: "text" },
+          { key: "phone", label: "Phone", type: "text" },
         ],
       },
-      { key: "flowerGirl", label: "Flower Girl", type: "text" },
-      { key: "ringBearer", label: "Ring Bearer", type: "text" },
-      { key: "officiant", label: "Officiant", type: "text" },
-      { key: "reader", label: "Reader / Speaker", type: "text" },
+      {
+        key: "others",
+        label: "Other Party Members",
+        type: "array",
+        arrayItemSchema: [
+          { key: "name", label: "Name", type: "text", required: true },
+          { key: "role", label: "Role", type: "text" },
+          { key: "email", label: "Email", type: "text" },
+          { key: "phone", label: "Phone", type: "text" },
+        ],
+      },
     ],
   },
   {
