@@ -102,8 +102,8 @@ function DonutChart({
   });
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="transform -rotate-90">
+    <div className="relative w-full max-w-[220px] aspect-square mx-auto">
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full transform -rotate-90">
         {/* Background circle */}
         <circle
           cx={size / 2}
@@ -391,17 +391,17 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-100/30 rounded-full translate-y-1/2 -translate-x-1/2" />
           
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl md:text-3xl font-serif font-light tracking-wide text-warm-800">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-serif font-light tracking-wide text-warm-800">
                   {page.title}
                 </h2>
-                <p className="text-warm-500 text-sm mt-1">Track every dollar of your wedding</p>
+                <p className="text-warm-500 text-xs sm:text-sm mt-1">Track every dollar of your wedding</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 bg-white/50 rounded-lg p-1">
                 <button
                   onClick={() => setActiveView("list")}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-xs sm:text-sm transition-colors ${
                     activeView === "list" 
                       ? "bg-white shadow-sm text-warm-800" 
                       : "text-warm-500 hover:text-warm-700"
@@ -411,7 +411,7 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                 </button>
                 <button
                   onClick={() => setActiveView("insights")}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-xs sm:text-sm transition-colors ${
                     activeView === "insights" 
                       ? "bg-white shadow-sm text-warm-800" 
                       : "text-warm-500 hover:text-warm-700"
@@ -509,8 +509,8 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
             // ============================================================================
             <div className="space-y-8">
               {/* Donut Chart & Legend */}
-              <div className="grid md:grid-cols-2 gap-8 items-center">
-                <div className="flex justify-center">
+              <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center">
+                <div className="w-full md:w-auto flex justify-center">
                   {calculations.chartData.length > 0 ? (
                     <DonutChart 
                       data={calculations.chartData}
@@ -518,22 +518,22 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                       strokeWidth={36}
                       centerContent={
                         <div className="text-center">
-                          <p className="text-2xl font-light text-warm-800">
+                          <p className="text-xl md:text-2xl font-light text-warm-800">
                             {formatCurrency(calculations.totalCost)}
                           </p>
-                          <p className="text-xs text-warm-500">Total Allocated</p>
+                          <p className="text-[10px] md:text-xs text-warm-500">Total Allocated</p>
                         </div>
                       }
                     />
                   ) : (
-                    <div className="w-[220px] h-[220px] rounded-full bg-warm-100 flex items-center justify-center">
-                      <p className="text-warm-400 text-sm text-center px-8">Add vendors to see your budget breakdown</p>
+                    <div className="w-[180px] h-[180px] md:w-[220px] md:h-[220px] rounded-full bg-warm-100 flex items-center justify-center">
+                      <p className="text-warm-400 text-xs md:text-sm text-center px-6 md:px-8">Add vendors to see your budget breakdown</p>
                     </div>
                   )}
                 </div>
                 
-                <div className="space-y-2">
-                  <h3 className="font-medium text-warm-800 mb-4">Spending by Category</h3>
+                <div className="w-full md:flex-1 space-y-2">
+                  <h3 className="font-medium text-warm-800 mb-3 md:mb-4 text-sm md:text-base">Spending by Category</h3>
                   {calculations.chartData.length > 0 ? (
                     calculations.chartData.map((item) => {
                       const percentage = calculations.totalCost > 0 
@@ -686,40 +686,40 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                         {/* Card Header */}
                         <button
                           onClick={() => setExpandedItem(isExpanded ? null : item.id)}
-                          className="w-full p-4 text-left bg-white hover:bg-warm-50/50 transition-colors"
+                          className="w-full p-3 sm:p-4 text-left bg-white hover:bg-warm-50/50 transition-colors"
                         >
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
                             {/* Category Color Dot */}
                             <div 
-                              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0"
                               style={{ backgroundColor: `${CATEGORY_COLORS[item.category || "Other"]}20` }}
                             >
                               <div 
-                                className="w-3 h-3 rounded-full"
+                                className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full"
                                 style={{ backgroundColor: CATEGORY_COLORS[item.category || "Other"] }}
                               />
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="font-medium text-warm-800 truncate">
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                                <p className="font-medium text-warm-800 text-sm sm:text-base truncate">
                                   {item.vendor || "Unnamed Vendor"}
                                 </p>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${status.color}`}>
+                                <span className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full border whitespace-nowrap ${status.color}`}>
                                   {status.label}
                                 </span>
                               </div>
-                              <p className="text-sm text-warm-500 truncate">{item.category || "No category"}</p>
+                              <p className="text-xs sm:text-sm text-warm-500 truncate">{item.category || "No category"}</p>
                             </div>
 
                             <div className="text-right flex-shrink-0">
-                              <p className="font-medium text-warm-800">{formatCurrency(itemTotalCost)}</p>
+                              <p className="font-medium text-warm-800 text-sm sm:text-base">{formatCurrency(itemTotalCost)}</p>
                               {itemRemaining > 0 && itemTotalCost > 0 && (
-                                <p className="text-xs text-amber-600">{formatCurrency(itemRemaining)} due</p>
+                                <p className="text-[10px] sm:text-xs text-amber-600">{formatCurrency(itemRemaining)} due</p>
                               )}
                             </div>
 
-                            <ChevronDown className={`w-5 h-5 text-warm-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-warm-400 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
                           </div>
 
                           {/* Mini Progress */}
@@ -735,8 +735,8 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
 
                         {/* Expanded Content */}
                         {isExpanded && (
-                          <div className="px-4 pb-4 bg-warm-50/30 border-t border-warm-100">
-                            <div className="pt-4 space-y-4">
+                          <div className="px-3 sm:px-4 pb-3 sm:pb-4 bg-warm-50/30 border-t border-warm-100">
+                            <div className="pt-3 sm:pt-4 space-y-3 sm:space-y-4">
                               {/* Basic Info Grid */}
                               <div className="grid md:grid-cols-2 gap-4">
                                 <div>
@@ -793,8 +793,8 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                               </div>
 
                               {/* Contact Info */}
-                              <div className="bg-white rounded-lg p-4 border border-warm-100">
-                                <div className="flex items-center justify-between mb-3">
+                              <div className="bg-white rounded-lg p-3 sm:p-4 border border-warm-100">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                                   <p className="text-sm font-medium text-warm-700">Contact Info</p>
                                   <TemplateLink 
                                     templateId="vendor-contacts" 
@@ -804,7 +804,7 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                                     View all vendors <ArrowRight className="w-3 h-3" />
                                   </TemplateLink>
                                 </div>
-                                <div className="grid md:grid-cols-3 gap-3">
+                                <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-3">
                                   <Input
                                     value={item.contactName || ""}
                                     onChange={(e) => updateItem(index, "contactName", e.target.value)}
@@ -860,8 +860,8 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                               </div>
 
                               {/* Payment History */}
-                              <div className="bg-white rounded-lg p-4 border border-warm-100">
-                                <div className="flex items-center justify-between mb-3">
+                              <div className="bg-white rounded-lg p-3 sm:p-4 border border-warm-100">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                                   <div>
                                     <p className="text-sm font-medium text-warm-700">Payment History</p>
                                     <p className="text-xs text-warm-500">
@@ -872,7 +872,7 @@ export function BudgetRenderer({ page, fields, updateField, allPages }: Renderer
                                     variant="outline" 
                                     size="sm" 
                                     onClick={(e) => { e.stopPropagation(); openPaymentDialog(index); }}
-                                    className="text-green-600 border-green-200 hover:bg-green-50"
+                                    className="text-green-600 border-green-200 hover:bg-green-50 w-full sm:w-auto"
                                   >
                                     <Receipt className="w-4 h-4 mr-1" />
                                     Log Payment
