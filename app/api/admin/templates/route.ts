@@ -32,16 +32,14 @@ const createTemplateSchema = z.object({
     .max(500)
     .transform(sanitizeString),
   category: z.enum(["essentials", "planning", "people", "day-of", "extras"])
-    .optional()
     .default("extras"),
   icon: z.string()
     .max(50)
     .regex(/^[A-Za-z]+$/, "Invalid icon name")
-    .optional()
     .default("StickyNote"),
   timelineFilters: z.array(
     z.enum(["12-months", "9-months", "6-months", "3-months", "1-month", "week-of"])
-  ).optional().default([]),
+  ).default([]),
   fields: z.array(z.object({
     key: z.string().max(50).regex(/^[a-z_]+$/),
     label: z.string().max(100).transform(sanitizeString),
@@ -49,9 +47,9 @@ const createTemplateSchema = z.object({
     required: z.boolean().optional(),
     options: z.array(z.string().max(100).transform(sanitizeString)).optional(),
     arrayItemSchema: z.array(z.any()).optional(),
-  })).max(50).optional().default([]),
-  isFree: z.boolean().optional().default(false),
-  isPublished: z.boolean().optional().default(false),
+  })).max(50).default([]),
+  isFree: z.boolean().default(false),
+  isPublished: z.boolean().default(false),
 });
 
 export async function GET() {
