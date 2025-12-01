@@ -11,7 +11,8 @@ import {
   Sparkles,
   Star,
   Clock,
-  Shield
+  Shield,
+  ArrowRight
 } from "lucide-react";
 
 export default function MarketingAssetsPage() {
@@ -24,7 +25,45 @@ export default function MarketingAssetsPage() {
         <p className="text-warm-500">Click any ad to view full-screen for screenshots</p>
       </div>
 
-      {/* Ad Grid */}
+      {/* Instagram Stories */}
+      <h2 className="text-xl font-serif text-warm-800 mb-6">Instagram Stories (9:16)</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12">
+        {/* Story 1 */}
+        <div 
+          onClick={() => setSelectedAd(101)}
+          className="cursor-pointer hover:scale-[1.02] transition-transform"
+        >
+          <div className="aspect-[9/16] bg-gradient-to-b from-warm-100 via-rose-50 to-warm-50 rounded-lg shadow-lg overflow-hidden border border-warm-200 max-h-80">
+            <Story1Emotional />
+          </div>
+          <p className="text-sm text-warm-500 mt-2 text-center">Story 1: Emotional</p>
+        </div>
+
+        {/* Story 2 */}
+        <div 
+          onClick={() => setSelectedAd(102)}
+          className="cursor-pointer hover:scale-[1.02] transition-transform"
+        >
+          <div className="aspect-[9/16] bg-warm-800 rounded-lg shadow-lg overflow-hidden max-h-80">
+            <Story2Pricing />
+          </div>
+          <p className="text-sm text-warm-500 mt-2 text-center">Story 2: Pricing</p>
+        </div>
+
+        {/* Story 3 */}
+        <div 
+          onClick={() => setSelectedAd(103)}
+          className="cursor-pointer hover:scale-[1.02] transition-transform"
+        >
+          <div className="aspect-[9/16] bg-gradient-to-b from-rose-100 to-warm-100 rounded-lg shadow-lg overflow-hidden border border-warm-200 max-h-80">
+            <Story3Features />
+          </div>
+          <p className="text-sm text-warm-500 mt-2 text-center">Story 3: Features</p>
+        </div>
+      </div>
+
+      {/* Square Ads */}
+      <h2 className="text-xl font-serif text-warm-800 mb-6">Square Formats (1:1)</h2>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Ad 1: Emotional Hero */}
         <div 
@@ -122,18 +161,24 @@ export default function MarketingAssetsPage() {
       {/* Full Screen Modal */}
       {selectedAd && (
         <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8"
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
           onClick={() => setSelectedAd(null)}
         >
-          <div className="max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-            {selectedAd === 1 && <div className="aspect-square bg-gradient-to-br from-warm-50 to-warm-100 rounded-lg overflow-hidden"><Ad1Emotional /></div>}
-            {selectedAd === 2 && <div className="aspect-square bg-white rounded-lg overflow-hidden"><Ad2Pricing /></div>}
-            {selectedAd === 3 && <div className="aspect-square bg-warm-600 rounded-lg overflow-hidden"><Ad3Features /></div>}
-            {selectedAd === 4 && <div className="aspect-square bg-white rounded-lg overflow-hidden"><Ad4Comparison /></div>}
-            {selectedAd === 5 && <div className="aspect-square bg-gradient-to-br from-rose-50 to-warm-50 rounded-lg overflow-hidden"><Ad5ProblemSolution /></div>}
-            {selectedAd === 6 && <div className="aspect-square bg-warm-800 rounded-lg overflow-hidden"><Ad6SocialProof /></div>}
-            {selectedAd === 7 && <div className="aspect-video bg-gradient-to-r from-warm-100 to-rose-50 rounded-lg overflow-hidden"><Ad7LandscapeHero /></div>}
-            {selectedAd === 8 && <div className="aspect-video bg-warm-700 rounded-lg overflow-hidden"><Ad8LandscapeFeatures /></div>}
+          <div onClick={(e) => e.stopPropagation()}>
+            {/* Square ads */}
+            {selectedAd === 1 && <div className="w-[500px] max-w-[90vw] aspect-square bg-gradient-to-br from-warm-50 to-warm-100 rounded-lg overflow-hidden"><Ad1Emotional /></div>}
+            {selectedAd === 2 && <div className="w-[500px] max-w-[90vw] aspect-square bg-white rounded-lg overflow-hidden"><Ad2Pricing /></div>}
+            {selectedAd === 3 && <div className="w-[500px] max-w-[90vw] aspect-square bg-warm-600 rounded-lg overflow-hidden"><Ad3Features /></div>}
+            {selectedAd === 4 && <div className="w-[500px] max-w-[90vw] aspect-square bg-white rounded-lg overflow-hidden"><Ad4Comparison /></div>}
+            {selectedAd === 5 && <div className="w-[500px] max-w-[90vw] aspect-square bg-gradient-to-br from-rose-50 to-warm-50 rounded-lg overflow-hidden"><Ad5ProblemSolution /></div>}
+            {selectedAd === 6 && <div className="w-[500px] max-w-[90vw] aspect-square bg-warm-800 rounded-lg overflow-hidden"><Ad6SocialProof /></div>}
+            {/* Landscape ads */}
+            {selectedAd === 7 && <div className="w-[800px] max-w-[90vw] aspect-video bg-gradient-to-r from-warm-100 to-rose-50 rounded-lg overflow-hidden"><Ad7LandscapeHero /></div>}
+            {selectedAd === 8 && <div className="w-[800px] max-w-[90vw] aspect-video bg-warm-700 rounded-lg overflow-hidden"><Ad8LandscapeFeatures /></div>}
+            {/* Story ads - 9:16 aspect ratio */}
+            {selectedAd === 101 && <div className="h-[90vh] max-h-[800px] aspect-[9/16] bg-gradient-to-b from-warm-100 via-rose-50 to-warm-50 rounded-lg overflow-hidden"><Story1Emotional /></div>}
+            {selectedAd === 102 && <div className="h-[90vh] max-h-[800px] aspect-[9/16] bg-warm-800 rounded-lg overflow-hidden"><Story2Pricing /></div>}
+            {selectedAd === 103 && <div className="h-[90vh] max-h-[800px] aspect-[9/16] bg-gradient-to-b from-rose-100 to-warm-100 rounded-lg overflow-hidden"><Story3Features /></div>}
             <p className="text-white text-center mt-4 text-sm">Click outside to close</p>
           </div>
         </div>
@@ -141,6 +186,167 @@ export default function MarketingAssetsPage() {
     </div>
   );
 }
+
+// ============================================================================
+// INSTAGRAM STORIES (9:16)
+// ============================================================================
+
+// Story 1: Emotional
+function Story1Emotional() {
+  return (
+    <div className="h-full flex flex-col items-center justify-between p-6 py-10 text-center">
+      <div>
+        <p className="text-xs tracking-[0.3em] uppercase text-warm-400 mb-2">Aisle</p>
+        <div className="w-8 h-px bg-warm-300 mx-auto" />
+      </div>
+      
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <Heart className="w-10 h-10 text-rose-400 mb-4" />
+        <h2 className="text-2xl font-serif font-light text-warm-800 mb-3 leading-tight">
+          Plan Your
+          <br />
+          Wedding
+          <br />
+          <span className="text-warm-600">Without</span>
+          <br />
+          <span className="text-warm-600">the Stress</span>
+        </h2>
+        <p className="text-warm-600 text-sm mt-4 max-w-[200px] leading-relaxed">
+          A calm, beautiful space for you & your partner
+        </p>
+      </div>
+      
+      <div>
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-warm-600 text-white text-xs tracking-wider uppercase rounded-full">
+          Start Free
+          <ArrowRight className="w-3 h-3" />
+        </div>
+        <p className="text-[10px] text-warm-400 mt-2">aisleboard.com</p>
+      </div>
+    </div>
+  );
+}
+
+// Story 2: Pricing
+function Story2Pricing() {
+  return (
+    <div className="h-full flex flex-col items-center justify-between p-6 py-10 text-center text-white">
+      <div>
+        <p className="text-xs tracking-[0.3em] uppercase text-warm-400 mb-2">Aisle</p>
+        <div className="w-8 h-px bg-warm-600 mx-auto" />
+      </div>
+      
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <p className="text-warm-400 text-xs uppercase tracking-wider mb-2">One-time payment</p>
+        <span className="text-5xl font-serif">$29</span>
+        
+        <div className="w-10 h-px bg-warm-600 my-6" />
+        
+        <h2 className="text-xl font-serif font-light mb-6">
+          No Monthly
+          <br />
+          Fees. Ever.
+        </h2>
+        
+        <div className="space-y-2 text-left">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-warm-200">Budget tracker</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-warm-200">Guest list & RSVPs</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-warm-200">Seating charts</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-warm-200">Timeline & tasks</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-warm-200">Calendar sync</span>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-warm-800 text-xs tracking-wider uppercase rounded-full">
+          Try Free
+          <ArrowRight className="w-3 h-3" />
+        </div>
+        <p className="text-[10px] text-warm-500 mt-2">aisleboard.com</p>
+      </div>
+    </div>
+  );
+}
+
+// Story 3: Features
+function Story3Features() {
+  return (
+    <div className="h-full flex flex-col items-center justify-between p-6 py-10 text-center">
+      <div>
+        <p className="text-xs tracking-[0.3em] uppercase text-warm-500 mb-2">Aisle</p>
+        <div className="w-8 h-px bg-warm-400 mx-auto" />
+      </div>
+      
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <h2 className="text-xl font-serif font-light text-warm-800 mb-6">
+          Everything
+          <br />
+          in One Place
+        </h2>
+        
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="flex flex-col items-center p-3 bg-white/60 rounded-lg">
+            <div className="w-8 h-8 rounded-full bg-warm-200 flex items-center justify-center mb-1">
+              <DollarSign className="w-4 h-4 text-warm-600" />
+            </div>
+            <span className="text-[10px] text-warm-600">Budget</span>
+          </div>
+          <div className="flex flex-col items-center p-3 bg-white/60 rounded-lg">
+            <div className="w-8 h-8 rounded-full bg-warm-200 flex items-center justify-center mb-1">
+              <Users className="w-4 h-4 text-warm-600" />
+            </div>
+            <span className="text-[10px] text-warm-600">Guests</span>
+          </div>
+          <div className="flex flex-col items-center p-3 bg-white/60 rounded-lg">
+            <div className="w-8 h-8 rounded-full bg-warm-200 flex items-center justify-center mb-1">
+              <Calendar className="w-4 h-4 text-warm-600" />
+            </div>
+            <span className="text-[10px] text-warm-600">Timeline</span>
+          </div>
+          <div className="flex flex-col items-center p-3 bg-white/60 rounded-lg">
+            <div className="w-8 h-8 rounded-full bg-warm-200 flex items-center justify-center mb-1">
+              <Sparkles className="w-4 h-4 text-warm-600" />
+            </div>
+            <span className="text-[10px] text-warm-600">Seating</span>
+          </div>
+        </div>
+        
+        <p className="text-warm-600 text-xs max-w-[180px]">
+          No spreadsheets.
+          <br />
+          No chaos. No ads.
+        </p>
+      </div>
+      
+      <div>
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-warm-700 text-white text-xs tracking-wider uppercase rounded-full">
+          Start Planning
+          <ArrowRight className="w-3 h-3" />
+        </div>
+        <p className="text-[10px] text-warm-400 mt-2">aisleboard.com</p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// SQUARE ADS (1:1)
+// ============================================================================
 
 // Ad 1: Emotional Hero
 function Ad1Emotional() {
@@ -356,6 +562,10 @@ function Ad6SocialProof() {
     </div>
   );
 }
+
+// ============================================================================
+// LANDSCAPE ADS (16:9)
+// ============================================================================
 
 // Ad 7: Landscape Hero
 function Ad7LandscapeHero() {
