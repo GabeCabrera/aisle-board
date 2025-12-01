@@ -14,6 +14,23 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check if Google OAuth is configured
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error("Missing Google OAuth config:", {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+        hasRedirectUri: !!redirectUri,
+      });
+      return NextResponse.json(
+        { error: "Google Calendar is not configured. Please contact support." },
+        { status: 500 }
+      );
+    }
+
     // Create state with tenant ID for verification in callback
     const state = Buffer.from(
       JSON.stringify({
@@ -30,7 +47,7 @@ export async function GET() {
   } catch (error) {
     console.error("Google connect error:", error);
     return NextResponse.json(
-      { error: "Failed to initiate Google connection" },
+      { error: "Failed to initiate Google connection", details: String(error) },
       { status: 500 }
     );
   }
