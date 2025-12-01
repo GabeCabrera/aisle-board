@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { tenants, users, planners, pages, rsvpForms, rsvpResponses } from "@/lib/db/schema";
-import { count, eq, gte, sql, desc, and, ne } from "drizzle-orm";
+import { count, eq, gte, sql, desc, and, ne, notInArray, inArray } from "drizzle-orm";
 
 const ADMIN_EMAILS = ["gabecabr@gmail.com"];
 const COMPLETE_PLAN_PRICE = 29; // $29 one-time
@@ -17,6 +17,22 @@ export async function GET() {
   }
 
   try {
+    // ============================================================================
+    // GET TEST ACCOUNT TENANT IDS TO EXCLUDE
+    // ============================================================================
+    
+    const testAccountUsers = await db
+      .select({ tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.isTestAccount, true));
+    
+    const testTenantIds = testAccountUsers.map(u => u.tenantId);
+    
+    // Helper to add "not test account" condition
+    const excludeTestTenants = testTenantIds.length > 0 
+      ? notInArray(tenants.id, testTenantIds) 
+      : undefined;
+
     // Date calculations
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -27,84 +43,111 @@ export async function GET() {
     const thisYearStart = new Date(now.getFullYear(), 0, 1);
 
     // ============================================================================
-    // USER METRICS
+    // USER METRICS (excluding test accounts)
     // ============================================================================
     
-    const [totalUsersResult] = await db.select({ count: count() }).from(users);
+    const [totalUsersResult] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.isTestAccount, false));
     const totalUsers = totalUsersResult?.count || 0;
 
-    const [totalTenantsResult] = await db.select({ count: count() }).from(tenants);
+    const totalTenantsConditions = excludeTestTenants ? [excludeTestTenants] : [];
+    const [totalTenantsResult] = await db
+      .select({ count: count() })
+      .from(tenants)
+      .where(totalTenantsConditions.length > 0 ? and(...totalTenantsConditions) : undefined);
     const totalTenants = totalTenantsResult?.count || 0;
 
+    const newUsersThisWeekConditions = [
+      eq(users.isTestAccount, false),
+      gte(users.createdAt, thisWeekStart)
+    ];
     const [newUsersThisWeekResult] = await db
       .select({ count: count() })
       .from(users)
-      .where(gte(users.createdAt, thisWeekStart));
+      .where(and(...newUsersThisWeekConditions));
     const newUsersThisWeek = newUsersThisWeekResult?.count || 0;
 
+    const newUsersThisMonthConditions = [
+      eq(users.isTestAccount, false),
+      gte(users.createdAt, thisMonthStart)
+    ];
     const [newUsersThisMonthResult] = await db
       .select({ count: count() })
       .from(users)
-      .where(gte(users.createdAt, thisMonthStart));
+      .where(and(...newUsersThisMonthConditions));
     const newUsersThisMonth = newUsersThisMonthResult?.count || 0;
 
+    const newUsersLastMonthConditions = [
+      eq(users.isTestAccount, false),
+      gte(users.createdAt, lastMonthStart),
+      sql`${users.createdAt} < ${thisMonthStart}`
+    ];
     const [newUsersLastMonthResult] = await db
       .select({ count: count() })
       .from(users)
-      .where(and(
-        gte(users.createdAt, lastMonthStart),
-        sql`${users.createdAt} < ${thisMonthStart}`
-      ));
+      .where(and(...newUsersLastMonthConditions));
     const newUsersLastMonth = newUsersLastMonthResult?.count || 0;
 
     // ============================================================================
-    // PLAN DISTRIBUTION
+    // PLAN DISTRIBUTION (excluding test accounts)
     // ============================================================================
 
+    const freeConditions = [eq(tenants.plan, "free")];
+    if (excludeTestTenants) freeConditions.push(excludeTestTenants);
     const [freeTenantsResult] = await db
       .select({ count: count() })
       .from(tenants)
-      .where(eq(tenants.plan, "free"));
+      .where(and(...freeConditions));
     const freeTenants = freeTenantsResult?.count || 0;
 
+    const completeConditions = [eq(tenants.plan, "complete")];
+    if (excludeTestTenants) completeConditions.push(excludeTestTenants);
     const [completeTenantsResult] = await db
       .select({ count: count() })
       .from(tenants)
-      .where(eq(tenants.plan, "complete"));
+      .where(and(...completeConditions));
     const completeTenants = completeTenantsResult?.count || 0;
 
     // ============================================================================
-    // REVENUE METRICS
+    // REVENUE METRICS (excluding test accounts)
     // ============================================================================
 
     const totalRevenue = completeTenants * COMPLETE_PLAN_PRICE;
 
+    const revenueThisMonthConditions = [
+      eq(tenants.plan, "complete"),
+      gte(tenants.updatedAt, thisMonthStart)
+    ];
+    if (excludeTestTenants) revenueThisMonthConditions.push(excludeTestTenants);
     const [completePurchasesThisMonthResult] = await db
       .select({ count: count() })
       .from(tenants)
-      .where(and(
-        eq(tenants.plan, "complete"),
-        gte(tenants.updatedAt, thisMonthStart)
-      ));
+      .where(and(...revenueThisMonthConditions));
     const revenueThisMonth = (completePurchasesThisMonthResult?.count || 0) * COMPLETE_PLAN_PRICE;
 
+    const revenueLastMonthConditions = [
+      eq(tenants.plan, "complete"),
+      gte(tenants.updatedAt, lastMonthStart),
+      sql`${tenants.updatedAt} < ${thisMonthStart}`
+    ];
+    if (excludeTestTenants) revenueLastMonthConditions.push(excludeTestTenants);
     const [completePurchasesLastMonthResult] = await db
       .select({ count: count() })
       .from(tenants)
-      .where(and(
-        eq(tenants.plan, "complete"),
-        gte(tenants.updatedAt, lastMonthStart),
-        sql`${tenants.updatedAt} < ${thisMonthStart}`
-      ));
+      .where(and(...revenueLastMonthConditions));
     const revenueLastMonth = (completePurchasesLastMonthResult?.count || 0) * COMPLETE_PLAN_PRICE;
 
+    const revenueThisYearConditions = [
+      eq(tenants.plan, "complete"),
+      gte(tenants.updatedAt, thisYearStart)
+    ];
+    if (excludeTestTenants) revenueThisYearConditions.push(excludeTestTenants);
     const [completePurchasesThisYearResult] = await db
       .select({ count: count() })
       .from(tenants)
-      .where(and(
-        eq(tenants.plan, "complete"),
-        gte(tenants.updatedAt, thisYearStart)
-      ));
+      .where(and(...revenueThisYearConditions));
     const revenueThisYear = (completePurchasesThisYearResult?.count || 0) * COMPLETE_PLAN_PRICE;
 
     const conversionRate = totalTenants > 0 
@@ -119,37 +162,78 @@ export async function GET() {
     const netRevenueThisYear = revenueThisYear - estimatedTaxThisYear;
 
     // ============================================================================
-    // ENGAGEMENT METRICS
+    // ENGAGEMENT METRICS (excluding test accounts)
     // ============================================================================
 
-    const [totalPagesResult] = await db.select({ count: count() }).from(pages);
+    // Get planners that are NOT associated with test accounts
+    const realPlannerIds = testTenantIds.length > 0
+      ? await db
+          .select({ id: planners.id })
+          .from(planners)
+          .where(notInArray(planners.tenantId, testTenantIds))
+      : await db.select({ id: planners.id }).from(planners);
+    
+    const realPlannerIdList = realPlannerIds.map(p => p.id);
+
+    const [totalPagesResult] = realPlannerIdList.length > 0
+      ? await db
+          .select({ count: count() })
+          .from(pages)
+          .where(inArray(pages.plannerId, realPlannerIdList))
+      : [{ count: 0 }];
     const totalPages = totalPagesResult?.count || 0;
 
-    const [totalRsvpFormsResult] = await db.select({ count: count() }).from(rsvpForms);
+    // RSVP forms (excluding test accounts)
+    const rsvpFormsConditions = excludeTestTenants ? [excludeTestTenants] : [];
+    const [totalRsvpFormsResult] = testTenantIds.length > 0
+      ? await db
+          .select({ count: count() })
+          .from(rsvpForms)
+          .where(notInArray(rsvpForms.tenantId, testTenantIds))
+      : await db.select({ count: count() }).from(rsvpForms);
     const totalRsvpForms = totalRsvpFormsResult?.count || 0;
 
-    const [totalRsvpResponsesResult] = await db.select({ count: count() }).from(rsvpResponses);
+    // RSVP responses (need to join through forms)
+    const realRsvpFormIds = testTenantIds.length > 0
+      ? await db
+          .select({ id: rsvpForms.id })
+          .from(rsvpForms)
+          .where(notInArray(rsvpForms.tenantId, testTenantIds))
+      : await db.select({ id: rsvpForms.id }).from(rsvpForms);
+    
+    const realRsvpFormIdList = realRsvpFormIds.map(f => f.id);
+    
+    const [totalRsvpResponsesResult] = realRsvpFormIdList.length > 0
+      ? await db
+          .select({ count: count() })
+          .from(rsvpResponses)
+          .where(inArray(rsvpResponses.formId, realRsvpFormIdList))
+      : [{ count: 0 }];
     const totalRsvpResponses = totalRsvpResponsesResult?.count || 0;
 
-    const [totalPlannersResult] = await db.select({ count: count() }).from(planners);
-    const totalPlanners = totalPlannersResult?.count || 0;
+    const totalPlanners = realPlannerIdList.length;
     const avgPagesPerPlanner = totalPlanners > 0 
       ? (totalPages / totalPlanners).toFixed(1) 
       : "0";
 
     // ============================================================================
-    // TEMPLATE USAGE ANALYTICS
+    // TEMPLATE USAGE ANALYTICS (excluding test accounts)
     // ============================================================================
 
-    // Get all pages with their template IDs (excluding cover)
-    const allPages = await db
-      .select({
-        templateId: pages.templateId,
-        fields: pages.fields,
-        plannerId: pages.plannerId,
-      })
-      .from(pages)
-      .where(ne(pages.templateId, "cover"));
+    // Get all pages with their template IDs (excluding cover and test accounts)
+    const allPages = realPlannerIdList.length > 0
+      ? await db
+          .select({
+            templateId: pages.templateId,
+            fields: pages.fields,
+            plannerId: pages.plannerId,
+          })
+          .from(pages)
+          .where(and(
+            ne(pages.templateId, "cover"),
+            inArray(pages.plannerId, realPlannerIdList)
+          ))
+      : [];
 
     // Count template usage
     const templateUsage: Record<string, number> = {};
@@ -308,10 +392,16 @@ export async function GET() {
       .slice(0, 5);
 
     // ============================================================================
-    // RSVP FORM FIELD PREFERENCES
+    // RSVP FORM FIELD PREFERENCES (excluding test accounts)
     // ============================================================================
 
-    const allRsvpForms = await db.select({ fields: rsvpForms.fields }).from(rsvpForms);
+    const allRsvpForms = testTenantIds.length > 0
+      ? await db
+          .select({ fields: rsvpForms.fields })
+          .from(rsvpForms)
+          .where(notInArray(rsvpForms.tenantId, testTenantIds))
+      : await db.select({ fields: rsvpForms.fields }).from(rsvpForms);
+    
     const rsvpFieldUsage: Record<string, number> = {};
 
     allRsvpForms.forEach(form => {
@@ -359,9 +449,10 @@ export async function GET() {
       : 0;
 
     // ============================================================================
-    // RECENT ACTIVITY
+    // RECENT ACTIVITY (excluding test accounts)
     // ============================================================================
 
+    const recentSignupsConditions = excludeTestTenants ? [excludeTestTenants] : [];
     const recentSignups = await db
       .select({
         id: tenants.id,
@@ -370,9 +461,12 @@ export async function GET() {
         createdAt: tenants.createdAt,
       })
       .from(tenants)
+      .where(recentSignupsConditions.length > 0 ? and(...recentSignupsConditions) : undefined)
       .orderBy(desc(tenants.createdAt))
       .limit(10);
 
+    const recentUpgradesConditions = [eq(tenants.plan, "complete")];
+    if (excludeTestTenants) recentUpgradesConditions.push(excludeTestTenants);
     const recentUpgrades = await db
       .select({
         id: tenants.id,
@@ -380,12 +474,12 @@ export async function GET() {
         updatedAt: tenants.updatedAt,
       })
       .from(tenants)
-      .where(eq(tenants.plan, "complete"))
+      .where(and(...recentUpgradesConditions))
       .orderBy(desc(tenants.updatedAt))
       .limit(10);
 
     // ============================================================================
-    // MONTHLY TRENDS (last 6 months)
+    // MONTHLY TRENDS (last 6 months, excluding test accounts)
     // ============================================================================
 
     const monthlyData = [];
@@ -393,22 +487,28 @@ export async function GET() {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
       
+      const signupsConditions = [
+        gte(tenants.createdAt, monthStart),
+        sql`${tenants.createdAt} <= ${monthEnd}`
+      ];
+      if (excludeTestTenants) signupsConditions.push(excludeTestTenants);
+      
       const [signupsResult] = await db
         .select({ count: count() })
         .from(tenants)
-        .where(and(
-          gte(tenants.createdAt, monthStart),
-          sql`${tenants.createdAt} <= ${monthEnd}`
-        ));
+        .where(and(...signupsConditions));
+
+      const upgradesConditions = [
+        eq(tenants.plan, "complete"),
+        gte(tenants.updatedAt, monthStart),
+        sql`${tenants.updatedAt} <= ${monthEnd}`
+      ];
+      if (excludeTestTenants) upgradesConditions.push(excludeTestTenants);
 
       const [upgradesResult] = await db
         .select({ count: count() })
         .from(tenants)
-        .where(and(
-          eq(tenants.plan, "complete"),
-          gte(tenants.updatedAt, monthStart),
-          sql`${tenants.updatedAt} <= ${monthEnd}`
-        ));
+        .where(and(...upgradesConditions));
 
       monthlyData.push({
         month: monthStart.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
@@ -417,6 +517,12 @@ export async function GET() {
         revenue: (upgradesResult?.count || 0) * COMPLETE_PLAN_PRICE,
       });
     }
+
+    // ============================================================================
+    // TEST ACCOUNTS COUNT (for reference)
+    // ============================================================================
+    
+    const testAccountCount = testTenantIds.length;
 
     // ============================================================================
     // RESPONSE
@@ -432,6 +538,7 @@ export async function GET() {
         monthOverMonthGrowth: newUsersLastMonth > 0 
           ? (((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100).toFixed(1)
           : newUsersThisMonth > 0 ? "100" : "0",
+        testAccountsExcluded: testAccountCount,
       },
       plans: {
         free: freeTenants,
