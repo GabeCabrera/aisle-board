@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { 
   Heart, 
   Calendar, 
@@ -8,7 +9,9 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowRight,
-  Check
+  Check,
+  Star,
+  BadgeCheck
 } from "lucide-react";
 import { PricingSection } from "@/components/pricing-section";
 
@@ -16,16 +19,24 @@ export function LandingPage() {
   return (
     <main className="min-h-screen select-none">
       {/* Hero Section */}
-      <section className="min-h-[78vh] flex flex-col items-center justify-center px-8 py-16 bg-gradient-to-b from-warm-50 to-white">
+      <section className="min-h-[85vh] flex flex-col items-center justify-center px-8 py-16 bg-gradient-to-b from-warm-50 to-white">
         <div className="text-center max-w-2xl">
           <div className="w-16 h-px bg-warm-400 mx-auto mb-8" />
           
           <h1 className="text-5xl md:text-6xl font-serif font-light tracking-widest uppercase mb-4">
             Aisle
           </h1>
-          <p className="text-sm tracking-[0.3em] uppercase text-warm-500 mb-8">
+          <p className="text-sm tracking-[0.3em] uppercase text-warm-500 mb-6">
             Wedding Planner
           </p>
+
+          {/* No Subscription Badge - NEW */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full mb-8">
+            <BadgeCheck className="w-4 h-4 text-green-600" />
+            <span className="text-sm text-green-700 font-medium">
+              One-time $29 — No monthly subscription, ever
+            </span>
+          </div>
           
           <p className="text-xl text-warm-600 mb-12 leading-relaxed font-light">
             A calm, beautiful space to plan your wedding together.
@@ -42,7 +53,7 @@ export function LandingPage() {
                          tracking-widest uppercase text-sm hover:bg-warm-700 
                          transition-colors duration-300"
             >
-              Start Planning
+              Start Planning Free
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
@@ -58,6 +69,120 @@ export function LandingPage() {
           <p className="mt-8 text-sm text-warm-400">
             Free to start · No credit card required
           </p>
+        </div>
+      </section>
+
+      {/* Product Preview Section - NEW */}
+      <section className="py-16 px-8 bg-white border-b border-warm-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-sm tracking-widest uppercase text-warm-400 mb-2">See it in action</p>
+            <h2 className="text-2xl font-serif font-light tracking-wide text-warm-800">
+              Beautiful, Simple Wedding Planning
+            </h2>
+          </div>
+          
+          {/* Product Screenshots/Mockups */}
+          <div className="relative">
+            {/* Main Dashboard Preview */}
+            <div className="bg-gradient-to-br from-warm-50 to-warm-100 rounded-xl shadow-2xl overflow-hidden border border-warm-200">
+              {/* Browser Chrome */}
+              <div className="bg-warm-200/50 px-4 py-3 flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-warm-300" />
+                  <div className="w-3 h-3 rounded-full bg-warm-300" />
+                  <div className="w-3 h-3 rounded-full bg-warm-300" />
+                </div>
+                <div className="flex-1 mx-4">
+                  <div className="bg-white/70 rounded px-3 py-1 text-xs text-warm-500 text-center max-w-xs mx-auto">
+                    sarahandgabe.aisleboard.com
+                  </div>
+                </div>
+              </div>
+              
+              {/* App Preview Content */}
+              <div className="p-6 md:p-8">
+                <div className="grid md:grid-cols-3 gap-6">
+                  {/* Sidebar Preview */}
+                  <div className="bg-white rounded-lg shadow-sm p-4 space-y-3">
+                    <div className="text-xs uppercase tracking-wider text-warm-400 mb-3">Your Pages</div>
+                    {["Cover Page", "Budget Tracker", "Guest List", "Wedding Party", "Day-Of Schedule"].map((item, i) => (
+                      <div key={item} className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${i === 1 ? 'bg-warm-100 text-warm-700' : 'text-warm-500'}`}>
+                        <div className={`w-2 h-2 rounded-full ${i === 1 ? 'bg-warm-500' : 'bg-warm-300'}`} />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Main Content Preview */}
+                  <div className="md:col-span-2 bg-white rounded-lg shadow-sm p-6">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-serif text-warm-800">Budget Tracker</h3>
+                      <div className="w-8 h-px bg-warm-300 mx-auto mt-2" />
+                    </div>
+                    
+                    {/* Budget Stats */}
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="text-center p-3 bg-warm-50 rounded-lg">
+                        <div className="text-lg font-medium text-warm-700">$25,000</div>
+                        <div className="text-xs text-warm-500">Total Budget</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <div className="text-lg font-medium text-green-600">$8,500</div>
+                        <div className="text-xs text-warm-500">Spent</div>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <div className="text-lg font-medium text-blue-600">$16,500</div>
+                        <div className="text-xs text-warm-500">Remaining</div>
+                      </div>
+                    </div>
+                    
+                    {/* Sample Budget Items */}
+                    <div className="space-y-2">
+                      {[
+                        { category: "Venue", vendor: "The Grand Estate", cost: "$5,000", paid: true },
+                        { category: "Photography", vendor: "Jane Smith Photo", cost: "$2,500", paid: true },
+                        { category: "Catering", vendor: "Delicious Bites", cost: "$4,200", paid: false },
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-center justify-between py-2 border-b border-warm-100 text-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-warm-100 flex items-center justify-center">
+                              <DollarSign className="w-4 h-4 text-warm-500" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-warm-700">{item.category}</div>
+                              <div className="text-xs text-warm-400">{item.vendor}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-warm-600">{item.cost}</span>
+                            {item.paid && <Check className="w-4 h-4 text-green-500" />}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Floating Feature Cards */}
+            <div className="hidden md:block absolute -right-4 top-1/4 bg-white rounded-lg shadow-lg p-4 border border-warm-200 max-w-[180px]">
+              <div className="flex items-center gap-2 text-sm text-warm-600">
+                <Users className="w-4 h-4 text-blue-500" />
+                <span>142 guests</span>
+              </div>
+              <div className="text-xs text-warm-400 mt-1">87 RSVPs received</div>
+            </div>
+            
+            <div className="hidden md:block absolute -left-4 bottom-1/4 bg-white rounded-lg shadow-lg p-4 border border-warm-200 max-w-[180px]">
+              <div className="flex items-center gap-2 text-sm text-warm-600">
+                <Calendar className="w-4 h-4 text-pink-500" />
+                <span>186 days to go</span>
+              </div>
+              <div className="text-xs text-warm-400 mt-1">June 14, 2025</div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -78,13 +203,13 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* What is Aisle Section */}
+      {/* Features Section - Updated H2s for SEO */}
       <section className="py-24 px-8 bg-warm-50/50">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <div className="w-12 h-px bg-warm-400 mx-auto mb-6" />
             <h2 className="text-3xl font-serif font-light tracking-wide mb-4">
-              What is Aisle?
+              The Best Free Wedding Planner App
             </h2>
             <p className="text-warm-600 max-w-xl mx-auto">
               Aisle is a simple, elegant wedding planner that lives in your browser. 
@@ -97,9 +222,9 @@ export function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-warm-100 flex items-center justify-center mx-auto mb-4">
                 <Calendar className="w-6 h-6 text-warm-500" />
               </div>
-              <h3 className="font-medium text-warm-700 mb-2">Plan Your Timeline</h3>
+              <h3 className="font-medium text-warm-700 mb-2">Wedding Timeline Creator</h3>
               <p className="text-sm text-warm-500">
-                From &ldquo;just engaged&rdquo; to &ldquo;I do&rdquo; — a clear path through every milestone.
+                From &ldquo;just engaged&rdquo; to &ldquo;I do&rdquo; — a clear path through every milestone with our drag-and-drop planner.
               </p>
             </div>
 
@@ -107,9 +232,9 @@ export function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-warm-100 flex items-center justify-center mx-auto mb-4">
                 <Users className="w-6 h-6 text-warm-500" />
               </div>
-              <h3 className="font-medium text-warm-700 mb-2">Manage Your People</h3>
+              <h3 className="font-medium text-warm-700 mb-2">Guest List & RSVP Tracker</h3>
               <p className="text-sm text-warm-500">
-                Guest lists, RSVPs, seating charts, wedding party — all in one place.
+                Guest lists, RSVPs, seating charts, wedding party — all in one place with automatic tracking.
               </p>
             </div>
 
@@ -117,11 +242,24 @@ export function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-warm-100 flex items-center justify-center mx-auto mb-4">
                 <DollarSign className="w-6 h-6 text-warm-500" />
               </div>
-              <h3 className="font-medium text-warm-700 mb-2">Track Your Budget</h3>
+              <h3 className="font-medium text-warm-700 mb-2">Wedding Budget Tracker</h3>
               <p className="text-sm text-warm-500">
-                See where your money goes. No surprises, no stress.
+                See where your money goes with visual breakdowns. No surprises, no stress.
               </p>
             </div>
+          </div>
+
+          {/* Mid-page CTA - NEW */}
+          <div className="mt-12 text-center">
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-warm-600 text-white
+                         tracking-widest uppercase text-sm hover:bg-warm-700 
+                         transition-colors duration-300"
+            >
+              Try It Free
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
@@ -230,6 +368,22 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Sticky Mobile CTA - NEW */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-warm-200 md:hidden z-50">
+        <Link
+          href="/register"
+          className="flex items-center justify-center gap-2 w-full py-3 bg-warm-600 text-white
+                     tracking-widest uppercase text-sm hover:bg-warm-700 
+                     transition-colors duration-300 rounded-lg"
+        >
+          Start Planning Free
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
+      {/* Add bottom padding on mobile to account for sticky CTA */}
+      <div className="h-20 md:hidden" />
     </main>
   );
 }
