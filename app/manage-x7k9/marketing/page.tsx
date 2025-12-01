@@ -14,44 +14,7 @@ import {
   Shield,
   ArrowRight
 } from "lucide-react";
-
-// Logo SVG component for use in ads
-function AisleLogo({ size = "md", className = "" }: { size?: "sm" | "md" | "lg"; className?: string }) {
-  const sizes = {
-    sm: "w-6 h-6",
-    md: "w-8 h-8",
-    lg: "w-10 h-10",
-  };
-
-  return (
-    <div className={`${sizes[size]} ${className}`}>
-      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <path d="M16 3 L4 28 L8 28 L10.5 22 L21.5 22 L24 28 L28 28 L16 3Z" fill="#78716c"/>
-        <path d="M16 11 L11.5 20 L20.5 20 L16 11Z" fill="currentColor" className="text-white"/>
-        <path d="M16 2 C14.5 0, 12.5 2, 12.5 4.5 C12.5 7, 16 10, 16 10 C16 10, 19.5 7, 19.5 4.5 C19.5 2, 17.5 0, 16 2Z" fill="#e8a4a4"/>
-      </svg>
-    </div>
-  );
-}
-
-// White version of logo for dark backgrounds
-function AisleLogoWhite({ size = "md", className = "" }: { size?: "sm" | "md" | "lg"; className?: string }) {
-  const sizes = {
-    sm: "w-6 h-6",
-    md: "w-8 h-8",
-    lg: "w-10 h-10",
-  };
-
-  return (
-    <div className={`${sizes[size]} ${className}`}>
-      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <path d="M16 3 L4 28 L8 28 L10.5 22 L21.5 22 L24 28 L28 28 L16 3Z" fill="white"/>
-        <path d="M16 11 L11.5 20 L20.5 20 L16 11Z" fill="currentColor" className="text-warm-700"/>
-        <path d="M16 2 C14.5 0, 12.5 2, 12.5 4.5 C12.5 7, 16 10, 16 10 C16 10, 19.5 7, 19.5 4.5 C19.5 2, 17.5 0, 16 2Z" fill="#f4b4b4"/>
-      </svg>
-    </div>
-  );
-}
+import { Logo, LogoIcon } from "@/components/logo";
 
 export default function MarketingAssetsPage() {
   const [selectedAd, setSelectedAd] = useState<number | null>(null);
@@ -233,10 +196,7 @@ export default function MarketingAssetsPage() {
 function Story1Emotional() {
   return (
     <div className="h-full flex flex-col items-center justify-between p-6 py-10 text-center">
-      <div className="flex flex-col items-center">
-        <AisleLogo size="md" />
-        <p className="text-xs tracking-[0.3em] uppercase text-warm-500 mt-1">Aisle</p>
-      </div>
+      <Logo size="sm" showText={true} href={undefined} />
       
       <div className="flex-1 flex flex-col items-center justify-center">
         <Heart className="w-10 h-10 text-rose-400 mb-4" />
@@ -269,10 +229,7 @@ function Story1Emotional() {
 function Story2Pricing() {
   return (
     <div className="h-full flex flex-col items-center justify-between p-6 py-10 text-center text-white">
-      <div className="flex flex-col items-center">
-        <AisleLogoWhite size="md" />
-        <p className="text-xs tracking-[0.3em] uppercase text-warm-400 mt-1">Aisle</p>
-      </div>
+      <Logo size="sm" showText={true} href={undefined} variant="white" />
       
       <div className="flex-1 flex flex-col items-center justify-center">
         <p className="text-warm-400 text-xs uppercase tracking-wider mb-2">One-time payment</p>
@@ -325,10 +282,7 @@ function Story2Pricing() {
 function Story3Features() {
   return (
     <div className="h-full flex flex-col items-center justify-between p-6 py-10 text-center">
-      <div className="flex flex-col items-center">
-        <AisleLogo size="md" />
-        <p className="text-xs tracking-[0.3em] uppercase text-warm-500 mt-1">Aisle</p>
-      </div>
+      <Logo size="sm" showText={true} href={undefined} />
       
       <div className="flex-1 flex flex-col items-center justify-center">
         <h2 className="text-xl font-serif font-light text-warm-800 mb-6">
@@ -390,8 +344,7 @@ function Story3Features() {
 function Ad1Emotional() {
   return (
     <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-      <AisleLogo size="lg" className="mb-2" />
-      <p className="text-sm tracking-[0.3em] uppercase text-warm-500 mb-6">Aisle</p>
+      <Logo size="md" showText={true} href={undefined} className="mb-6" />
       <h2 className="text-3xl md:text-4xl font-serif font-light text-warm-800 mb-4 leading-tight">
         Plan Your Wedding
         <br />
@@ -442,7 +395,7 @@ function Ad2Pricing() {
         </div>
       </div>
       
-      <p className="text-xs text-warm-400 tracking-wider uppercase">aisleboard.com</p>
+      <Logo size="sm" showText={true} href={undefined} />
     </div>
   );
 }
@@ -451,8 +404,7 @@ function Ad2Pricing() {
 function Ad3Features() {
   return (
     <div className="h-full flex flex-col items-center justify-center p-8 text-center text-white">
-      <AisleLogoWhite size="md" className="mb-2" />
-      <p className="text-sm tracking-[0.3em] uppercase text-warm-300 mb-4">Aisle</p>
+      <Logo size="md" showText={true} href={undefined} variant="white" className="mb-4" />
       
       <h2 className="text-2xl font-serif font-light mb-8">
         Everything You Need
@@ -541,7 +493,9 @@ function Ad4Comparison() {
         </div>
       </div>
       
-      <p className="text-xs text-warm-400 text-center mt-4 tracking-wider uppercase">aisleboard.com</p>
+      <div className="flex justify-center mt-4">
+        <Logo size="sm" showText={true} href={undefined} />
+      </div>
     </div>
   );
 }
@@ -561,11 +515,7 @@ function Ad5ProblemSolution() {
       
       <div className="w-12 h-px bg-warm-300 mb-8" />
       
-      <Sparkles className="w-8 h-8 text-warm-500 mb-4" />
-      
-      <h2 className="text-2xl font-serif text-warm-800 mb-4">
-        Try Aisle Instead
-      </h2>
+      <Logo size="md" showText={true} href={undefined} className="mb-4" />
       
       <p className="text-warm-600 text-sm mb-6 max-w-xs">
         A calm, ad-free wedding planner that&apos;s actually enjoyable to use.
@@ -596,8 +546,7 @@ function Ad6SocialProof() {
       
       <div className="w-12 h-px bg-warm-600 mb-6" />
       
-      <AisleLogoWhite size="md" className="mb-1" />
-      <p className="text-sm tracking-[0.3em] uppercase text-warm-400">Aisle</p>
+      <Logo size="sm" showText={true} href={undefined} variant="white" />
     </div>
   );
 }
@@ -611,10 +560,7 @@ function Ad7LandscapeHero() {
   return (
     <div className="h-full flex items-center justify-between p-8">
       <div className="flex-1">
-        <div className="flex items-center gap-2 mb-3">
-          <AisleLogo size="sm" />
-          <p className="text-sm tracking-[0.3em] uppercase text-warm-500">Aisle</p>
-        </div>
+        <Logo size="sm" showText={true} href={undefined} className="mb-3" />
         <h2 className="text-3xl font-serif font-light text-warm-800 mb-4 leading-tight">
           Plan Your Wedding<br />
           <span className="text-warm-600">Without the Chaos</span>
@@ -642,10 +588,7 @@ function Ad8LandscapeFeatures() {
   return (
     <div className="h-full flex items-center p-8 text-white">
       <div className="flex-1">
-        <div className="flex items-center gap-2 mb-3">
-          <AisleLogoWhite size="sm" />
-          <p className="text-sm tracking-[0.3em] uppercase text-warm-300">Aisle</p>
-        </div>
+        <Logo size="sm" showText={true} href={undefined} variant="white" className="mb-3" />
         <h2 className="text-2xl font-serif font-light mb-2">
           Everything in One Place
         </h2>
