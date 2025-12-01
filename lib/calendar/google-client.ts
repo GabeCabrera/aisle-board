@@ -318,7 +318,7 @@ export async function listGoogleEvents(
 
     return {
       events: data.items || [],
-      nextSyncToken: data.nextSyncToken,
+      nextSyncToken: data.nextSyncToken ?? undefined,
     };
   } catch (error: unknown) {
     // If sync token is invalid, do a full sync
@@ -331,7 +331,7 @@ export async function listGoogleEvents(
 
       return {
         events: data.items || [],
-        nextSyncToken: data.nextSyncToken,
+        nextSyncToken: data.nextSyncToken ?? undefined,
       };
     }
     throw error;
