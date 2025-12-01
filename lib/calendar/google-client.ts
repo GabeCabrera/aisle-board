@@ -28,11 +28,16 @@ export interface CalendarEventInput {
 // ============================================================================
 
 export function getOAuthClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim();
 
   if (!clientId || !clientSecret || !redirectUri) {
+    console.error("getOAuthClient: Missing config", {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasRedirectUri: !!redirectUri,
+    });
     throw new Error("Missing Google OAuth configuration");
   }
 

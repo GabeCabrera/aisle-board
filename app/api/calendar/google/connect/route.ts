@@ -6,12 +6,29 @@ import { getAuthUrl } from "@/lib/calendar/google-client";
 export const dynamic = "force-dynamic";
 
 // GET /api/calendar/google/connect - Initiate OAuth flow
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Check session exists
+    if (!session?.user) {
+      console.error("Google connect: No session found");
+      return NextResponse.json(
+        { error: "Please log in to connect Google Calendar" },
+        { status: 401 }
+      );
+    }
+
+    // Check tenantId exists
+    if (!session.user.tenantId) {
+      console.error("Google connect: Session missing tenantId", {
+        userId: session.user.id,
+        email: session.user.email,
+      });
+      return NextResponse.json(
+        { error: "Account setup incomplete. Please complete onboarding first." },
+        { status: 401 }
+      );
     }
 
     // Check if Google OAuth is configured
@@ -20,7 +37,7 @@ export async function GET() {
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
     if (!clientId || !clientSecret || !redirectUri) {
-      console.error("Missing Google OAuth config:", {
+      console.error("Google connect: Missing OAuth config", {
         hasClientId: !!clientId,
         hasClientSecret: !!clientSecret,
         hasRedirectUri: !!redirectUri,
@@ -40,14 +57,30 @@ export async function GET() {
       })
     ).toString("base64");
 
-    const authUrl = getAuthUrl(state);
+    let authUrl: string;
+    try {
+      authUrl = getAuthUrl(state);
+    } catch (authError) {
+      console.error("Google connect: Failed to generate auth URL", authError);
+      return NextResponse.json(
+        { error: "Failed to initialize Google connection" },
+        { status: 500 }
+      );
+    }
+
+    // Get the origin for the redirect
+    const url = new URL(request.url);
+    const origin = url.origin;
 
     // Redirect to Google OAuth
     return NextResponse.redirect(authUrl);
   } catch (error) {
-    console.error("Google connect error:", error);
+    console.error("Google connect: Unexpected error", error);
     return NextResponse.json(
-      { error: "Failed to initiate Google connection", details: String(error) },
+      { 
+        error: "Failed to initiate Google connection", 
+        details: error instanceof Error ? error.message : String(error) 
+      },
       { status: 500 }
     );
   }
