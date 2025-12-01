@@ -428,11 +428,16 @@ export function LandingPage() {
             </div>
 
             <div className="text-center md:text-right">
+              <div className="flex gap-4 justify-center md:justify-end text-xs text-warm-400 mb-1">
+                <Link href="/privacy" className="hover:text-warm-600 transition-colors">
+                  Privacy
+                </Link>
+                <Link href="/terms" className="hover:text-warm-600 transition-colors">
+                  Terms
+                </Link>
+              </div>
               <p className="text-xs text-warm-400">
                 © {new Date().getFullYear()} Aisle
-              </p>
-              <p className="text-xs text-warm-400 mt-1">
-                Built for couples, by a couple
               </p>
             </div>
           </div>
