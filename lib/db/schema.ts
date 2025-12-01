@@ -18,7 +18,7 @@ export const tenants = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     slug: text("slug").notNull().unique(), // subdomain: "sarahandgabe"
-    displayName: text("display_name").notNull(), // "Emma & James"
+    displayName: text("display_name").notNull().default(""), // "Emma & James"
     weddingDate: timestamp("wedding_date"),
     plan: text("plan").notNull().default("free"), // "free" | "complete"
     stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID after payment
@@ -48,11 +48,12 @@ export const users = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     email: text("email").notNull().unique(),
-    passwordHash: text("password_hash").notNull(),
+    passwordHash: text("password_hash"), // Nullable for Google-only users
+    googleId: text("google_id").unique(), // Google account ID for OAuth
     name: text("name"),
     role: text("role").notNull().default("member"), // "owner" | "member"
     isAdmin: boolean("is_admin").default(false).notNull(), // Site-wide admin
-    mustChangePassword: boolean("must_change_password").default(true).notNull(),
+    mustChangePassword: boolean("must_change_password").default(false).notNull(),
     emailVerified: timestamp("email_verified"),
     // Email preferences
     emailOptIn: boolean("email_opt_in").default(false).notNull(),

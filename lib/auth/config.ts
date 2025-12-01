@@ -1,7 +1,12 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { getUserByEmail, getTenantById } from "@/lib/db/queries";
+import { db } from "@/lib/db";
+import { users, tenants } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 declare module "next-auth" {
   interface Session {
@@ -42,6 +47,15 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -56,6 +70,11 @@ export const authOptions: NextAuthOptions = {
         const user = await getUserByEmail(credentials.email);
         if (!user) {
           throw new Error("Invalid email or password");
+        }
+
+        // If user signed up with Google and has no password, they need to use Google login
+        if (!user.passwordHash) {
+          throw new Error("Please sign in with Google");
         }
 
         const isValid = await bcrypt.compare(
@@ -83,12 +102,91 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id;
-        token.tenantId = user.tenantId;
-        token.tenantSlug = user.tenantSlug;
-        token.mustChangePassword = user.mustChangePassword;
+    async signIn({ user, account }) {
+      // For credentials login, just return true (already handled in authorize)
+      if (account?.provider === "credentials") {
+        return true;
+      }
+
+      // For Google login
+      if (account?.provider === "google" && user.email) {
+        try {
+          // Check if user already exists
+          const existingUser = await getUserByEmail(user.email);
+
+          if (existingUser) {
+            // User exists - update their Google ID if not set
+            if (!existingUser.googleId) {
+              await db
+                .update(users)
+                .set({
+                  googleId: account.providerAccountId,
+                  name: existingUser.name || user.name, // Keep existing name or use Google name
+                  updatedAt: new Date(),
+                })
+                .where(eq(users.id, existingUser.id));
+            }
+            return true;
+          }
+
+          // New user - create account
+          const slug = `wedding-${nanoid(8)}`;
+          const unsubscribeToken = nanoid(32);
+          const displayName = user.name || "";
+
+          // Create tenant
+          const [tenant] = await db
+            .insert(tenants)
+            .values({
+              slug,
+              displayName,
+              plan: "free",
+              onboardingComplete: false,
+            })
+            .returning();
+
+          // Create user linked to tenant
+          await db.insert(users).values({
+            email: user.email.toLowerCase(),
+            name: user.name,
+            passwordHash: "", // No password for Google-only users
+            tenantId: tenant.id,
+            role: "owner",
+            googleId: account.providerAccountId,
+            emailOptIn: true, // Default opt-in for Google signups
+            unsubscribeToken,
+          });
+
+          return true;
+        } catch (error) {
+          console.error("Error during Google sign in:", error);
+          return false;
+        }
+      }
+
+      return true;
+    },
+
+    async jwt({ token, user, account, trigger, session }) {
+      // Initial sign in
+      if (account && user) {
+        // For Google login, we need to fetch the user from our database
+        if (account.provider === "google" && token.email) {
+          const dbUser = await getUserByEmail(token.email);
+          if (dbUser) {
+            const tenant = await getTenantById(dbUser.tenantId);
+            token.id = dbUser.id;
+            token.tenantId = dbUser.tenantId;
+            token.tenantSlug = tenant?.slug ?? "";
+            token.mustChangePassword = false; // Google users don't need to change password
+          }
+        } else {
+          // Credentials login
+          token.id = user.id;
+          token.tenantId = user.tenantId;
+          token.tenantSlug = user.tenantSlug;
+          token.mustChangePassword = user.mustChangePassword;
+        }
       }
 
       // Handle session updates (e.g., after password change)
@@ -98,6 +196,7 @@ export const authOptions: NextAuthOptions = {
 
       return token;
     },
+
     async session({ session, token }) {
       session.user = {
         id: token.id,
