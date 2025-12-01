@@ -13,14 +13,19 @@ import {
   ChevronRight,
   Filter,
   Download,
+  FlaskConical,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface User {
   id: string;
   email: string;
   name: string | null;
   role: string;
+  isTestAccount: boolean;
   emailOptIn: boolean;
   unsubscribedAt: string | null;
   createdAt: string;
@@ -52,6 +57,17 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [planFilter, setPlanFilter] = useState<string>("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Stats from all users (fetched separately)
+  const [stats, setStats] = useState({
+    total: 0,
+    totalReal: 0,
+    paid: 0,
+    paidReal: 0,
+    testAccounts: 0,
+  });
 
   const fetchUsers = async (page = 1) => {
     setIsLoading(true);
@@ -69,8 +85,23 @@ export default function UsersPage() {
       const data = await response.json();
       setUsers(data.users);
       setPagination(data.pagination);
+      
+      // Calculate stats from all loaded users
+      const allUsers = data.users as User[];
+      const testCount = allUsers.filter(u => u.isTestAccount).length;
+      const paidCount = allUsers.filter(u => u.tenant.plan === "complete").length;
+      const paidRealCount = allUsers.filter(u => u.tenant.plan === "complete" && !u.isTestAccount).length;
+      
+      setStats({
+        total: data.pagination.total,
+        totalReal: data.pagination.total - testCount, // Approximate
+        paid: paidCount,
+        paidReal: paidRealCount,
+        testAccounts: testCount,
+      });
     } catch (err) {
       console.error("Failed to fetch users:", err);
+      toast.error("Failed to fetch users");
     } finally {
       setIsLoading(false);
     }
@@ -85,12 +116,57 @@ export default function UsersPage() {
     fetchUsers(1);
   };
 
+  const toggleTestAccount = async (userId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch("/api/manage-x7k9/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, isTestAccount: !currentStatus }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to update");
+      
+      // Update local state
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, isTestAccount: !currentStatus } : u
+      ));
+      
+      toast.success(!currentStatus ? "Marked as test account" : "Unmarked as test account");
+    } catch (err) {
+      toast.error("Failed to update user");
+    }
+  };
+
+  const deleteUser = async (userId: string, tenantId: string) => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `/api/manage-x7k9/users?userId=${userId}&tenantId=${tenantId}`,
+        { method: "DELETE" }
+      );
+      
+      if (!response.ok) throw new Error("Failed to delete");
+      
+      // Remove from local state
+      setUsers(users.filter(u => u.id !== userId));
+      setPagination(prev => ({ ...prev, total: prev.total - 1 }));
+      setDeleteConfirm(null);
+      
+      toast.success("User and all data deleted");
+    } catch (err) {
+      toast.error("Failed to delete user");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const exportToCSV = () => {
-    const headers = ["Email", "Name", "Plan", "Wedding Date", "Email Opt-In", "Created"];
+    const headers = ["Email", "Name", "Plan", "Test Account", "Wedding Date", "Email Opt-In", "Created"];
     const rows = users.map((u) => [
       u.email,
       u.name || "",
       u.tenant.plan,
+      u.isTestAccount ? "Yes" : "No",
       u.tenant.weddingDate || "",
       u.emailOptIn ? "Yes" : "No",
       new Date(u.createdAt).toLocaleDateString(),
@@ -125,6 +201,10 @@ export default function UsersPage() {
     return formatDate(date);
   };
 
+  // Calculate real stats (excluding test accounts)
+  const realUsers = users.filter(u => !u.isTestAccount);
+  const testUsers = users.filter(u => u.isTestAccount);
+
   return (
     <div className="p-8">
       {/* Page Header */}
@@ -138,7 +218,7 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-5 gap-4 mb-8">
         <div className="bg-white border border-warm-200 p-4 rounded-lg">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -158,9 +238,12 @@ export default function UsersPage() {
             </div>
             <div>
               <p className="text-2xl font-light text-warm-800">
-                {users.filter((u) => u.tenant.plan === "complete").length}
+                {realUsers.filter((u) => u.tenant.plan === "complete").length}
+                <span className="text-sm text-warm-400 ml-1">
+                  / {users.filter((u) => u.tenant.plan === "complete").length}
+                </span>
               </p>
-              <p className="text-xs text-warm-500">Paid (this page)</p>
+              <p className="text-xs text-warm-500">Paid (real / total)</p>
             </div>
           </div>
         </div>
@@ -172,9 +255,9 @@ export default function UsersPage() {
             </div>
             <div>
               <p className="text-2xl font-light text-warm-800">
-                {users.filter((u) => u.emailOptIn).length}
+                {realUsers.filter((u) => u.emailOptIn).length}
               </p>
-              <p className="text-xs text-warm-500">Subscribed (this page)</p>
+              <p className="text-xs text-warm-500">Subscribed (real)</p>
             </div>
           </div>
         </div>
@@ -186,9 +269,21 @@ export default function UsersPage() {
             </div>
             <div>
               <p className="text-2xl font-light text-warm-800">
-                {users.filter((u) => u.tenant.weddingDate).length}
+                {realUsers.filter((u) => u.tenant.weddingDate).length}
               </p>
-              <p className="text-xs text-warm-500">With Date Set (this page)</p>
+              <p className="text-xs text-warm-500">With Date (real)</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-amber-200 p-4 rounded-lg bg-amber-50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-200 rounded-lg">
+              <FlaskConical className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-light text-amber-800">{testUsers.length}</p>
+              <p className="text-xs text-amber-600">Test Accounts</p>
             </div>
           </div>
         </div>
@@ -258,34 +353,50 @@ export default function UsersPage() {
               <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
                 Joined
               </th>
+              <th className="text-right px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-warm-100">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-warm-400">
+                <td colSpan={6} className="px-4 py-12 text-center text-warm-400">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
                   Loading users...
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-warm-400">
+                <td colSpan={6} className="px-4 py-12 text-center text-warm-400">
                   No users found
                 </td>
               </tr>
             ) : (
               users.map((user) => (
-                <tr key={user.id} className="hover:bg-warm-50 transition-colors">
+                <tr 
+                  key={user.id} 
+                  className={`hover:bg-warm-50 transition-colors ${user.isTestAccount ? 'bg-amber-50/50' : ''}`}
+                >
                   <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium text-warm-800">{user.name || "—"}</p>
-                      <p className="text-sm text-warm-500">{user.email}</p>
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-warm-800">{user.name || "—"}</p>
+                          {user.isTestAccount && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-200 text-amber-800">
+                              <FlaskConical className="w-3 h-3" />
+                              TEST
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-warm-500">{user.email}</p>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div>
-                      <p className="text-warm-800">{user.tenant.displayName}</p>
+                      <p className="text-warm-800">{user.tenant.displayName || "—"}</p>
                       {user.tenant.weddingDate && (
                         <p className="text-xs text-warm-500">
                           <Calendar className="w-3 h-3 inline mr-1" />
@@ -324,6 +435,50 @@ export default function UsersPage() {
                       {timeAgo(user.createdAt)}
                     </span>
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleTestAccount(user.id, user.isTestAccount)}
+                        className={user.isTestAccount ? "border-amber-300 text-amber-700 hover:bg-amber-100" : ""}
+                        title={user.isTestAccount ? "Unmark as test account" : "Mark as test account"}
+                      >
+                        <FlaskConical className="w-4 h-4" />
+                      </Button>
+                      
+                      {deleteConfirm === user.id ? (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteConfirm(null)}
+                            disabled={isDeleting}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => deleteUser(user.id, user.tenant.id)}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            {isDeleting ? "..." : "Delete"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteConfirm(user.id)}
+                          className="text-red-600 hover:bg-red-50 hover:border-red-300"
+                          title="Delete user and all data"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -361,6 +516,19 @@ export default function UsersPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Info box */}
+      <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-amber-800">
+          <p className="font-medium mb-1">About Test Accounts</p>
+          <p className="text-amber-700">
+            Test accounts are excluded from your real stats (shown with "real" label). 
+            Use this to mark demo/test accounts that shouldn&apos;t count towards your metrics. 
+            Deleting a user removes all their data permanently.
+          </p>
+        </div>
       </div>
     </div>
   );

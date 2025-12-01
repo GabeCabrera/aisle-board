@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { users, tenants } from "@/lib/db/schema";
-import { eq, desc, like, or, count, and } from "drizzle-orm";
+import { users, tenants, planners, pages, rsvpForms, rsvpResponses, calendarEvents, googleCalendarConnections, scheduledEmails } from "@/lib/db/schema";
+import { eq, desc, like, or, count, and, sql } from "drizzle-orm";
 import { getUserByEmail } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         email: users.email,
         name: users.name,
         role: users.role,
+        isTestAccount: users.isTestAccount,
         emailOptIn: users.emailOptIn,
         unsubscribedAt: users.unsubscribedAt,
         createdAt: users.createdAt,
@@ -94,6 +95,98 @@ export async function GET(request: NextRequest) {
     console.error("Get users error:", error);
     return NextResponse.json(
       { error: "Failed to get users" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/manage-x7k9/users - Update user (toggle test account status)
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!(await isAdmin(session))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { userId, isTestAccount } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: "User ID required" }, { status: 400 });
+    }
+
+    await db
+      .update(users)
+      .set({ isTestAccount, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Update user error:", error);
+    return NextResponse.json(
+      { error: "Failed to update user" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/manage-x7k9/users - Delete user and their tenant
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!(await isAdmin(session))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get("userId");
+    const tenantId = searchParams.get("tenantId");
+
+    if (!userId || !tenantId) {
+      return NextResponse.json({ error: "User ID and Tenant ID required" }, { status: 400 });
+    }
+
+    // Delete in order to respect foreign key constraints
+    // Most tables cascade from tenants, but let's be explicit
+    
+    // Delete scheduled emails first
+    await db.delete(scheduledEmails).where(eq(scheduledEmails.tenantId, tenantId));
+    
+    // Delete calendar-related data
+    await db.delete(googleCalendarConnections).where(eq(googleCalendarConnections.tenantId, tenantId));
+    await db.delete(calendarEvents).where(eq(calendarEvents.tenantId, tenantId));
+    
+    // Get planner to delete pages
+    const [planner] = await db.select().from(planners).where(eq(planners.tenantId, tenantId));
+    
+    if (planner) {
+      // Delete RSVP responses and forms
+      const rsvpFormsList = await db.select().from(rsvpForms).where(eq(rsvpForms.tenantId, tenantId));
+      for (const form of rsvpFormsList) {
+        await db.delete(rsvpResponses).where(eq(rsvpResponses.formId, form.id));
+      }
+      await db.delete(rsvpForms).where(eq(rsvpForms.tenantId, tenantId));
+      
+      // Delete pages
+      await db.delete(pages).where(eq(pages.plannerId, planner.id));
+      
+      // Delete planner
+      await db.delete(planners).where(eq(planners.tenantId, tenantId));
+    }
+
+    // Delete user (password reset tokens cascade)
+    await db.delete(users).where(eq(users.id, userId));
+    
+    // Delete tenant
+    await db.delete(tenants).where(eq(tenants.id, tenantId));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete user" },
       { status: 500 }
     );
   }

@@ -53,6 +53,7 @@ export const users = pgTable(
     name: text("name"),
     role: text("role").notNull().default("member"), // "owner" | "member"
     isAdmin: boolean("is_admin").default(false).notNull(), // Site-wide admin
+    isTestAccount: boolean("is_test_account").default(false).notNull(), // Exclude from stats
     mustChangePassword: boolean("must_change_password").default(false).notNull(),
     emailVerified: timestamp("email_verified"),
     // Email preferences
