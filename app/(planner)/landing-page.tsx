@@ -41,7 +41,7 @@ export function LandingPage() {
     setMessages((prev) => [
       ...prev,
       { role: "user", content: name },
-      { role: "assistant", content: `Nice to meet you. I'm ${name} — I'll be here whenever you need me.\n\nWhat's on your mind?` }
+      { role: "assistant", content: `Nice to meet you. I'm ${name}, and I'll be here whenever you need me.\n\nWhat's on your mind?` }
     ]);
     setStage("chatting");
   };
@@ -57,11 +57,12 @@ export function LandingPage() {
     if (stage === "names") {
       setCoupleNames(userMessage);
       setTimeout(() => {
+        const firstName = userMessage.split(/[&,]|and/i)[0]?.trim() || "Hey";
         setMessages((prev) => [
           ...prev,
           { 
             role: "assistant", 
-            content: `${userMessage.split(/[&,]|and/i)[0]?.trim() || "Hey"} — nice to meet you both.\n\nI'll be helping you plan your wedding. What would you like to call me?`
+            content: `${firstName}, nice to meet you both.\n\nI'll be helping you plan your wedding. What would you like to call me?`
           }
         ]);
         setStage("planner-name");
@@ -150,7 +151,7 @@ export function LandingPage() {
           {/* Planner name selection */}
           {stage === "planner-name" && !isTyping && (
             <div className="flex flex-wrap gap-2 justify-start pl-4">
-              {PLANNER_NAMES.map(({ name, vibe }) => (
+              {PLANNER_NAMES.map(({ name }) => (
                 <button
                   key={name}
                   onClick={() => handleSelectPlanner(name)}

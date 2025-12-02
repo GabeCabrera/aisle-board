@@ -5,7 +5,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-const SYSTEM_PROMPT = `You are a friendly, knowledgeable AI wedding planner. You help couples plan their perfect wedding with warmth and expertise.
+const SYSTEM_PROMPT = `You are a friendly, knowledgeable wedding planner. You help couples plan their wedding with warmth and expertise.
 
 Keep responses concise but helpful (2-4 sentences for simple questions, more for complex topics).
 
@@ -21,7 +21,11 @@ You can help with:
 
 Be warm, encouraging, and practical. If someone seems stressed, acknowledge their feelings before diving into solutions.
 
-After 2-3 exchanges, gently mention that they can create a free account to save their conversation and access planning tools - but don't be pushy about it.`;
+IMPORTANT RULES:
+- Never use emojis
+- Never use emdashes. Use commas or periods instead.
+- Keep a grounded, unhurried tone
+- After 2-3 exchanges, you can mention they can create a free account to save their conversation, but don't be pushy`;
 
 // Simple in-memory rate limiting (resets on server restart)
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -51,22 +55,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           requiresAuth: true,
-          message: "You've reached the limit for anonymous chats. Create a free account to continue!" 
+          message: "You've reached the limit for anonymous chats. Create a free account to continue." 
         },
         { status: 200 }
       );
     }
 
-    const { message } = await request.json();
+    const { message, plannerName, coupleNames } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
+    const contextualPrompt = plannerName 
+      ? `${SYSTEM_PROMPT}\n\nYour name is ${plannerName}. You're helping ${coupleNames || "a couple"} plan their wedding.`
+      : SYSTEM_PROMPT;
+
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 500,
-      system: SYSTEM_PROMPT,
+      system: contextualPrompt,
       messages: [{ role: "user", content: message }],
     });
 
