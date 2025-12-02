@@ -3,6 +3,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL = "Aisle <hello@aisleboard.com>";
+const PERSONAL_FROM_EMAIL = "Gabe & Sarah <GabeandSarah@aisleboard.com>";
 const BASE_URL = process.env.NEXTAUTH_URL || "https://aisleboard.com";
 
 export type EmailTemplate = "welcome" | "why_29" | "tips_week_1" | "broadcast";
@@ -419,6 +420,82 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
     return { success: true, id: result.data?.id };
   } catch (error) {
     console.error("Failed to send email:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+// ============================================================================
+// DIRECT EMAIL (Admin use - from GabeandSarah@aisleboard.com)
+// ============================================================================
+
+interface SendDirectEmailOptions {
+  to: string;
+  subject: string;
+  content: string;
+  replyTo?: string;
+}
+
+export async function sendDirectEmail({ to, subject, content, replyTo }: SendDirectEmailOptions) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY not set, skipping email send");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                AISLE
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <div style="font-size: 16px; line-height: 1.7; color: #6b6157;">
+                ${content.split('\n').map(p => p.trim() ? `<p style="margin: 0 0 16px;">${p}</p>` : '').join('')}
+              </div>
+              
+              <p style="margin: 30px 0 0; font-size: 14px; line-height: 1.6; color: #9a8d7f;">
+                — Gabe & Sarah<br>
+                <a href="${BASE_URL}" style="color: #8b7355;">aisleboard.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: PERSONAL_FROM_EMAIL,
+      to,
+      subject,
+      html,
+      replyTo: replyTo || "GabeandSarah@aisleboard.com",
+    });
+
+    return { success: true, id: result.data?.id };
+  } catch (error) {
+    console.error("Failed to send direct email:", error);
     return { success: false, error: String(error) };
   }
 }

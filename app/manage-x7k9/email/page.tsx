@@ -9,6 +9,7 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle,
+  AtSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -30,6 +31,12 @@ export default function EmailManagementPage() {
     failed: number;
     total: number;
   } | null>(null);
+
+  // Direct email state
+  const [directTo, setDirectTo] = useState("");
+  const [directSubject, setDirectSubject] = useState("");
+  const [directContent, setDirectContent] = useState("");
+  const [isSendingDirect, setIsSendingDirect] = useState(false);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -86,6 +93,46 @@ export default function EmailManagementPage() {
       toast.error(err instanceof Error ? err.message : "Failed to send broadcast");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleSendDirect = async () => {
+    if (!directTo.trim() || !directSubject.trim() || !directContent.trim()) {
+      toast.error("Recipient, subject, and content are required");
+      return;
+    }
+
+    if (!confirm(`Send email to ${directTo}?`)) {
+      return;
+    }
+
+    setIsSendingDirect(true);
+
+    try {
+      const response = await fetch("/api/manage-x7k9/email/direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: directTo,
+          subject: directSubject,
+          content: directContent,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send email");
+      }
+
+      toast.success(`Email sent to ${directTo}`);
+      setDirectTo("");
+      setDirectSubject("");
+      setDirectContent("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send email");
+    } finally {
+      setIsSendingDirect(false);
     }
   };
 
@@ -151,6 +198,96 @@ export default function EmailManagementPage() {
         </div>
       </div>
 
+      {/* Direct Email Form */}
+      <div className="bg-white border border-warm-200 rounded-lg mb-8">
+        <div className="p-6 border-b border-warm-100">
+          <h2 className="text-lg font-medium text-warm-800 flex items-center gap-2">
+            <AtSign className="w-5 h-5 text-warm-400" />
+            Direct Email
+          </h2>
+          <p className="text-sm text-warm-500 mt-1">
+            Send from <span className="font-medium text-warm-700">GabeandSarah@aisleboard.com</span> — for business outreach, partnerships, etc.
+          </p>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <div>
+            <label htmlFor="direct-to" className="block text-sm font-medium text-warm-700 mb-1">
+              To
+            </label>
+            <input
+              type="email"
+              id="direct-to"
+              value={directTo}
+              onChange={(e) => setDirectTo(e.target.value)}
+              placeholder="recipient@example.com"
+              className="w-full px-4 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 focus:border-transparent"
+              disabled={isSendingDirect}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="direct-subject" className="block text-sm font-medium text-warm-700 mb-1">
+              Subject Line
+            </label>
+            <input
+              type="text"
+              id="direct-subject"
+              value={directSubject}
+              onChange={(e) => setDirectSubject(e.target.value)}
+              placeholder="e.g., Partnership Opportunity with Aisle"
+              className="w-full px-4 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 focus:border-transparent"
+              disabled={isSendingDirect}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="direct-content" className="block text-sm font-medium text-warm-700 mb-1">
+              Email Content
+            </label>
+            <textarea
+              id="direct-content"
+              value={directContent}
+              onChange={(e) => setDirectContent(e.target.value)}
+              placeholder="Hi [Name],
+
+I'm reaching out because...
+
+Looking forward to connecting!
+
+Best,
+Gabe & Sarah"
+              rows={8}
+              className="w-full px-4 py-3 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 focus:border-transparent font-mono text-sm"
+              disabled={isSendingDirect}
+            />
+            <p className="text-xs text-warm-400 mt-1">
+              Replies will go to GabeandSarah@aisleboard.com
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end pt-4 border-t border-warm-100">
+            <Button
+              onClick={handleSendDirect}
+              disabled={isSendingDirect || !directTo.trim() || !directSubject.trim() || !directContent.trim()}
+              className="bg-warm-600 hover:bg-warm-700"
+            >
+              {isSendingDirect ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Email
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Broadcast Form */}
       <div className="bg-white border border-warm-200 rounded-lg mb-8">
         <div className="p-6 border-b border-warm-100">
@@ -158,6 +295,9 @@ export default function EmailManagementPage() {
             <Send className="w-5 h-5 text-warm-400" />
             Send Broadcast Email
           </h2>
+          <p className="text-sm text-warm-500 mt-1">
+            Send from <span className="font-medium text-warm-700">hello@aisleboard.com</span> — to all subscribers
+          </p>
         </div>
         
         <div className="p-6 space-y-4">
@@ -259,7 +399,7 @@ Keep it personal and helpful!"
           <li>• Use personal language ("you" and "your")</li>
           <li>• Include a clear call-to-action</li>
           <li>• Emails are styled with your brand colors automatically</li>
-          <li>• Unsubscribe link is added automatically to every email</li>
+          <li>• Unsubscribe link is added automatically to broadcast emails</li>
         </ul>
       </div>
     </div>
