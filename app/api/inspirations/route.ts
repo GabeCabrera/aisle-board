@@ -186,12 +186,6 @@ const SEASONAL_IDEAS: SeasonalIdea[] = [
 
 const CURATED_RESOURCES = [
   {
-    title: "The Knot",
-    description: "Comprehensive wedding planning guides and vendor directory",
-    url: "https://www.theknot.com",
-    category: "planning",
-  },
-  {
     title: "Pinterest Wedding Ideas",
     description: "Endless visual inspiration for every wedding style",
     url: "https://www.pinterest.com/search/pins/?q=wedding%20ideas",
