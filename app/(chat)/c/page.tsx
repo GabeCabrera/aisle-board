@@ -244,9 +244,9 @@ export default function ChatPage() {
           {messages.map((msg) => (
             <div key={msg.id}>
               {msg.role === "user" ? (
-                /* User message - bubble style, right aligned */
+                /* User message - soft warm bubble, right aligned */
                 <div className="flex justify-end">
-                  <div className="bg-stone-800 text-white px-4 py-3 rounded-2xl rounded-br-md max-w-[80%]">
+                  <div className="bg-rose-100/80 text-stone-700 px-4 py-3 rounded-2xl rounded-br-md max-w-[80%] border border-rose-200/50">
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ export default function ChatPage() {
           <button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            className="px-5 py-3 bg-stone-800 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-stone-700 transition-colors font-medium"
+            className="px-5 py-3 bg-rose-400 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-500 transition-colors font-medium"
           >
             Send
           </button>
