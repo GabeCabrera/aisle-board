@@ -139,6 +139,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -178,13 +179,18 @@ export default function ChatPage() {
       const response = await fetch("/api/chat/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, conversationId: null }),
+        body: JSON.stringify({ message: userMessage, conversationId }),
       });
 
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.details || data.error || "Request failed");
+      }
+
+      // Store the conversation ID for future messages
+      if (data.conversationId) {
+        setConversationId(data.conversationId);
       }
 
       const assistantMsg: Message = {
