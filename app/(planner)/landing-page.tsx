@@ -4,17 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Send } from "lucide-react";
 
-type ConversationStage = "names" | "planner-name" | "chatting";
-
-const PLANNER_NAMES = [
-  { name: "Margot" },
-  { name: "Jules" },
-  { name: "Wren" },
-  { name: "Ellis" },
-  { name: "Sage" },
-  { name: "Quinn" },
-];
-
 function ScribblyLogo({ className = "w-12 h-12" }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" fill="none" className={className}>
@@ -44,9 +33,8 @@ export function LandingPage() {
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [stage, setStage] = useState<ConversationStage>("names");
   const [coupleNames, setCoupleNames] = useState("");
-  const [selectedPlanner, setSelectedPlanner] = useState<string | null>(null);
+  const [hasIntroduced, setHasIntroduced] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,16 +46,6 @@ export function LandingPage() {
     inputRef.current?.focus();
   }, []);
 
-  const handleSelectPlanner = (name: string) => {
-    setSelectedPlanner(name);
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: name },
-      { role: "assistant", content: `Nice to meet you. I'm ${name}, and I'll be here whenever you need me.\n\nWhat's on your mind?` }
-    ]);
-    setStage("chatting");
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
 
@@ -76,7 +54,7 @@ export function LandingPage() {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
 
-    if (stage === "names") {
+    if (!hasIntroduced) {
       setCoupleNames(userMessage);
       setTimeout(() => {
         const firstName = userMessage.split(/[&,]|and/i)[0]?.trim() || "Hey";
@@ -84,48 +62,45 @@ export function LandingPage() {
           ...prev,
           { 
             role: "assistant", 
-            content: `${firstName}, nice to meet you both.\n\nI'll be helping you plan your wedding. What would you like to call me?`
+            content: `${firstName}, nice to meet you both. I'm Aisle, and I'll be here whenever you need me.\n\nWhat's on your mind?`
           }
         ]);
-        setStage("planner-name");
+        setHasIntroduced(true);
         setIsTyping(false);
       }, 800);
       return;
     }
 
-    if (stage === "chatting") {
-      try {
-        const response = await fetch("/api/concierge/public", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            message: userMessage,
-            plannerName: selectedPlanner,
-            coupleNames 
-          }),
-        });
+    try {
+      const response = await fetch("/api/concierge/public", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          message: userMessage,
+          coupleNames 
+        }),
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (data.requiresAuth) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "I'd love to keep helping. Create a free account to save our conversation and pick up where we left off.",
-            },
-          ]);
-        } else {
-          setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
-        }
-      } catch (error) {
+      if (data.requiresAuth) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "Something went wrong. Try again?" },
+          {
+            role: "assistant",
+            content: "I'd love to keep helping. Create a free account to save our conversation and pick up where we left off.",
+          },
         ]);
-      } finally {
-        setIsTyping(false);
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
       }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Something went wrong. Try again?" },
+      ]);
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -158,14 +133,14 @@ export function LandingPage() {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col max-w-2xl w-full mx-auto px-6">
         {!hasStarted ? (
-          /* Empty State - Claude style */
+          /* Empty State */
           <div className="flex-1 flex flex-col items-center justify-center pb-32">
             <ScribblyLogo className="w-16 h-16 mb-8 text-warm-400" />
             <h1 className="text-2xl text-warm-800 text-center mb-2">
               Hi there. What are your names?
             </h1>
             <p className="text-warm-500 text-center text-sm mb-8">
-              I'm here to help you plan your wedding.
+              I'm Aisle. I'm here to help you plan your wedding.
             </p>
           </div>
         ) : (
@@ -192,24 +167,6 @@ export function LandingPage() {
                 </div>
               </div>
             ))}
-            
-            {/* Planner name selection */}
-            {stage === "planner-name" && !isTyping && (
-              <div className="flex items-start">
-                <div className="w-8 h-8 mr-3 flex-shrink-0" />
-                <div className="flex flex-wrap gap-2">
-                  {PLANNER_NAMES.map(({ name }) => (
-                    <button
-                      key={name}
-                      onClick={() => handleSelectPlanner(name)}
-                      className="px-4 py-2 bg-white border border-warm-200 rounded-full text-sm text-warm-700 hover:border-warm-400 hover:bg-warm-50 transition-colors"
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {isTyping && (
               <div className="flex items-start">
@@ -226,7 +183,7 @@ export function LandingPage() {
             <div ref={messagesEndRef} />
 
             {/* Sign up prompt after chatting for a bit */}
-            {stage === "chatting" && messages.length >= 8 && (
+            {hasIntroduced && messages.length >= 6 && (
               <div className="text-center py-4">
                 <p className="text-sm text-warm-500 mb-3">
                   Save this conversation and access your planning tools
@@ -243,36 +200,34 @@ export function LandingPage() {
         )}
 
         {/* Input */}
-        {stage !== "planner-name" && (
-          <div className="py-4">
-            <div className="flex items-end gap-3">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder={!hasStarted ? "e.g. Sarah & Mike" : "Message..."}
-                  className="w-full resize-none px-4 py-3 bg-white border border-warm-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-warm-300 focus:border-transparent text-sm max-h-32 pr-12"
-                  rows={1}
-                  disabled={isTyping}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isTyping}
-                  className="absolute right-2 bottom-2 h-8 w-8 flex items-center justify-center bg-warm-800 hover:bg-warm-900 disabled:bg-warm-200 text-white rounded-lg transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
+        <div className="py-4">
+          <div className="flex items-end gap-3">
+            <div className="flex-1 relative">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder={!hasStarted ? "e.g. Sarah & Mike" : "Message..."}
+                className="w-full resize-none px-4 py-3 bg-white border border-warm-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-warm-300 focus:border-transparent text-sm max-h-32 pr-12"
+                rows={1}
+                disabled={isTyping}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isTyping}
+                className="absolute right-2 bottom-2 h-8 w-8 flex items-center justify-center bg-warm-800 hover:bg-warm-900 disabled:bg-warm-200 text-white rounded-lg transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </main>
   );

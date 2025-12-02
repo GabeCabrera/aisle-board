@@ -5,7 +5,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-const SYSTEM_PROMPT = `You are a friendly, knowledgeable wedding planner. You help couples plan their wedding with warmth and expertise.
+const SYSTEM_PROMPT = `You are Aisle, an AI wedding planner. You help couples plan their wedding with warmth and expertise.
 
 Keep responses concise but helpful (2-4 sentences for simple questions, more for complex topics).
 
@@ -25,6 +25,7 @@ IMPORTANT RULES:
 - Never use emojis
 - Never use emdashes. Use commas or periods instead.
 - Keep a grounded, unhurried tone
+- Your name is Aisle
 - After 2-3 exchanges, you can mention they can create a free account to save their conversation, but don't be pushy`;
 
 // Simple in-memory rate limiting (resets on server restart)
@@ -61,14 +62,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { message, plannerName, coupleNames } = await request.json();
+    const { message, coupleNames } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
-    const contextualPrompt = plannerName 
-      ? `${SYSTEM_PROMPT}\n\nYour name is ${plannerName}. You're helping ${coupleNames || "a couple"} plan their wedding.`
+    const contextualPrompt = coupleNames 
+      ? `${SYSTEM_PROMPT}\n\nYou're helping ${coupleNames} plan their wedding.`
       : SYSTEM_PROMPT;
 
     const response = await anthropic.messages.create({
