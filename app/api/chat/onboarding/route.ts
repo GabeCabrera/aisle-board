@@ -4,14 +4,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { tenants, conciergeConversations } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 /**
  * Onboarding Chat API
  * π-ID: 3.14159.7
- * 
- * Conversational onboarding that builds the wedding kernel.
- * Stores kernel data in tenant for now (simpler, no migration needed).
  */
 
 const anthropic = new Anthropic({
@@ -116,47 +113,72 @@ function buildKernelContext(kernel: KernelData | null): string {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.tenantId) {
+      console.log("Onboarding: No session or tenantId");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { message, conversationId: inputConversationId } = body;
     const tenantId = session.user.tenantId;
+    console.log("Onboarding: tenantId =", tenantId);
 
-    // Get tenant (we'll store kernel data here for simplicity)
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      console.error("Onboarding: Failed to parse request body:", e);
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+    
+    const { message, conversationId: inputConversationId } = body;
+    console.log("Onboarding: message =", message?.substring(0, 50), "conversationId =", inputConversationId);
+
+    // Get tenant
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.id, tenantId),
     });
 
     if (!tenant) {
+      console.log("Onboarding: Tenant not found");
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     // Get or create conversation
-    let conversation = inputConversationId 
-      ? await db.query.conciergeConversations.findFirst({
-          where: eq(conciergeConversations.id, inputConversationId),
-        })
-      : null;
+    let conversation;
+    
+    if (inputConversationId) {
+      // Try to find existing conversation that belongs to this tenant
+      conversation = await db.query.conciergeConversations.findFirst({
+        where: and(
+          eq(conciergeConversations.id, inputConversationId),
+          eq(conciergeConversations.tenantId, tenantId)
+        ),
+      });
+      console.log("Onboarding: Found existing conversation:", !!conversation);
+    }
 
     if (!conversation) {
+      // Create new conversation
+      console.log("Onboarding: Creating new conversation");
       const [newConversation] = await db.insert(conciergeConversations).values({
         tenantId,
         title: "Getting started",
         messages: [],
       }).returning();
       conversation = newConversation;
+      console.log("Onboarding: Created conversation:", conversation.id);
     }
 
-    // Parse kernel from conversation or initialize
-    // Store kernel in conversation messages metadata for now
+    // Get existing messages
     const existingMessages = Array.isArray(conversation.messages) 
       ? conversation.messages as Message[]
       : [];
+    
+    console.log("Onboarding: Existing messages count:", existingMessages.length);
     
     // Track onboarding step based on conversation length
     const onboardingStep = Math.min(Math.floor(existingMessages.length / 2), 7);
@@ -169,23 +191,19 @@ export async function POST(request: NextRequest) {
       history.push({ role: "user", content: message });
     }
 
-    // Build system prompt with current context
+    // Build system prompt
     const kernelData: KernelData = { onboardingStep };
     const systemPrompt = ONBOARDING_SYSTEM_PROMPT
       .replace("{step}", String(onboardingStep))
       .replace("{kernel}", buildKernelContext(kernelData));
 
-    // If no message and no history, this is first load - generate greeting
+    // If no message and no history, generate greeting
     const isFirstLoad = history.length === 0;
     const messagesToSend = isFirstLoad
       ? [{ role: "user" as const, content: "[User just opened the app for the first time. Greet them warmly and ask who's getting married.]" }]
       : history;
 
-    console.log("Sending to Anthropic:", { 
-      step: onboardingStep, 
-      messageCount: messagesToSend.length,
-      isFirstLoad 
-    });
+    console.log("Onboarding: Calling Anthropic with", messagesToSend.length, "messages");
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -193,6 +211,8 @@ export async function POST(request: NextRequest) {
       system: systemPrompt,
       messages: messagesToSend,
     });
+
+    console.log("Onboarding: Anthropic responded in", Date.now() - startTime, "ms");
 
     const assistantMessage = response.content[0].type === "text" 
       ? response.content[0].text 
@@ -229,7 +249,7 @@ export async function POST(request: NextRequest) {
             .where(eq(tenants.id, tenantId));
         }
       } catch (e) {
-        console.error("Failed to parse extraction:", e);
+        console.error("Onboarding: Failed to parse extraction:", e);
       }
     }
 
@@ -247,7 +267,7 @@ export async function POST(request: NextRequest) {
     // Save conversation with new messages
     const newHistory: Message[] = message 
       ? [...existingMessages, { role: "user", content: message }, { role: "assistant", content: cleanMessage }]
-      : [{ role: "assistant", content: cleanMessage }];
+      : [...existingMessages, { role: "assistant", content: cleanMessage }];
     
     await db.update(conciergeConversations)
       .set({ 
@@ -255,6 +275,8 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       })
       .where(eq(conciergeConversations.id, conversation.id));
+
+    console.log("Onboarding: Saved conversation, total messages:", newHistory.length);
 
     return NextResponse.json({ 
       message: cleanMessage,
@@ -264,8 +286,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Onboarding chat error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("Error details:", { message: errorMessage, stack: errorStack });
+    
     return NextResponse.json(
-      { error: "Failed to get response", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to get response", details: errorMessage },
       { status: 500 }
     );
   }
