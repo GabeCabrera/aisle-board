@@ -550,3 +550,61 @@ export const conciergeConversationsRelations = relations(conciergeConversations,
 
 export type ConciergeConversation = typeof conciergeConversations.$inferSelect;
 export type NewConciergeConversation = typeof conciergeConversations.$inferInsert;
+
+// ============================================================================
+// WEDDING KERNELS - Compressed state for AI context
+// ============================================================================
+export const weddingKernels = pgTable("wedding_kernels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .unique()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  
+  // Identity
+  names: jsonb("names").notNull().default([]), // ["Sarah", "Mike"]
+  
+  // Timeline
+  weddingDate: timestamp("wedding_date", { withTimezone: true }),
+  engagementDate: timestamp("engagement_date", { withTimezone: true }),
+  planningPhase: text("planning_phase").notNull().default("early"), // dreaming, early, mid, final, week_of, post
+  
+  // Scale
+  guestCount: integer("guest_count"),
+  budgetTotal: integer("budget_total"), // in cents
+  budgetSpent: integer("budget_spent").default(0), // in cents
+  
+  // Preferences
+  vibe: jsonb("vibe").notNull().default([]), // ["rustic", "outdoor", "intimate"]
+  priorities: jsonb("priorities").notNull().default([]), // ["photography", "food", "music"]
+  dealbreakers: jsonb("dealbreakers").notNull().default([]), // ["no_buffet", "must_have_band"]
+  
+  // Stress points
+  stressors: jsonb("stressors").notNull().default([]), // ["seating", "family_drama", "budget"]
+  
+  // Decisions made
+  decisions: jsonb("decisions").notNull().default({}), // { venue: { name, locked }, photographer: { name, locked } }
+  
+  // Conversation patterns
+  tone: text("tone").default("excited"), // excited, anxious, overwhelmed, calm, frustrated
+  communicationStyle: text("communication_style").default("practical"), // detailed, brief, emotional, practical
+  
+  // Recent topics for continuity
+  recentTopics: jsonb("recent_topics").notNull().default([]),
+  
+  // Onboarding progress
+  onboardingStep: integer("onboarding_step").notNull().default(0), // 0 = not started, 1-7 = in progress, 8 = complete
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const weddingKernelsRelations = relations(weddingKernels, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [weddingKernels.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type WeddingKernel = typeof weddingKernels.$inferSelect;
+export type NewWeddingKernel = typeof weddingKernels.$inferInsert;
