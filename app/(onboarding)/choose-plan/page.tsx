@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Check, Sparkles, Calendar, Users, Heart, Clock, FileText, DollarSign, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Calendar, Users, Heart, Clock, FileText, DollarSign, ArrowLeft, Tag, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/logo";
-import { PriceDisplay, useDiscount } from "@/components/price-display";
 import { toast } from "sonner";
 import * as redditPixel from "@/lib/reddit-pixel";
 
@@ -41,12 +41,29 @@ const COMPLETE_BENEFITS = [
   "Lifetime access — no subscriptions",
 ];
 
+interface PromoCodeResult {
+  originalPrice: number;
+  finalPrice: number;
+  discountApplied: boolean;
+  discountAmount: number;
+  discountDescription?: string;
+  isFree?: boolean;
+  upgraded?: boolean;
+  message?: string;
+  error?: string;
+  promoCodeId?: string;
+}
+
 function ChoosePlanContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [selectedPlan, setSelectedPlan] = useState<"free" | "complete" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { finalPrice, hasDiscount } = useDiscount();
+  
+  // Promo code state
+  const [promoCode, setPromoCode] = useState("");
+  const [promoResult, setPromoResult] = useState<PromoCodeResult | null>(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
 
   // Show loading while session is being fetched
   if (status === "loading") {
@@ -63,6 +80,56 @@ function ChoosePlanContent() {
 
   const handleSelectComplete = () => {
     setSelectedPlan("complete");
+  };
+
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) {
+      toast.error("Please enter a promo code");
+      return;
+    }
+
+    setIsCheckingPromo(true);
+    try {
+      const response = await fetch("/api/stripe/check-discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          promoCode: promoCode.trim(),
+          userEmail: session?.user?.email,
+          applyCode: false, // Just checking, not applying yet
+        }),
+      });
+
+      const data: PromoCodeResult = await response.json();
+
+      if (data.error) {
+        toast.error(data.error);
+        setPromoResult(null);
+        return;
+      }
+
+      if (data.discountApplied) {
+        setPromoResult(data);
+        if (data.isFree) {
+          toast.success("🎉 Free membership code applied!");
+        } else {
+          toast.success(`${data.discountDescription} applied!`);
+        }
+      } else {
+        toast.error("Invalid promo code");
+        setPromoResult(null);
+      }
+    } catch (error) {
+      toast.error("Failed to check promo code");
+      setPromoResult(null);
+    } finally {
+      setIsCheckingPromo(false);
+    }
+  };
+
+  const handleClearPromoCode = () => {
+    setPromoCode("");
+    setPromoResult(null);
   };
 
   const handleContinueWithFree = async () => {
@@ -97,10 +164,45 @@ function ChoosePlanContent() {
   const handlePurchaseComplete = async () => {
     setIsLoading(true);
     try {
+      // If it's a FREE promo code, apply it directly
+      if (promoResult?.isFree) {
+        const response = await fetch("/api/stripe/check-discount", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            promoCode: promoCode.trim(),
+            userEmail: session?.user?.email,
+            applyCode: true, // Actually apply the code
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.upgraded) {
+          // Mark onboarding complete
+          await fetch("/api/settings/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ onboardingComplete: true }),
+          });
+
+          toast.success("🎉 " + data.message);
+          redditPixel.trackPurchase(0);
+          router.push("/welcome");
+          return;
+        } else {
+          throw new Error("Failed to apply free membership");
+        }
+      }
+
+      // Otherwise, go to Stripe checkout
       const response = await fetch("/api/stripe/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: session?.user?.email }),
+        body: JSON.stringify({ 
+          email: session?.user?.email,
+          promoCode: promoCode.trim() || undefined,
+        }),
       });
 
       const data = await response.json();
@@ -115,6 +217,12 @@ function ChoosePlanContent() {
       setIsLoading(false);
     }
   };
+
+  // Calculate display price
+  const originalPrice = 29;
+  const finalPrice = promoResult?.discountApplied 
+    ? promoResult.finalPrice / 100 
+    : originalPrice;
 
   return (
     <main className="min-h-screen py-16 px-8 relative">
@@ -146,7 +254,7 @@ function ChoosePlanContent() {
         </div>
 
         {/* Plan Cards */}
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
+        <div className="grid md:grid-cols-2 gap-8 mb-8">
           {/* Free Plan */}
           <div
             onClick={handleSelectFree}
@@ -218,7 +326,39 @@ function ChoosePlanContent() {
               <h2 className="text-xl font-serif tracking-wider uppercase mb-2">
                 Complete
               </h2>
-              <PriceDisplay />
+              
+              {/* Price display with promo */}
+              {promoResult?.discountApplied ? (
+                <div>
+                  {promoResult.isFree ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                        <Gift className="w-3 h-3" />
+                        FREE
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                        <Tag className="w-3 h-3" />
+                        {promoResult.discountDescription}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-3xl font-light text-green-600">
+                      {promoResult.isFree ? "Free" : `$${finalPrice.toFixed(0)}`}
+                    </p>
+                    <p className="text-lg text-warm-400 line-through">$29</p>
+                    {!promoResult.isFree && <span className="text-warm-500 text-sm">one-time</span>}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-light text-warm-700">$29</p>
+                  <span className="text-warm-500 text-sm">one-time</span>
+                </div>
+              )}
             </div>
 
             <p className="text-warm-600 mb-6">
@@ -250,6 +390,50 @@ function ChoosePlanContent() {
           </div>
         </div>
 
+        {/* Promo Code Input */}
+        <div className="max-w-md mx-auto mb-8">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-400" />
+              <Input
+                type="text"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                placeholder="Have a promo code?"
+                className="pl-10 uppercase"
+                disabled={isCheckingPromo || !!promoResult}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !promoResult) {
+                    handleApplyPromoCode();
+                  }
+                }}
+              />
+            </div>
+            {promoResult ? (
+              <Button
+                variant="outline"
+                onClick={handleClearPromoCode}
+                className="text-warm-500"
+              >
+                Clear
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handleApplyPromoCode}
+                disabled={isCheckingPromo || !promoCode.trim()}
+              >
+                {isCheckingPromo ? "Checking..." : "Apply"}
+              </Button>
+            )}
+          </div>
+          {promoResult?.discountApplied && (
+            <p className="text-sm text-green-600 mt-2 text-center">
+              ✓ {promoResult.isFree ? "Free membership code applied!" : `${promoResult.discountDescription} applied!`}
+            </p>
+          )}
+        </div>
+
         {/* Action Buttons */}
         {selectedPlan && (
           <div className="text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -270,14 +454,21 @@ function ChoosePlanContent() {
                 disabled={isLoading}
                 className="px-12 bg-warm-600 hover:bg-warm-700 text-white"
               >
-                {isLoading ? "Loading..." : `Get Complete Access — ${finalPrice.toFixed(0)}`}
+                {isLoading 
+                  ? "Loading..." 
+                  : promoResult?.isFree 
+                    ? "Claim Free Access"
+                    : `Get Complete Access — $${finalPrice.toFixed(0)}`
+                }
               </Button>
             )}
 
             <p className="mt-4 text-sm text-warm-500">
               {selectedPlan === "free" 
                 ? "You can upgrade anytime" 
-                : "Secure checkout powered by Stripe"
+                : promoResult?.isFree
+                  ? "No payment required"
+                  : "Secure checkout powered by Stripe"
               }
             </p>
           </div>
