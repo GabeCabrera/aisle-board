@@ -131,7 +131,7 @@ export function HomeClient({ displayName, plannerName, hasStartedPlanning }: Hom
               <h1 className="text-3xl md:text-4xl font-serif font-light text-warm-800 mb-3">
                 Hey, {firstName}
               </h1>
-              {stats?.daysUntil !== null && stats?.daysUntil > 0 ? (
+              {stats?.daysUntil && stats.daysUntil > 0 ? (
                 <p className="text-lg text-warm-500">
                   {stats.daysUntil} days until your wedding
                 </p>
