@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 
 interface Message {
   id: string;
@@ -135,7 +134,6 @@ function ThinkingIndicator() {
 
 export default function ChatPage() {
   const { status } = useSession();
-  const router = useRouter();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -147,7 +145,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -155,14 +153,14 @@ export default function ChatPage() {
     }
   }, [isLoading]);
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
-  }, [status, router]);
-
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
+
+    // If not logged in, sign in first
+    if (status === "unauthenticated") {
+      signIn("google");
+      return;
+    }
 
     const userMessage = input.trim();
     setInput("");
@@ -212,64 +210,71 @@ export default function ChatPage() {
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas">
-        <ThinkingLogo size={48} />
+        <ThinkingLogo size={64} />
       </div>
     );
   }
 
+  const hasMessages = messages.length > 0;
+
   return (
     <div className="min-h-screen flex flex-col bg-canvas">
-      {/* Header */}
-      <header className="border-b border-stone-200 bg-white/80 backdrop-blur-sm p-4">
-        <div className="flex items-center gap-2.5 max-w-3xl mx-auto">
-          <SketchyLogo size={36} />
-          <span className="font-serif tracking-[0.15em] uppercase text-stone-600 text-lg">
-            Aisle
-          </span>
-        </div>
-      </header>
-
-      {/* Messages */}
+      {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {messages.length === 0 && (
-            <div className="text-center mt-16">
-              <SketchyLogo size={48} className="mx-auto mb-4" />
-              <p className="text-stone-500">
-                Send a message to start planning your wedding
+        <div className="max-w-3xl mx-auto">
+          {/* Empty state - big logo centered */}
+          {!hasMessages && !isLoading && (
+            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+              <SketchyLogo size={80} className="mb-6" />
+              <h1 className="font-serif tracking-[0.2em] uppercase text-stone-600 text-2xl mb-2">
+                Aisle
+              </h1>
+              <p className="text-stone-500 text-center max-w-md">
+                Your calm wedding planner. Tell me about your big day.
               </p>
             </div>
           )}
           
-          {messages.map((msg) => (
-            <div key={msg.id}>
-              {msg.role === "user" ? (
-                /* User message - soft warm bubble, right aligned */
-                <div className="flex justify-end">
-                  <div className="bg-rose-100/80 text-stone-700 px-4 py-3 rounded-2xl rounded-br-md max-w-[80%] border border-rose-200/50">
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
+          {/* Messages */}
+          {hasMessages && (
+            <div className="space-y-6 pt-8">
+              {messages.map((msg) => (
+                <div key={msg.id}>
+                  {msg.role === "user" ? (
+                    /* User message - soft warm bubble, right aligned */
+                    <div className="flex justify-end">
+                      <div className="bg-rose-100/80 text-stone-700 px-4 py-3 rounded-2xl rounded-br-md max-w-[80%] border border-rose-200/50">
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Assistant message - flush with background, logo outside */
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-1">
+                        <SketchyLogo size={24} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-stone-800 whitespace-pre-wrap leading-relaxed">
+                          {msg.content}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                /* Assistant message - flush with background, logo outside */
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1">
-                    <SketchyLogo size={24} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-stone-800 whitespace-pre-wrap leading-relaxed">
-                      {msg.content}
-                    </p>
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
           
-          {isLoading && <ThinkingIndicator />}
+          {/* Thinking indicator - below messages */}
+          {isLoading && (
+            <div className={hasMessages ? "mt-6" : "mt-8"}>
+              <ThinkingIndicator />
+            </div>
+          )}
           
+          {/* Error */}
           {error && (
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 mt-6">
               <div className="flex-shrink-0 mt-1">
                 <SketchyLogo size={24} />
               </div>
@@ -283,7 +288,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input */}
+      {/* Input - always at bottom */}
       <div className="border-t border-stone-200 bg-white/80 backdrop-blur-sm p-4">
         <div className="flex gap-3 max-w-3xl mx-auto">
           <textarea
@@ -291,8 +296,8 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Tell me about your wedding..."
-            className="flex-1 border border-stone-300 rounded-2xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-stone-400 focus:border-transparent bg-white"
+            placeholder={status === "unauthenticated" ? "Sign in to start planning..." : "Tell me about your wedding..."}
+            className="flex-1 border border-stone-300 rounded-2xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent bg-white"
             rows={1}
             disabled={isLoading}
           />
@@ -301,7 +306,7 @@ export default function ChatPage() {
             disabled={isLoading || !input.trim()}
             className="px-5 py-3 bg-rose-400 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-500 transition-colors font-medium"
           >
-            Send
+            {status === "unauthenticated" ? "Sign in" : "Send"}
           </button>
         </div>
       </div>
