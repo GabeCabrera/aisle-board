@@ -203,6 +203,8 @@ export default function ChatPage() {
       // Use onboarding API if still onboarding, otherwise regular chat
       const endpoint = isOnboarding ? "/api/chat/onboarding" : "/api/chat";
       
+      console.log("Sending to", endpoint, { message: userMessage, conversationId });
+      
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -213,6 +215,15 @@ export default function ChatPage() {
       });
 
       const data = await response.json();
+      console.log("Response:", response.status, data);
+      
+      if (!response.ok) {
+        throw new Error(data.error || data.details || "Request failed");
+      }
+      
+      if (!data.message) {
+        throw new Error("No message in response");
+      }
       
       setMessages(prev => [...prev, { 
         id: Date.now().toString(), 
@@ -233,11 +244,12 @@ export default function ChatPage() {
         setIsOnboarding(false);
         setSidebarOpen(true);
       }
-    } catch {
+    } catch (error) {
+      console.error("Chat error:", error);
       setMessages(prev => [...prev, { 
         id: Date.now().toString(), 
         role: "assistant", 
-        content: "Something went wrong. Try again?" 
+        content: `Something went wrong: ${error instanceof Error ? error.message : "Unknown error"}` 
       }]);
     } finally {
       setIsTyping(false);
