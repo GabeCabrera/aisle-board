@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { Logo, LogoIcon } from "@/components/logo";
 
 interface Message {
   id: string;
@@ -19,37 +20,60 @@ const thinkingMessages = [
   "Almost ready...",
 ];
 
-// Wiggly Logo Component
-function WigglyLogo({ size = 40 }: { size?: number }) {
+// Claude-style low FPS thinking logo - jittery/hand-drawn feel
+function ThinkingLogo({ size = 32 }: { size?: number }) {
+  const [frame, setFrame] = useState(0);
+  
+  // Low FPS animation - updates every 150ms for that choppy feel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFrame(f => (f + 1) % 4);
+    }, 150);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Subtle transforms for each frame - mimics hand-drawn wiggle
+  const transforms = [
+    { rotate: -2, scale: 1, x: 0, y: 0 },
+    { rotate: 1, scale: 1.02, x: 1, y: -1 },
+    { rotate: -1, scale: 0.98, x: -1, y: 0 },
+    { rotate: 2, scale: 1.01, x: 0, y: 1 },
+  ];
+
+  const t = transforms[frame];
+
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      className="animate-wiggle"
+    <div 
+      className="inline-block"
+      style={{
+        transform: `rotate(${t.rotate}deg) scale(${t.scale}) translate(${t.x}px, ${t.y}px)`,
+        width: size,
+        height: size,
+      }}
     >
-      {/* Wobbly arch/aisle shape */}
-      <path
-        d="M 20 80 
-           Q 22 30, 50 25 
-           Q 78 30, 80 80"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="6"
-        strokeLinecap="round"
-        className="text-rose-400"
-      />
-      {/* Little heart at the top */}
-      <path
-        d="M 50 20 
-           C 45 15, 38 18, 40 25 
-           Q 42 30, 50 35 
-           Q 58 30, 60 25 
-           C 62 18, 55 15, 50 20"
-        fill="currentColor"
-        className="text-rose-300 animate-pulse"
-      />
-    </svg>
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <circle 
+          cx="14" 
+          cy="22" 
+          r="10" 
+          stroke="#78716c"
+          strokeWidth="2.5"
+          fill="none"
+        />
+        <circle 
+          cx="26" 
+          cy="22" 
+          r="10" 
+          stroke="#78716c"
+          strokeWidth="2.5"
+          fill="none"
+        />
+        <path 
+          d="M20 8 C18.5 6, 16 7, 16 9.5 C16 12, 20 15, 20 15 C20 15, 24 12, 24 9.5 C24 7, 21.5 6, 20 8Z" 
+          fill="#a8a29e"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -65,20 +89,15 @@ function ThinkingIndicator() {
   }, []);
 
   return (
-    <div className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-br from-rose-50 to-amber-50 border border-rose-100 max-w-[85%]">
-      <div className="flex-shrink-0 mt-1">
-        <WigglyLogo size={36} />
+    <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-stone-200 max-w-[85%]">
+      <div className="flex-shrink-0 mt-0.5">
+        <ThinkingLogo size={28} />
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-rose-600">Aisle</p>
-        <p className="text-gray-600 text-sm animate-fade-in-out">
+        <p className="text-sm font-medium text-stone-600">Aisle</p>
+        <p className="text-stone-500 text-sm">
           {thinkingMessages[messageIndex]}
         </p>
-        <div className="flex gap-1 mt-1">
-          <span className="w-2 h-2 bg-rose-300 rounded-full animate-bounce-dot" style={{ animationDelay: "0ms" }} />
-          <span className="w-2 h-2 bg-rose-300 rounded-full animate-bounce-dot" style={{ animationDelay: "150ms" }} />
-          <span className="w-2 h-2 bg-rose-300 rounded-full animate-bounce-dot" style={{ animationDelay: "300ms" }} />
-        </div>
       </div>
     </div>
   );
@@ -167,27 +186,26 @@ export default function ChatPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-amber-50">
-        <WigglyLogo size={60} />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <ThinkingLogo size={48} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-stone-50 to-rose-50/30">
+    <div className="min-h-screen flex flex-col bg-canvas">
       {/* Header */}
-      <header className="border-b border-rose-100 bg-white/80 backdrop-blur-sm p-4 flex items-center gap-3">
-        <WigglyLogo size={32} />
-        <h1 className="text-xl font-semibold text-stone-800">Aisle</h1>
+      <header className="border-b border-stone-200 bg-white/80 backdrop-blur-sm p-4">
+        <Logo size="md" href="/" />
       </header>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center mt-12">
-            <WigglyLogo size={80} />
-            <p className="text-stone-500 mt-4">
-              Send a message to start planning your wedding ✨
+          <div className="text-center mt-16">
+            <LogoIcon size="lg" className="mx-auto mb-4" />
+            <p className="text-stone-500">
+              Send a message to start planning your wedding
             </p>
           </div>
         )}
@@ -198,11 +216,11 @@ export default function ChatPage() {
             className={`p-4 rounded-2xl max-w-[85%] ${
               msg.role === "user"
                 ? "bg-stone-800 text-white ml-auto"
-                : "bg-white border border-rose-100 shadow-sm"
+                : "bg-white border border-stone-200"
             }`}
           >
             <p className={`text-sm font-medium mb-1 ${
-              msg.role === "user" ? "text-stone-300" : "text-rose-600"
+              msg.role === "user" ? "text-stone-400" : "text-stone-600"
             }`}>
               {msg.role === "user" ? "You" : "Aisle"}
             </p>
@@ -223,7 +241,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-rose-100 bg-white/80 backdrop-blur-sm p-4">
+      <div className="border-t border-stone-200 bg-white/80 backdrop-blur-sm p-4">
         <div className="flex gap-3 max-w-3xl mx-auto">
           <textarea
             ref={inputRef}
@@ -231,14 +249,14 @@ export default function ChatPage() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Tell me about your wedding..."
-            className="flex-1 border border-rose-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent bg-white"
+            className="flex-1 border border-stone-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-stone-300 focus:border-transparent bg-white"
             rows={1}
             disabled={isLoading}
           />
           <button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            className="px-5 py-2 bg-rose-500 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-600 transition-colors font-medium"
+            className="px-5 py-2 bg-stone-800 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-stone-700 transition-colors font-medium"
           >
             Send
           </button>
