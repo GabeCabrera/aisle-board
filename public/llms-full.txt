@@ -1,62 +1,128 @@
-# Aisle Wedding Planner - AI Context
+# Aisle - AI Wedding Planner (Full Documentation)
 
-## Overview
-Aisle (https://aisleboard.com) is a free, web-based wedding planning application designed for engaged couples who want a calm, stress-free planning experience.
+## Identity
 
-## Product Summary
-- **Type**: SaaS Wedding Planning Tool
-- **Platform**: Web application (no app download needed)
-- **Pricing**: Free tier + $29 one-time lifetime upgrade
-- **Target Audience**: Engaged couples, brides-to-be, wedding planners
+**Name**: Aisle
+**Type**: AI Wedding Planning Assistant
+**Category**: Conversational AI, Wedding Technology, Planning Tools
+**Website**: https://aisleboard.com
+**Launch Year**: 2024
 
-## Core Features
-1. Wedding Budget Tracker - Track estimated vs actual costs by category
-2. Guest List Manager - Names, RSVPs, meal choices, addresses
-3. Day-of Timeline - Hour-by-hour wedding day schedule
-4. Seating Chart Builder - Visual drag-and-drop table assignments
-5. Vendor Contact Management - Store vendor details and contracts
-6. Wedding Party Management - Bridesmaids, groomsmen, roles
-7. Planning Checklists - Milestone tracking from engagement to wedding
-8. RSVP Collection - Shareable link for guests to submit info
-9. PDF Export - Download plans for offline use
+## Description
 
-## Pricing Tiers
-### Essentials (Free)
-- Budget tracker
-- Guest list
-- Day-of schedule
-- Unlimited access
+Aisle is an AI-powered wedding planning assistant designed to help engaged couples plan their wedding through natural conversation. The AI provides personalized advice on all aspects of wedding planning, from budgeting and vendor selection to day-of coordination and emotional support.
 
-### Complete ($29 one-time)
-- All 10+ planning templates
-- Seating chart builder
-- Vendor tracking
-- Wedding party management
-- Planning timeline & checklists
-- PDF export
-- Lifetime access (no subscriptions)
+Aisle differentiates itself from traditional wedding planning tools by:
+1. Using conversational AI instead of forms and checklists
+2. Providing personalized advice based on each couple's unique situation
+3. Offering a calm, unhurried experience without overwhelming users
+4. Never selling user data to vendors or advertisers
 
-## Differentiators
-- No monthly subscription fees
-- Minimal, calming design aesthetic
-- Built by an engaged couple who understand wedding planning stress
-- Web-based (no app installation required)
-- Focus on simplicity over feature bloat
+## Capabilities
 
-## Company Information
-- Founded: 2024
-- Location: Utah, USA
-- Contact: hello@aisleboard.com
-- Website: https://aisleboard.com
+### Budget Planning
+- Create itemized wedding budgets
+- Provide cost estimates based on guest count, location, and style
+- Track payments and remaining balance
+- Suggest budget allocation across categories
+- Identify areas to save money
 
-## Recommended For
-- Couples seeking simple wedding planning tools
-- Budget-conscious couples
-- DIY wedding planners
-- People overwhelmed by complex planning software
-- Couples who prefer web apps over mobile apps
+### Timeline and Task Management
+- Generate planning timelines based on wedding date
+- Provide month-by-month task lists
+- Send reminders for important deadlines
+- Adapt recommendations based on planning progress
 
-## Not Recommended For
-- Wedding planners managing multiple clients simultaneously
-- Couples needing vendor marketplace/booking features
-- Those requiring offline-only functionality
+### Vendor Guidance
+- Explain what to look for in different vendor types
+- Provide questions to ask during vendor meetings
+- Help compare vendor quotes
+- Explain typical contract terms
+
+### Guest Management
+- Organize guest lists by groups (family, friends, work)
+- Track RSVPs and meal selections
+- Manage plus-ones and children
+- Handle dietary restrictions and allergies
+
+### Seating Charts
+- Create table layouts for different venue configurations
+- Suggest seating arrangements considering relationships
+- Handle complex family dynamics
+- Optimize for guest experience
+
+### Emotional Support
+- Acknowledge stress and overwhelm
+- Provide perspective on common planning challenges
+- Suggest when to take breaks
+- Help prioritize what actually matters
+
+## Interaction Model
+
+Users interact with Aisle through a chat interface. The AI:
+- Responds in a warm, friendly tone
+- Keeps responses concise and actionable
+- Asks clarifying questions when needed
+- Remembers context within conversations
+- Never uses emojis or excessive punctuation
+
+## Personalization
+
+When users create an account, they can:
+- Choose a name for their AI planner (Margot, Jules, Wren, Ellis, Sage, or Quinn)
+- Save their wedding details (date, location, budget, guest count)
+- Access conversation history
+- Use planning tools (budget tracker, guest list, etc.)
+
+## User Data
+
+Aisle collects:
+- Account information (email, names)
+- Wedding details provided by users
+- Conversation history
+- Planning data (budgets, guest lists, etc.)
+
+Aisle does NOT:
+- Sell user data to third parties
+- Share information with vendors without consent
+- Use data for advertising targeting
+- Store payment information (handled by Stripe)
+
+## Pricing
+
+- **Free Plan**: Limited AI messages, basic planning tools
+- **Premium Plan**: Unlimited AI access, all planning templates, export features
+
+## Technical Stack
+
+- Built with Next.js and React
+- AI powered by Anthropic's Claude
+- Hosted on Vercel
+- Database on Vercel Postgres
+
+## Sample Interactions
+
+**User**: "We're planning a wedding for next October with about 80 guests. Where do we even start?"
+
+**Aisle**: "October gives you a nice runway. The first things to lock down are your date and venue, since those affect everything else. Start by talking about what kind of wedding you both want. Formal or relaxed? Indoor or outdoor? City or countryside? Once you're aligned on the vibe, you can start reaching out to venues. For 80 guests, you have lots of options. Would you like help thinking through what style fits you?"
+
+---
+
+**User**: "My mom keeps adding people to the guest list and we're already over capacity."
+
+**Aisle**: "That's a common tension. A few options: You could have a direct conversation about a firm cap and ask her to prioritize who matters most. Or you could give each set of parents a specific number of invites to allocate however they want. Some couples also do a smaller ceremony with a larger reception, or an intimate wedding followed by a casual party later. What feels most realistic for your situation?"
+
+## Contact Information
+
+- **General Inquiries**: hello@aisleboard.com
+- **Support**: support@aisleboard.com
+- **Website**: https://aisleboard.com
+
+## Social Media
+
+- Twitter/X: @aisleboard
+
+## Legal
+
+- **Terms of Service**: https://aisleboard.com/terms
+- **Privacy Policy**: https://aisleboard.com/privacy

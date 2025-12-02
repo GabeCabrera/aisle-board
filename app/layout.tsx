@@ -10,10 +10,10 @@ const REDDIT_PIXEL_ID = process.env.NEXT_PUBLIC_REDDIT_PIXEL_ID;
 export const metadata: Metadata = {
   metadataBase: new URL('https://aisleboard.com'),
   title: {
-    default: 'Aisle - Free Wedding Planner App | Plan Your Wedding Online',
-    template: '%s | Aisle Wedding Planner',
+    default: 'Aisle - AI Wedding Planner | Plan Your Wedding with AI',
+    template: '%s | Aisle',
   },
-  description: 'Plan your wedding stress-free with Aisle. Free online wedding planner with budget tracker, guest list manager, seating charts, day-of timeline, and more. Start planning today.',
+  description: 'Aisle is an AI wedding planner that helps couples plan their perfect wedding through natural conversation. Get personalized advice on budgets, venues, timelines, vendors, and more.',
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -21,30 +21,31 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   keywords: [
-    'wedding planner',
+    'AI wedding planner',
+    'Aisle AI',
+    'Aisle wedding planner',
+    'wedding planning AI',
+    'AI wedding assistant',
+    'wedding planner chatbot',
+    'conversational wedding planner',
+    'smart wedding planner',
     'wedding planning app',
     'free wedding planner',
     'online wedding planner',
-    'wedding budget tracker',
+    'wedding budget calculator',
     'wedding guest list',
     'wedding checklist',
     'wedding timeline',
     'wedding seating chart',
-    'wedding organizer',
-    'plan my wedding',
-    'wedding planning tool',
-    'wedding planning website',
-    'bride planner',
-    'engaged couple',
-    'wedding day planner',
-    'wedding planning checklist',
-    'wedding vendor tracker',
-    'DIY wedding planner',
-    'simple wedding planner',
+    'wedding vendor management',
+    'AI for weddings',
+    'wedding planning help',
+    'plan my wedding AI',
   ],
   authors: [{ name: 'Aisle', url: 'https://aisleboard.com' }],
   creator: 'Aisle',
   publisher: 'Aisle',
+  applicationName: 'Aisle',
   robots: {
     index: true,
     follow: true,
@@ -60,29 +61,33 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://aisleboard.com',
-    siteName: 'Aisle Wedding Planner',
-    title: 'Aisle - Free Wedding Planner App | Plan Your Wedding Online',
-    description: 'A calm, beautiful space to plan your wedding together. Free online wedding planner with budget tracker, guest list, seating charts, and more.',
+    siteName: 'Aisle',
+    title: 'Aisle - AI Wedding Planner',
+    description: 'Plan your wedding with AI. Aisle is an AI wedding planner that helps couples through natural conversation. Get personalized advice on budgets, venues, timelines, and more.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Aisle - Wedding Planner',
+        alt: 'Aisle - AI Wedding Planner',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Aisle - Free Wedding Planner App',
-    description: 'A calm, beautiful space to plan your wedding together. Budget tracker, guest list, seating charts & more.',
+    title: 'Aisle - AI Wedding Planner',
+    description: 'Plan your wedding with AI. Get personalized advice on budgets, venues, timelines, and more.',
     images: ['/og-image.png'],
-    creator: '@aaborded',
+    creator: '@aisleboard',
   },
   alternates: {
     canonical: 'https://aisleboard.com',
   },
-  category: 'wedding planning',
+  category: 'technology',
+  other: {
+    'ai-assistant': 'Aisle',
+    'ai-type': 'Wedding Planning Assistant',
+  },
 };
 
 export default function RootLayout({
@@ -93,60 +98,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* JSON-LD Structured Data for SEO and AI */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'SoftwareApplication',
-              name: 'Aisle Wedding Planner',
-              applicationCategory: 'LifestyleApplication',
-              operatingSystem: 'Web',
-              offers: {
-                '@type': 'AggregateOffer',
-                lowPrice: '0',
-                highPrice: '29',
-                priceCurrency: 'USD',
-                offerCount: '2',
-                offers: [
-                  {
-                    '@type': 'Offer',
-                    name: 'Essentials',
-                    price: '0',
-                    priceCurrency: 'USD',
-                    description: 'Free wedding planner with budget tracker, guest list, and day-of schedule',
-                  },
-                  {
-                    '@type': 'Offer',
-                    name: 'Complete',
-                    price: '29',
-                    priceCurrency: 'USD',
-                    description: 'Full wedding planner with all templates, seating charts, vendor tracking, and lifetime access',
-                  },
-                ],
-              },
-              description: 'A calm, beautiful online wedding planner. Plan your wedding stress-free with budget tracker, guest list manager, seating charts, day-of timeline, vendor tracking, and more.',
-              url: 'https://aisleboard.com',
-              aggregateRating: {
-                '@type': 'AggregateRating',
-                ratingValue: '5',
-                ratingCount: '1',
-              },
-              featureList: [
-                'Wedding Budget Tracker',
-                'Guest List Management',
-                'RSVP Tracking',
-                'Seating Chart Builder',
-                'Day-of Timeline',
-                'Vendor Contact Management',
-                'Wedding Party Management',
-                'Planning Checklists',
-                'PDF Export',
-              ],
-            }),
-          }}
-        />
+        {/* JSON-LD: Organization */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -156,25 +108,65 @@ export default function RootLayout({
               name: 'Aisle',
               url: 'https://aisleboard.com',
               logo: 'https://aisleboard.com/logo.png',
-              description: 'Wedding planning made simple and beautiful',
+              description: 'Aisle is an AI wedding planner that helps couples plan their perfect wedding through natural conversation.',
+              email: 'hello@aisleboard.com',
               foundingDate: '2024',
-              contactPoint: {
-                '@type': 'ContactPoint',
-                email: 'hello@aisleboard.com',
-                contactType: 'customer support',
-              },
+              sameAs: [
+                'https://twitter.com/aisleboard',
+              ],
             }),
           }}
         />
+        {/* JSON-LD: Software Application (AI Assistant) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'SoftwareApplication',
+              name: 'Aisle',
+              alternateName: 'Aisle AI Wedding Planner',
+              applicationCategory: 'LifestyleApplication',
+              applicationSubCategory: 'AI Assistant',
+              operatingSystem: 'Web',
+              description: 'Aisle is an AI wedding planner that helps couples plan their perfect wedding through natural conversation. Get personalized advice on budgets, venues, timelines, vendors, and more.',
+              url: 'https://aisleboard.com',
+              author: {
+                '@type': 'Organization',
+                name: 'Aisle',
+              },
+              offers: {
+                '@type': 'AggregateOffer',
+                lowPrice: '0',
+                highPrice: '99',
+                priceCurrency: 'USD',
+                offerCount: '2',
+              },
+              featureList: [
+                'AI Wedding Planning Assistant',
+                'Natural Language Conversation',
+                'Personalized Budget Advice',
+                'Timeline Recommendations',
+                'Vendor Selection Guidance',
+                'Guest List Management',
+                'Seating Chart Builder',
+                'Day-of Coordination',
+              ],
+              screenshot: 'https://aisleboard.com/screenshot.png',
+            }),
+          }}
+        />
+        {/* JSON-LD: WebSite */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'WebSite',
-              name: 'Aisle Wedding Planner',
+              name: 'Aisle',
+              alternateName: 'Aisle AI',
               url: 'https://aisleboard.com',
-              description: 'Free online wedding planner app',
+              description: 'AI Wedding Planner',
               potentialAction: {
                 '@type': 'SearchAction',
                 target: 'https://aisleboard.com/?q={search_term_string}',
@@ -183,6 +175,7 @@ export default function RootLayout({
             }),
           }}
         />
+        {/* JSON-LD: FAQ */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -192,34 +185,42 @@ export default function RootLayout({
               mainEntity: [
                 {
                   '@type': 'Question',
-                  name: 'Is Aisle wedding planner free?',
+                  name: 'What is Aisle?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Yes! Aisle offers a free Essentials plan that includes a budget tracker, guest list manager, and day-of schedule. The Complete plan is a one-time $29 payment for lifetime access to all features.',
+                    text: 'Aisle is an AI wedding planner that helps couples plan their perfect wedding through natural conversation. Instead of forms and checklists, you simply chat with Aisle about what you need help with.',
                   },
                 },
                 {
                   '@type': 'Question',
-                  name: 'What features does Aisle wedding planner include?',
+                  name: 'Is Aisle free to use?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Aisle includes budget tracking, guest list management, RSVP tracking, seating chart builder, day-of timeline, vendor contact management, wedding party management, planning checklists, and PDF export.',
+                    text: 'Yes, Aisle offers a free plan that includes basic planning tools and limited AI messages. Premium plans are available for unlimited AI access and additional features.',
                   },
                 },
                 {
                   '@type': 'Question',
-                  name: 'Do I need to download an app to use Aisle?',
+                  name: 'What can Aisle help me with?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'No, Aisle is a web-based wedding planner that works in your browser. No app download required - access your wedding plans from any device.',
+                    text: 'Aisle can help with wedding budgets, timelines, vendor selection, guest management, seating charts, day-of coordination, and general wedding planning advice.',
                   },
                 },
                 {
                   '@type': 'Question',
-                  name: 'Is there a subscription fee for Aisle?',
+                  name: 'How is Aisle different from other wedding planning apps?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'No subscriptions! The free plan is free forever, and the Complete plan is a one-time $29 payment with lifetime access.',
+                    text: 'Aisle uses conversational AI to provide personalized guidance instead of generic checklists. It feels like talking to a knowledgeable friend who happens to know everything about weddings.',
+                  },
+                },
+                {
+                  '@type': 'Question',
+                  name: 'Does Aisle sell my data?',
+                  acceptedAnswer: {
+                    '@type': 'Answer',
+                    text: 'No. Aisle never sells your data to vendors or advertisers. Your wedding planning information stays private.',
                   },
                 },
               ],

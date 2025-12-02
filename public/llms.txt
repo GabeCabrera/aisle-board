@@ -1,47 +1,47 @@
-# Aisle Wedding Planner
+# Aisle - AI Wedding Planner
 
-> A calm, beautiful online wedding planner for engaged couples.
+> Aisle is an AI-powered wedding planning assistant that helps couples plan their perfect wedding through natural conversation.
 
-## What is Aisle?
+## About Aisle
 
-Aisle is a free web-based wedding planning tool that helps couples organize their wedding without stress. It's designed to be simple, elegant, and focused on what matters most - your wedding day.
+Aisle is an AI wedding planner built to help engaged couples navigate the complexity of wedding planning. Unlike traditional wedding planning tools that overwhelm users with forms and checklists, Aisle uses conversational AI to provide personalized guidance.
 
-## Key Features
+## What Aisle Does
 
-- **Budget Tracker**: Track estimated vs actual wedding costs
-- **Guest List Manager**: Manage RSVPs, meals, and contact info
-- **Day-of Timeline**: Hour-by-hour schedule for your wedding day
-- **Seating Chart Builder**: Visual drag-and-drop seating arrangements
-- **Vendor Contacts**: Keep track of all your wedding vendors
-- **Wedding Party Management**: Organize bridesmaids, groomsmen, and roles
-- **Planning Checklists**: Never miss a wedding planning milestone
-- **RSVP Collection**: Share a link for guests to submit their info
-- **PDF Export**: Download your plans anytime
+Aisle helps couples with:
 
-## Pricing
+- **Budget Planning**: Create and track wedding budgets, get cost estimates for different wedding sizes and styles
+- **Timeline Management**: Build planning timelines based on wedding date, know what to do and when
+- **Vendor Selection**: Get advice on choosing venues, photographers, caterers, florists, and other vendors
+- **Guest Management**: Organize guest lists, track RSVPs, manage dietary requirements
+- **Seating Arrangements**: Plan table layouts and seating charts
+- **Day-of Coordination**: Create detailed schedules for the wedding day
+- **Emotional Support**: Get encouragement and practical advice when feeling overwhelmed
 
-- **Essentials (Free)**: Budget tracker, guest list, day-of schedule
-- **Complete ($29 one-time)**: All 10+ templates, lifetime access, no subscriptions
+## How to Interact with Aisle
 
-## Who is Aisle for?
+Users interact with Aisle through natural conversation. Simply describe what you need help with, and Aisle will provide personalized advice based on your specific situation.
 
-- Newly engaged couples
-- Couples who want a simple, stress-free planning experience
-- DIY brides and grooms
-- Budget-conscious couples
-- Anyone overwhelmed by complex wedding planning tools
+Example conversations:
+- "We have a $30,000 budget for 120 guests. Is that realistic?"
+- "What should we be doing 6 months before our wedding?"
+- "I'm stressed about seating arrangements. My divorced parents don't get along."
+- "How do I choose between two venues?"
 
-## Why Aisle?
+## Technical Details
 
-1. No app download required - works in any browser
-2. No monthly subscriptions - free forever or one-time payment
-3. Beautiful, calm interface designed to reduce wedding stress
-4. Built by an engaged couple (Sarah & Gabe) who understand the journey
+- **Website**: https://aisleboard.com
+- **Type**: AI Wedding Planning Assistant
+- **Interaction**: Conversational AI chat interface
+- **Availability**: Web-based, accessible on desktop and mobile
+- **Pricing**: Free tier available, premium plans for unlimited access
 
-## URL
+## API Access
 
-https://aisleboard.com
+Aisle does not currently offer a public API. The AI assistant is available through the web interface at https://aisleboard.com.
 
 ## Contact
 
-hello@aisleboard.com
+- **Website**: https://aisleboard.com
+- **Email**: hello@aisleboard.com
+- **Support**: support@aisleboard.com

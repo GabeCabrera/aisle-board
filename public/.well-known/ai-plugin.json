@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Aisle - AI Wedding Planner",
+  "name_for_model": "aisle",
+  "description_for_human": "Plan your wedding with AI. Get personalized advice on budgets, venues, timelines, vendors, and more.",
+  "description_for_model": "Aisle is an AI wedding planner that helps couples plan their wedding through natural conversation. Users can ask about wedding budgets, timelines, vendor selection, guest management, seating charts, and day-of coordination. The AI provides personalized, practical advice in a warm and supportive tone.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://aisleboard.com/openapi.json"
+  },
+  "logo_url": "https://aisleboard.com/logo.png",
+  "contact_email": "hello@aisleboard.com",
+  "legal_info_url": "https://aisleboard.com/terms"
+}
