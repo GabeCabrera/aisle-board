@@ -123,9 +123,9 @@ function ThinkingIndicator() {
   return (
     <div className="flex items-start gap-3 max-w-3xl">
       <div className="flex-shrink-0 mt-1">
-        <ThinkingLogo size={24} />
+        <ThinkingLogo size={48} />
       </div>
-      <p className="text-stone-500 text-sm pt-1">
+      <p className="text-stone-500 text-sm pt-3">
         {thinkingMessages[messageIndex]}
       </p>
     </div>
