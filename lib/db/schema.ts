@@ -455,3 +455,79 @@ export const scheduledEmailsRelations = relations(scheduledEmails, ({ one }) => 
 
 export type ScheduledEmail = typeof scheduledEmails.$inferSelect;
 export type NewScheduledEmail = typeof scheduledEmails.$inferInsert;
+
+// ============================================================================
+// VIBE PROFILES - AI-analyzed wedding aesthetic preferences
+// ============================================================================
+export const vibeProfiles = pgTable("vibe_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .unique()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  
+  // Core vibe attributes
+  keywords: jsonb("keywords").notNull().default([]), // ["romantic", "moody", "intimate", "candlelit"]
+  colorPalette: jsonb("color_palette").notNull().default([]), // ["#8B0000", "#2C1810", "#D4AF37"]
+  aestheticStyle: text("aesthetic_style"), // "Moody Romantic", "Garden Party", etc.
+  description: text("description"), // AI-generated description of their vibe
+  
+  // Preferences extracted from conversation
+  venueType: text("venue_type"), // "outdoor", "indoor", "both"
+  season: text("season"), // "spring", "summer", "fall", "winter"
+  formality: text("formality"), // "casual", "semi-formal", "formal", "black-tie"
+  size: text("size"), // "intimate", "medium", "large"
+  
+  // Pinterest integration
+  pinterestConnected: boolean("pinterest_connected").default(false).notNull(),
+  pinterestUsername: text("pinterest_username"),
+  pinterestBoardIds: jsonb("pinterest_board_ids").default([]), // IDs of connected wedding boards
+  pinterestAnalyzedAt: timestamp("pinterest_analyzed_at", { withTimezone: true }),
+  
+  // Raw data for AI context
+  pinterestPinData: jsonb("pinterest_pin_data").default([]), // Analyzed pin descriptions/colors
+  conversationInsights: jsonb("conversation_insights").default([]), // Key insights from chat
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const vibeProfilesRelations = relations(vibeProfiles, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [vibeProfiles.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type VibeProfile = typeof vibeProfiles.$inferSelect;
+export type NewVibeProfile = typeof vibeProfiles.$inferInsert;
+
+// ============================================================================
+// CONCIERGE CONVERSATIONS - Chat history with the AI wedding planner
+// ============================================================================
+export const conciergeConversations = pgTable("concierge_conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  
+  // Conversation data
+  messages: jsonb("messages").notNull().default([]), // Array of {role, content, timestamp}
+  
+  // Metadata
+  title: text("title"), // Auto-generated or first message summary
+  isActive: boolean("is_active").default(true).notNull(), // Current active conversation
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const conciergeConversationsRelations = relations(conciergeConversations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [conciergeConversations.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type ConciergeConversation = typeof conciergeConversations.$inferSelect;
+export type NewConciergeConversation = typeof conciergeConversations.$inferInsert;

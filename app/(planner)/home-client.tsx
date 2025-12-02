@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
+import { ConciergeChat, ConciergeTrigger } from "@/components/concierge-chat";
 import { 
   Settings, BookOpen, Sparkles, Users, TrendingUp, 
   DollarSign, Calendar, Clock, Heart, Send, Plus,
@@ -147,6 +148,7 @@ export function HomeClient({ displayName, hasStartedPlanning }: HomeClientProps)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [conciergeOpen, setConciergeOpen] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -623,6 +625,16 @@ export function HomeClient({ displayName, hasStartedPlanning }: HomeClientProps)
           </div>
         )}
       </div>
+
+      {/* AI Concierge */}
+      <ConciergeChat
+        isOpen={conciergeOpen}
+        onClose={() => setConciergeOpen(false)}
+        coupleNames={displayName}
+      />
+      {!conciergeOpen && (
+        <ConciergeTrigger onClick={() => setConciergeOpen(true)} />
+      )}
     </main>
   );
 }
