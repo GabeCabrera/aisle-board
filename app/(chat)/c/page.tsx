@@ -21,11 +21,36 @@ import { useRouter } from "next/navigation";
  */
 
 function AisleLogo({ className = "w-8 h-8" }: { className?: string }) {
+  // Wobbly, hand-drawn circles - intentionally imperfect
   return (
     <svg viewBox="0 0 48 48" fill="none" className={className}>
-      <circle cx="18" cy="24" r="12" stroke="currentColor" strokeWidth="1.5" fill="none" className="text-clay-500" />
-      <circle cx="30" cy="24" r="12" stroke="currentColor" strokeWidth="1.5" fill="none" className="text-rose-400" />
-      <path d="M24 14.5c2.5 2.5 4 5.8 4 9.5s-1.5 7-4 9.5c-2.5-2.5-4-5.8-4-9.5s1.5-7 4-9.5z" fill="currentColor" className="text-stone-200" opacity="0.6" />
+      {/* Left circle - wobbly path instead of perfect circle */}
+      <path 
+        d="M6 24c0.2-6.5 2.8-10.2 6.5-12.5 3.8-2.4 8.2-2.8 11.5-1.2 3.5 1.7 5.8 5.2 6.2 9.8 0.4 4.8-1.5 9.5-5 12.5-3.7 3.2-8.5 4-12.8 2.3C8 33.2 5.8 29.5 6 24z" 
+        stroke="currentColor" 
+        strokeWidth="1.5" 
+        fill="none" 
+        className="text-stone-400"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Right circle - wobbly, slightly different wobble pattern */}
+      <path 
+        d="M42 24.5c-0.3 6.2-3 10-6.8 12.2-3.9 2.3-8.4 2.5-11.7 0.8-3.4-1.8-5.5-5.4-5.8-10-0.3-4.9 1.8-9.3 5.4-12.2 3.8-3 8.7-3.6 12.8-1.8 4.3 1.9 6.4 5.8 6.1 11z" 
+        stroke="currentColor" 
+        strokeWidth="1.5" 
+        fill="none" 
+        className="text-rose-400"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Intersection highlight - also wobbly */}
+      <path 
+        d="M24 13c2.2 2.8 3.5 6 3.3 10.2-0.2 4.5-2 8.5-4.8 11.3-2.3-3-3.4-6.5-3.2-10.8 0.2-4.2 2.1-7.8 4.7-10.7z" 
+        fill="currentColor" 
+        className="text-stone-200" 
+        opacity="0.5"
+      />
     </svg>
   );
 }
