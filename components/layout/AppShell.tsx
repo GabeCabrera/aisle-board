@@ -147,15 +147,15 @@ function NavItem({
     <Link
       href={item.href}
       className={`
-        flex items-center gap-3 px-3 py-2.5 rounded-lg
-        transition-colors duration-200
+        group flex items-center gap-3 px-3 py-2.5 rounded-lg
+        transition-all duration-200 ease-out
         ${isActive 
-          ? "bg-rose-100 text-rose-700" 
-          : "text-ink-soft hover:bg-stone-50 hover:text-ink"
+          ? "bg-rose-100 text-rose-700 shadow-sm" 
+          : "text-ink-soft hover:bg-stone-50 hover:text-ink hover:translate-x-1"
         }
       `}
     >
-      <span className={isActive ? "text-rose-600" : ""}>
+      <span className={`transition-transform duration-200 ${isActive ? "text-rose-600" : "group-hover:scale-110"}`}>
         {item.icon}
       </span>
       {sidebarOpen && (
@@ -187,7 +187,7 @@ export function AppShell({ children }: AppShellProps) {
       {/* Sidebar */}
       <aside 
         className={`
-          fixed inset-y-0 left-0 z-30 flex flex-col
+          fixed inset-y-0 left-0 z-50 flex flex-col
           bg-white border-r border-stone-200
           transition-all duration-300 ease-out
           ${sidebarOpen ? "w-64" : "w-20"}
