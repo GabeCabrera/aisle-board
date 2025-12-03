@@ -49,8 +49,10 @@ export async function GET() {
         
         switch (page.templateId) {
           case "budget":
+            // totalBudget is stored as a string, must parse
+            const rawBudget = fields.totalBudget;
             budgetData = {
-              totalBudget: (fields.totalBudget as number) || 0,
+              totalBudget: typeof rawBudget === 'string' ? parseFloat(rawBudget) || 0 : (rawBudget as number) || 0,
               items: Array.isArray(fields.items) ? fields.items : [],
             };
             break;
@@ -91,17 +93,24 @@ export async function GET() {
     const notStarted = decisions.filter(d => d.status === "not_started" && !d.isSkipped).length;
 
     // Calculate budget stats
+    // NOTE: Budget values are stored as STRINGS in the database, must parseFloat
     const budgetItems = budgetData.items as Array<{
       id: string;
       category: string;
       vendor?: string;
-      totalCost: number;
-      amountPaid: number;
+      totalCost: string | number;
+      amountPaid: string | number;
       notes?: string;
     }>;
     
-    const totalSpent = budgetItems.reduce((sum, item) => sum + (item.totalCost || 0), 0);
-    const totalPaid = budgetItems.reduce((sum, item) => sum + (item.amountPaid || 0), 0);
+    const totalSpent = budgetItems.reduce((sum, item) => {
+      const cost = typeof item.totalCost === 'string' ? parseFloat(item.totalCost) : item.totalCost;
+      return sum + (cost || 0);
+    }, 0);
+    const totalPaid = budgetItems.reduce((sum, item) => {
+      const paid = typeof item.amountPaid === 'string' ? parseFloat(item.amountPaid) : item.amountPaid;
+      return sum + (paid || 0);
+    }, 0);
     const remainingBalance = totalSpent - totalPaid;
 
     // Calculate guest stats
@@ -150,8 +159,9 @@ export async function GET() {
     };
 
     // Days until wedding
+    // Add T12:00:00 to avoid timezone issues shifting the day
     const daysUntil = kernel?.weddingDate
-      ? Math.ceil((new Date(kernel.weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((new Date(kernel.weddingDate + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : null;
 
     return NextResponse.json({

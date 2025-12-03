@@ -402,7 +402,9 @@ export async function POST(request: NextRequest) {
         
         // Update wedding date
         if (extracted.weddingDate) {
-          const date = new Date(extracted.weddingDate);
+          // Add T12:00:00 to parse as noon, avoiding timezone shift to previous day
+          const dateStr = extracted.weddingDate as string;
+          const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00');
           if (!isNaN(date.getTime())) {
             kernelUpdate.weddingDate = date;
             // Also update on tenant for easy access

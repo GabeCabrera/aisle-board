@@ -85,7 +85,7 @@ export default function DashboardPage() {
         </h1>
         {summary?.weddingDate && (
           <p className="text-ink-soft">
-            {new Date(summary.weddingDate).toLocaleDateString("en-US", { 
+            {new Date(summary.weddingDate + 'T12:00:00').toLocaleDateString("en-US", { 
               weekday: "long", 
               year: "numeric", 
               month: "long", 

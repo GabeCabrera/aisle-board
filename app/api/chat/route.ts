@@ -375,7 +375,9 @@ async function updateKernelFromExtraction(
   if (extracted.biggestConcern) updates.biggestConcern = extracted.biggestConcern;
 
   if (extracted.weddingDate) {
-    const date = new Date(extracted.weddingDate as string);
+    // Add T12:00:00 to parse as noon, avoiding timezone shift to previous day
+    const dateStr = extracted.weddingDate as string;
+    const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00');
     if (!isNaN(date.getTime())) {
       updates.weddingDate = date;
       await db.update(tenants).set({ weddingDate: date }).where(eq(tenants.id, tenantId));
