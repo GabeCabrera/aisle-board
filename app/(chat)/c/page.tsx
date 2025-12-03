@@ -445,11 +445,11 @@ export default function ChatPage() {
         <div className="max-w-3xl mx-auto">
           <div 
             className={`
-              relative bg-white rounded-full overflow-hidden
-              transition-shadow duration-300 ease-out
+              relative bg-white rounded-full
+              border-2 transition-all duration-200 ease-out
               ${isFocused 
-                ? "shadow-[0_0_0_2px_rgba(212,166,156,0.3),0_8px_32px_-8px_rgba(0,0,0,0.15)]" 
-                : "shadow-[0_4px_16px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.15)]"
+                ? "border-rose-300 shadow-lg" 
+                : "border-transparent shadow-md hover:shadow-lg"
               }
             `}
           >
@@ -471,7 +471,7 @@ export default function ChatPage() {
               onBlur={() => setIsFocused(false)}
               placeholder="Ask me anything about wedding planning..."
               className="w-full bg-transparent pl-14 pr-14 py-4
-                resize-none focus:outline-none
+                resize-none outline-none
                 text-ink placeholder:text-stone-400
                 min-h-[56px] max-h-[200px]"
               rows={1}
