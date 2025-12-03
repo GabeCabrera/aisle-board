@@ -195,14 +195,14 @@ export function usePlannerData() {
 // HELPERS
 // ============================================================================
 
-export function formatCurrency(amount: number): string {
-  // Values are stored in dollars, not cents
+export function formatCurrency(cents: number): string {
+  // Values are stored in cents, convert to dollars for display
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(cents / 100);
 }
 
 export function formatDate(dateString: string): string {

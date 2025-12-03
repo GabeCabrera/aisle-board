@@ -159,9 +159,9 @@ export async function GET() {
     };
 
     // Days until wedding
-    // Add T12:00:00 to avoid timezone issues shifting the day
+    // kernel.weddingDate is a Date object from the database
     const daysUntil = kernel?.weddingDate
-      ? Math.ceil((new Date(kernel.weddingDate + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((new Date(kernel.weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : null;
 
     return NextResponse.json({

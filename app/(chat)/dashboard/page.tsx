@@ -85,12 +85,19 @@ export default function DashboardPage() {
         </h1>
         {summary?.weddingDate && (
           <p className="text-ink-soft">
-            {new Date(summary.weddingDate + 'T12:00:00').toLocaleDateString("en-US", { 
-              weekday: "long", 
-              year: "numeric", 
-              month: "long", 
-              day: "numeric" 
-            })}
+            {(() => {
+              // Handle both "YYYY-MM-DD" and full ISO strings
+              const dateStr = summary.weddingDate;
+              const date = dateStr.includes('T') 
+                ? new Date(dateStr) 
+                : new Date(dateStr + 'T12:00:00');
+              return date.toLocaleDateString("en-US", { 
+                weekday: "long", 
+                year: "numeric", 
+                month: "long", 
+                day: "numeric" 
+              });
+            })()}
           </p>
         )}
       </div>
