@@ -52,6 +52,8 @@ export async function executeToolCall(
         return await addBudgetItem(parameters, context);
       case "update_budget_item":
         return await updateBudgetItem(parameters, context);
+      case "delete_budget_item":
+        return await deleteBudgetItem(parameters, context);
       case "set_total_budget":
         return await setTotalBudget(parameters, context);
 
@@ -60,6 +62,8 @@ export async function executeToolCall(
         return await addGuest(parameters, context);
       case "update_guest":
         return await updateGuest(parameters, context);
+      case "delete_guest":
+        return await deleteGuest(parameters, context);
       case "add_guest_group":
         return await addGuestGroup(parameters, context);
 
@@ -74,12 +78,16 @@ export async function executeToolCall(
         return await addVendor(parameters, context);
       case "update_vendor_status":
         return await updateVendorStatus(parameters, context);
+      case "delete_vendor":
+        return await deleteVendor(parameters, context);
 
       // Task tools
       case "add_task":
         return await addTask(parameters, context);
       case "complete_task":
         return await completeTask(parameters, context);
+      case "delete_task":
+        return await deleteTask(parameters, context);
 
       // Artifact tools
       case "show_artifact":
@@ -104,6 +112,10 @@ export async function executeToolCall(
         return await updateWeddingDetails(parameters, context);
       case "update_preferences":
         return await updatePreferences(parameters, context);
+
+      // Analysis tools
+      case "analyze_planning_gaps":
+        return await analyzePlanningGaps(parameters, context);
 
       default:
         return {
@@ -266,6 +278,45 @@ async function updateBudgetItem(
   };
 }
 
+async function deleteBudgetItem(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { pageId, fields } = await getOrCreatePage(context.tenantId, "budget");
+  
+  const items = (fields.items as Array<Record<string, unknown>>) || [];
+  let itemIndex = -1;
+  let deletedItem: Record<string, unknown> | null = null;
+
+  // Find by ID first
+  if (params.itemId) {
+    itemIndex = items.findIndex(i => i.id === params.itemId);
+  }
+  // Fall back to category match
+  else if (params.category) {
+    itemIndex = items.findIndex(i => 
+      (i.category as string)?.toLowerCase() === (params.category as string).toLowerCase()
+    );
+  }
+
+  if (itemIndex === -1) {
+    return { success: false, message: "Budget item not found" };
+  }
+
+  deletedItem = items[itemIndex];
+  items.splice(itemIndex, 1);
+
+  await db.update(pages)
+    .set({ fields: { ...fields, items }, updatedAt: new Date() })
+    .where(eq(pages.id, pageId));
+
+  return {
+    success: true,
+    message: `Removed ${deletedItem.category} ($${((deletedItem.totalCost as number) / 100).toLocaleString()}) from budget`,
+    data: deletedItem
+  };
+}
+
 async function setTotalBudget(
   params: Record<string, unknown>,
   context: ToolContext
@@ -363,6 +414,50 @@ async function updateGuest(
   };
 }
 
+async function deleteGuest(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { pageId, fields } = await getOrCreatePage(context.tenantId, "guest-list");
+  
+  const guests = (fields.guests as Array<Record<string, unknown>>) || [];
+  let guestIndex = -1;
+  let deletedGuest: Record<string, unknown> | null = null;
+
+  // Find by ID first
+  if (params.guestId) {
+    guestIndex = guests.findIndex(g => g.id === params.guestId);
+  }
+  // Fall back to name match (case insensitive)
+  else if (params.guestName) {
+    guestIndex = guests.findIndex(g => 
+      (g.name as string)?.toLowerCase() === (params.guestName as string).toLowerCase()
+    );
+  }
+
+  if (guestIndex === -1) {
+    return { success: false, message: "Guest not found" };
+  }
+
+  deletedGuest = guests[guestIndex];
+  guests.splice(guestIndex, 1);
+
+  await db.update(pages)
+    .set({ fields: { ...fields, guests }, updatedAt: new Date() })
+    .where(eq(pages.id, pageId));
+
+  // Update kernel guest count
+  await db.update(weddingKernels)
+    .set({ guestCount: guests.length, updatedAt: new Date() })
+    .where(eq(weddingKernels.tenantId, context.tenantId));
+
+  return {
+    success: true,
+    message: `Removed ${deletedGuest.name} from guest list`,
+    data: deletedGuest
+  };
+}
+
 async function addGuestGroup(
   params: Record<string, unknown>,
   context: ToolContext
@@ -379,6 +474,7 @@ async function addGuestGroup(
       name,
       side: params.side || "both",
       group: params.group || "",
+      plusOne: params.plusOnes || false,
       rsvp: "pending",
       createdAt: new Date().toISOString()
     };
@@ -553,6 +649,45 @@ async function updateVendorStatus(
   };
 }
 
+async function deleteVendor(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
+  
+  const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
+  let vendorIndex = -1;
+  let deletedVendor: Record<string, unknown> | null = null;
+
+  // Find by ID first
+  if (params.vendorId) {
+    vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
+  }
+  // Fall back to name match (case insensitive)
+  else if (params.vendorName) {
+    vendorIndex = vendors.findIndex(v => 
+      (v.name as string)?.toLowerCase() === (params.vendorName as string).toLowerCase()
+    );
+  }
+
+  if (vendorIndex === -1) {
+    return { success: false, message: "Vendor not found" };
+  }
+
+  deletedVendor = vendors[vendorIndex];
+  vendors.splice(vendorIndex, 1);
+
+  await db.update(pages)
+    .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+    .where(eq(pages.id, pageId));
+
+  return {
+    success: true,
+    message: `Removed ${deletedVendor.name} from vendor list`,
+    data: deletedVendor
+  };
+}
+
 // ============================================================================
 // TASK TOOLS
 // ============================================================================
@@ -613,6 +748,45 @@ async function completeTask(
     success: true,
     message: `Completed task: "${tasks[taskIndex].title}"`,
     data: tasks[taskIndex]
+  };
+}
+
+async function deleteTask(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { pageId, fields } = await getOrCreatePage(context.tenantId, "task-board");
+  
+  const tasks = (fields.tasks as Array<Record<string, unknown>>) || [];
+  let taskIndex = -1;
+  let deletedTask: Record<string, unknown> | null = null;
+
+  // Find by ID first
+  if (params.taskId) {
+    taskIndex = tasks.findIndex(t => t.id === params.taskId);
+  }
+  // Fall back to title match (case insensitive)
+  else if (params.taskTitle) {
+    taskIndex = tasks.findIndex(t => 
+      (t.title as string)?.toLowerCase().includes((params.taskTitle as string).toLowerCase())
+    );
+  }
+
+  if (taskIndex === -1) {
+    return { success: false, message: "Task not found" };
+  }
+
+  deletedTask = tasks[taskIndex];
+  tasks.splice(taskIndex, 1);
+
+  await db.update(pages)
+    .set({ fields: { ...fields, tasks }, updatedAt: new Date() })
+    .where(eq(pages.id, pageId));
+
+  return {
+    success: true,
+    message: `Removed task: "${deletedTask.title}"`,
+    data: deletedTask
   };
 }
 
@@ -716,6 +890,11 @@ async function showArtifact(
         guests: guestFields.guests || []
       };
       break;
+    }
+
+    case "planning_gaps": {
+      // This triggers the gap analysis
+      return await analyzePlanningGaps(params, context);
     }
 
     default:
@@ -957,6 +1136,177 @@ async function handleAddCustomDecision(
   );
 
   return { success: result.success, message: result.message };
+}
+
+// ============================================================================
+// PLANNING ANALYSIS TOOLS
+// ============================================================================
+
+async function analyzePlanningGaps(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  // Gather all data
+  const kernel = await db.query.weddingKernels.findFirst({
+    where: eq(weddingKernels.tenantId, context.tenantId)
+  });
+  
+  const { fields: budgetFields } = await getOrCreatePage(context.tenantId, "budget");
+  const { fields: guestFields } = await getOrCreatePage(context.tenantId, "guest-list");
+  const { fields: vendorFields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
+  const { fields: taskFields } = await getOrCreatePage(context.tenantId, "task-board");
+  
+  await initializeDecisionsForTenant(context.tenantId);
+  const decisions = await getAllDecisions(context.tenantId);
+  const progress = await getDecisionProgress(context.tenantId);
+
+  // Calculate days until wedding
+  const weddingDate = kernel?.weddingDate;
+  const daysUntil = weddingDate 
+    ? Math.ceil((new Date(weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // Analyze gaps
+  const gaps: Array<{ category: string; issue: string; priority: "high" | "medium" | "low"; suggestion: string }> = [];
+  const warnings: string[] = [];
+  const wins: string[] = [];
+
+  // Check foundation items
+  if (!weddingDate) {
+    gaps.push({
+      category: "foundation",
+      issue: "No wedding date set",
+      priority: "high",
+      suggestion: "Setting a date helps plan everything else around it"
+    });
+  }
+
+  const budgetItems = (budgetFields.items as Array<Record<string, unknown>>) || [];
+  const totalBudget = (budgetFields.totalBudget as number) || 0;
+  
+  if (totalBudget === 0) {
+    gaps.push({
+      category: "budget",
+      issue: "No total budget set",
+      priority: "high",
+      suggestion: "Set a budget to help prioritize spending"
+    });
+  }
+
+  // Check vendors
+  const vendors = (vendorFields.vendors as Array<Record<string, unknown>>) || [];
+  const bookedVendors = vendors.filter(v => v.status === "booked");
+  const essentialVendorCategories = ["venue", "photographer", "caterer", "officiant"];
+  
+  for (const category of essentialVendorCategories) {
+    const hasVendor = bookedVendors.some(v => v.category === category);
+    if (!hasVendor) {
+      const urgency = daysUntil && daysUntil < 180 ? "high" : daysUntil && daysUntil < 365 ? "medium" : "low";
+      gaps.push({
+        category: "vendors",
+        issue: `No ${category} booked yet`,
+        priority: urgency,
+        suggestion: `${category === "venue" ? "Venues book up fast - start looking soon" : `Consider reaching out to ${category}s`}`
+      });
+    }
+  }
+
+  // Check guest list
+  const guests = (guestFields.guests as Array<Record<string, unknown>>) || [];
+  if (guests.length === 0) {
+    gaps.push({
+      category: "guests",
+      issue: "Guest list is empty",
+      priority: "medium",
+      suggestion: "Start adding guests to help with venue capacity and catering numbers"
+    });
+  } else {
+    const pendingRsvps = guests.filter(g => g.rsvp === "pending").length;
+    if (pendingRsvps > 0 && daysUntil && daysUntil < 60) {
+      warnings.push(`${pendingRsvps} guests haven't RSVP'd yet and the wedding is in ${daysUntil} days`);
+    }
+  }
+
+  // Check budget vs spending
+  if (totalBudget > 0) {
+    const totalSpent = budgetItems.reduce((sum, item) => sum + ((item.totalCost as number) || 0), 0);
+    const percentUsed = (totalSpent / totalBudget) * 100;
+    
+    if (percentUsed > 100) {
+      warnings.push(`You're ${(percentUsed - 100).toFixed(0)}% over budget`);
+    } else if (percentUsed > 90) {
+      warnings.push(`You've allocated ${percentUsed.toFixed(0)}% of your budget`);
+    }
+  }
+
+  // Check tasks
+  const tasks = (taskFields.tasks as Array<Record<string, unknown>>) || [];
+  const overdueTasks = tasks.filter(t => {
+    if (t.status === "done") return false;
+    if (!t.dueDate) return false;
+    return new Date(t.dueDate as string) < new Date();
+  });
+  
+  if (overdueTasks.length > 0) {
+    warnings.push(`${overdueTasks.length} overdue task${overdueTasks.length > 1 ? "s" : ""}`);
+  }
+
+  // Celebrate wins
+  if (bookedVendors.length > 0) {
+    wins.push(`${bookedVendors.length} vendor${bookedVendors.length > 1 ? "s" : ""} booked`);
+  }
+  if (progress.locked > 0) {
+    wins.push(`${progress.locked} decision${progress.locked > 1 ? "s" : ""} locked in`);
+  }
+  if (guests.length > 0) {
+    const confirmed = guests.filter(g => g.rsvp === "yes").length;
+    if (confirmed > 0) {
+      wins.push(`${confirmed} guest${confirmed > 1 ? "s" : ""} confirmed`);
+    }
+  }
+
+  // Build summary message
+  let message = "";
+  if (daysUntil !== null) {
+    message = `**${daysUntil} days until your wedding!**\n\n`;
+  }
+
+  if (gaps.length === 0 && warnings.length === 0) {
+    message += "You're in great shape! All the essentials are covered. ";
+  } else {
+    const highPriorityGaps = gaps.filter(g => g.priority === "high");
+    if (highPriorityGaps.length > 0) {
+      message += `**${highPriorityGaps.length} high-priority item${highPriorityGaps.length > 1 ? "s" : ""} to address:**\n`;
+      highPriorityGaps.forEach(g => {
+        message += `• ${g.issue}\n`;
+      });
+      message += "\n";
+    }
+  }
+
+  if (wins.length > 0) {
+    message += `**What's going well:** ${wins.join(", ")}`;
+  }
+
+  return {
+    success: true,
+    message,
+    data: {
+      daysUntil,
+      progress,
+      gaps,
+      warnings,
+      wins,
+      summary: {
+        guestsCount: guests.length,
+        vendorsBooked: bookedVendors.length,
+        budgetAllocated: totalBudget > 0 
+          ? Math.round((budgetItems.reduce((sum, item) => sum + ((item.totalCost as number) || 0), 0) / totalBudget) * 100)
+          : 0,
+        tasksRemaining: tasks.filter(t => t.status !== "done").length
+      }
+    }
+  };
 }
 
 // ============================================================================

@@ -111,6 +111,24 @@ export const tools: ToolDefinition[] = [
     }
   },
   {
+    name: "delete_budget_item",
+    description: "Remove a budget item. Use when user says to remove, delete, or cancel an expense.",
+    parameters: {
+      type: "object",
+      properties: {
+        itemId: {
+          type: "string",
+          description: "The ID of the budget item to delete"
+        },
+        category: {
+          type: "string",
+          description: "If no itemId, delete by category name"
+        }
+      },
+      required: []
+    }
+  },
+  {
     name: "set_total_budget",
     description: "Set or update the total wedding budget.",
     parameters: {
@@ -199,8 +217,26 @@ export const tools: ToolDefinition[] = [
     }
   },
   {
+    name: "delete_guest",
+    description: "Remove a guest from the guest list. Use when user says someone is no longer invited or to remove a guest.",
+    parameters: {
+      type: "object",
+      properties: {
+        guestId: {
+          type: "string",
+          description: "The ID of the guest to remove"
+        },
+        guestName: {
+          type: "string",
+          description: "If no guestId, find and remove by name"
+        }
+      },
+      required: []
+    }
+  },
+  {
     name: "add_guest_group",
-    description: "Add multiple guests at once (like a family).",
+    description: "Add multiple guests at once (like a family). Use for bulk additions.",
     parameters: {
       type: "object",
       properties: {
@@ -217,6 +253,10 @@ export const tools: ToolDefinition[] = [
         group: {
           type: "string",
           description: "Group name (e.g., 'Smith Family')"
+        },
+        plusOnes: {
+          type: "boolean",
+          description: "Whether all guests in this group get plus ones"
         }
       },
       required: ["guests"]
@@ -386,6 +426,24 @@ export const tools: ToolDefinition[] = [
       required: ["vendorId", "status"]
     }
   },
+  {
+    name: "delete_vendor",
+    description: "Remove a vendor from tracking. Use when user decides not to consider a vendor anymore.",
+    parameters: {
+      type: "object",
+      properties: {
+        vendorId: {
+          type: "string",
+          description: "The ID of the vendor to remove"
+        },
+        vendorName: {
+          type: "string",
+          description: "If no vendorId, find and remove by name"
+        }
+      },
+      required: []
+    }
+  },
 
   // ----------------------------------------
   // TASK TOOLS
@@ -436,6 +494,24 @@ export const tools: ToolDefinition[] = [
       required: ["taskId"]
     }
   },
+  {
+    name: "delete_task",
+    description: "Remove a task from the to-do list.",
+    parameters: {
+      type: "object",
+      properties: {
+        taskId: {
+          type: "string",
+          description: "The ID of the task to delete"
+        },
+        taskTitle: {
+          type: "string",
+          description: "If no taskId, find and delete by title"
+        }
+      },
+      required: []
+    }
+  },
 
   // ----------------------------------------
   // ARTIFACT / DISPLAY TOOLS
@@ -461,7 +537,8 @@ export const tools: ToolDefinition[] = [
             "checklist",            // Task checklist
             "countdown",            // Days until wedding
             "seating_chart",        // Table assignments
-            "wedding_summary"       // Overview of everything
+            "wedding_summary",      // Overview of everything
+            "planning_gaps"         // What's missing / needs attention
           ]
         },
         filter: {
@@ -674,6 +751,25 @@ export const tools: ToolDefinition[] = [
         }
       },
       required: ["displayName", "category"]
+    }
+  },
+
+  // ----------------------------------------
+  // PLANNING ANALYSIS TOOLS
+  // ----------------------------------------
+  {
+    name: "analyze_planning_gaps",
+    description: "Analyze the wedding planning status and identify what's missing, what needs attention, and upcoming deadlines. Use this proactively when user asks about planning status, what they should focus on, or what's left to do.",
+    parameters: {
+      type: "object",
+      properties: {
+        focusArea: {
+          type: "string",
+          description: "Optional area to focus analysis on",
+          enum: ["vendors", "budget", "guests", "timeline", "all"]
+        }
+      },
+      required: []
     }
   }
 ];
