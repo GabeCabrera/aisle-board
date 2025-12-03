@@ -7,14 +7,16 @@ import { tenants, conciergeConversations, weddingKernels } from "@/lib/db/schema
 import { eq, and } from "drizzle-orm";
 import { getAnthropicTools } from "@/lib/ai/tools";
 import { executeToolCall, ToolResult } from "@/lib/ai/executor";
+import { buildSystemPrompt, getFirstMessagePrompt, getReturningUserPrompt } from "@/lib/ai/prompt";
 
 /**
- * Aisle Chat API with Tools
+ * Aisle Chat API
  * 
- * The AI can now:
- * - Take actions (add guests, update budget, etc.)
- * - Show artifacts (budget overview, guest list, timeline)
- * - Remember everything about the couple
+ * A conversational wedding planner that:
+ * - Feels like talking to a version of yourself who knows weddings
+ * - Mirrors the user's communication style
+ * - Takes actions through tools
+ * - Makes users feel heard and understood
  */
 
 function getAnthropicClient() {
@@ -35,6 +37,7 @@ interface Message {
 }
 
 interface WeddingKernel {
+  id: string;
   names?: string[];
   location?: string;
   occupations?: string[];
@@ -55,93 +58,62 @@ interface WeddingKernel {
   planningPhase?: string;
 }
 
-function buildSystemPrompt(kernel: WeddingKernel | null, today: string): string {
-  const kernelContext = buildKernelContext(kernel);
-  
-  return `You are Aisle, a friendly and capable wedding planner. You're having a conversation with a couple planning their wedding.
-
-TODAY'S DATE: ${today}
-
-WHAT YOU KNOW ABOUT THEM:
-${kernelContext}
-
-YOUR CAPABILITIES:
-You can DO things, not just talk about them. When the couple mentions something actionable, USE YOUR TOOLS:
-
-- When they mention a cost or vendor → use add_budget_item or add_vendor
-- When they mention a guest → use add_guest or add_guest_group  
-- When they mention a date/appointment → use add_event
-- When they want to see their data → use show_artifact
-- When they share wedding details → use update_wedding_details or update_preferences
-
-SHOWING DATA:
-When relevant, show them their data using show_artifact. For example:
-- After adding budget items, show budget_overview
-- After adding guests, show guest_list or guest_stats
-- When discussing the timeline, show timeline
-- When they ask "how are we doing", show wedding_summary
-
-CONVERSATION STYLE:
-- Be warm and natural, like a friend who happens to be great at planning
-- Keep responses concise (1-3 sentences usually)
-- Use their names once you know them
-- NEVER use emojis
-- NEVER use emdashes (--). Use commas or periods.
-- If you want to laugh, say "Haha" not "Ha,"
-- React like a human: "Oh that's great!" "Nice!" "Got it."
-- When you take an action, briefly confirm what you did
-
-EXTRACTION:
-After your response, include any NEW information you learned:
-<extract>
-{
-  "names": ["Name1", "Name2"] or null,
-  "location": "City, State" or null,
-  "occupations": ["Job1", "Job2"] or null,
-  "howTheyMet": "brief summary" or null,
-  "engagementStory": "brief summary" or null,
-  "weddingDate": "YYYY-MM-DD" or null,
-  "guestCount": number or null,
-  "budgetTotal": number_in_cents or null,
-  "vibe": ["keyword"] or null,
-  "priorities": ["priority"] or null,
-  "biggestConcern": "concern" or null
-}
-</extract>
-
-Only include fields you JUST learned.`;
+interface UserProfile {
+  usesEmojis: boolean;
+  usesSwearing: boolean;
+  messageLength: "short" | "medium" | "long";
+  knowledgeLevel: "beginner" | "intermediate" | "experienced";
+  communicationStyle: "casual" | "balanced" | "formal";
 }
 
-function buildKernelContext(kernel: WeddingKernel | null): string {
-  if (!kernel) return "This is a new conversation. You don't know anything about them yet.";
-  
-  const parts: string[] = [];
-  
-  if (kernel.names && kernel.names.length > 0) {
-    parts.push(`Names: ${kernel.names.join(" & ")}`);
-  }
-  if (kernel.location) parts.push(`Location: ${kernel.location}`);
-  if (kernel.occupations && kernel.occupations.length > 0) {
-    parts.push(`Jobs: ${kernel.occupations.join(", ")}`);
-  }
-  if (kernel.howTheyMet) parts.push(`How they met: ${kernel.howTheyMet}`);
-  if (kernel.engagementStory) parts.push(`Engagement: ${kernel.engagementStory}`);
-  
-  if (kernel.weddingDate) {
-    const date = new Date(kernel.weddingDate);
-    const daysUntil = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    parts.push(`Wedding: ${date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (${daysUntil} days)`);
-  }
-  if (kernel.guestCount) parts.push(`Guests: ~${kernel.guestCount}`);
-  if (kernel.budgetTotal) parts.push(`Budget: $${(kernel.budgetTotal / 100).toLocaleString()}`);
-  if (kernel.vibe && kernel.vibe.length > 0) parts.push(`Vibe: ${kernel.vibe.join(", ")}`);
-  if (kernel.vendorsBooked && kernel.vendorsBooked.length > 0) {
-    parts.push(`Booked: ${kernel.vendorsBooked.join(", ")}`);
-  }
-  if (kernel.biggestConcern) parts.push(`Concern: ${kernel.biggestConcern}`);
-  
-  return parts.length > 0 ? parts.join("\n") : "This is a new conversation.";
+interface ConversationMeta {
+  userProfile?: UserProfile;
+  messageCount?: number;
 }
+
+// ============================================================================
+// ANALYZE USER MESSAGE
+// ============================================================================
+
+function analyzeUserMessage(message: string, existingProfile: UserProfile | null): Partial<UserProfile> {
+  const updates: Partial<UserProfile> = {};
+  
+  // Check for emojis
+  const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
+  if (emojiRegex.test(message)) {
+    updates.usesEmojis = true;
+  }
+  
+  // Check for swearing (common mild swears)
+  const swearRegex = /\b(damn|hell|shit|fuck|crap|ass|bullshit|dammit)\b/i;
+  if (swearRegex.test(message)) {
+    updates.usesSwearing = true;
+  }
+  
+  // Analyze message length
+  const wordCount = message.split(/\s+/).length;
+  if (wordCount < 10) {
+    updates.messageLength = "short";
+  } else if (wordCount > 50) {
+    updates.messageLength = "long";
+  } else {
+    updates.messageLength = "medium";
+  }
+  
+  // If we already have a profile, only update if we're seeing new signals
+  // (e.g., first emoji usage should flip the flag, but don't flip it back)
+  if (existingProfile) {
+    if (existingProfile.usesEmojis) delete updates.usesEmojis;
+    if (existingProfile.usesSwearing) delete updates.usesSwearing;
+    // Message length can update based on recent behavior
+  }
+  
+  return updates;
+}
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 
 export async function POST(request: NextRequest) {
   try {
@@ -190,6 +162,7 @@ export async function POST(request: NextRequest) {
         tenantId,
         title: "Chat",
         messages: [],
+        meta: { userProfile: null, messageCount: 0 },
       }).returning();
       conversation = newConv;
     }
@@ -198,6 +171,27 @@ export async function POST(request: NextRequest) {
     const existingMessages: Message[] = Array.isArray(conversation.messages)
       ? (conversation.messages as Message[]).filter(m => m?.role && m?.content)
       : [];
+    
+    // Get conversation meta (user profile)
+    const meta = (conversation.meta as ConversationMeta) || {};
+    let userProfile: UserProfile | null = meta.userProfile || null;
+    
+    // Analyze the new message for communication style signals
+    if (message) {
+      const profileUpdates = analyzeUserMessage(message, userProfile);
+      if (Object.keys(profileUpdates).length > 0) {
+        userProfile = { 
+          ...(userProfile || {
+            usesEmojis: false,
+            usesSwearing: false,
+            messageLength: "medium",
+            knowledgeLevel: "intermediate",
+            communicationStyle: "balanced"
+          }),
+          ...profileUpdates 
+        };
+      }
+    }
     
     const history = existingMessages.map(m => ({ role: m.role, content: m.content }));
     if (message) {
@@ -208,13 +202,20 @@ export async function POST(request: NextRequest) {
     const today = new Date().toLocaleDateString('en-US', { 
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
     });
-    const systemPrompt = buildSystemPrompt(kernel as WeddingKernel, today);
+    const systemPrompt = buildSystemPrompt(kernel as WeddingKernel, userProfile, today);
 
-    // Handle first message
-    const isFirstLoad = history.length === 0;
-    const messagesToSend = isFirstLoad
-      ? [{ role: "user" as const, content: "[User just opened the app. Say hi casually.]" }]
-      : history;
+    // Handle first message vs returning user
+    const isFirstMessage = history.length === 0;
+    const isReturningUser = !isFirstMessage && existingMessages.length === 0 && kernel.names && kernel.names.length > 0;
+    
+    let messagesToSend;
+    if (isFirstMessage) {
+      messagesToSend = [{ role: "user" as const, content: getFirstMessagePrompt() }];
+    } else if (isReturningUser && !message) {
+      messagesToSend = [{ role: "user" as const, content: getReturningUserPrompt(kernel as WeddingKernel) }];
+    } else {
+      messagesToSend = history;
+    }
 
     // Call Anthropic
     const anthropic = getAnthropicClient();
@@ -245,7 +246,8 @@ export async function POST(request: NextRequest) {
         );
         toolResults.push(result);
 
-        if (toolUse.name === "show_artifact" && result.artifact) {
+        // Capture artifact from show_artifact or analyze_planning_gaps
+        if ((toolUse.name === "show_artifact" || toolUse.name === "analyze_planning_gaps") && result.artifact) {
           artifact = result.artifact;
         }
 
@@ -279,23 +281,47 @@ export async function POST(request: NextRequest) {
     const extractMatch = finalText.match(/<extract>([\s\S]*?)<\/extract>/);
     const cleanMessage = finalText.replace(/<extract>[\s\S]*?<\/extract>/, "").trim();
 
-    // Update kernel from extraction
+    // Update kernel and profile from extraction
     if (extractMatch) {
       try {
         const extracted = JSON.parse(extractMatch[1]);
         await updateKernelFromExtraction(kernel.id, tenantId, extracted);
+        
+        // Update user profile from extraction
+        if (extracted.knowledgeLevel || extracted.usesEmojis !== undefined || extracted.usesSwearing !== undefined) {
+          userProfile = {
+            ...(userProfile || {
+              usesEmojis: false,
+              usesSwearing: false,
+              messageLength: "medium",
+              knowledgeLevel: "intermediate",
+              communicationStyle: "balanced"
+            }),
+            ...(extracted.knowledgeLevel && { knowledgeLevel: extracted.knowledgeLevel }),
+            ...(extracted.usesEmojis !== undefined && { usesEmojis: extracted.usesEmojis }),
+            ...(extracted.usesSwearing !== undefined && { usesSwearing: extracted.usesSwearing }),
+          };
+        }
       } catch (e) {
         console.error("Extraction parse error:", e);
       }
     }
 
-    // Save messages
+    // Save messages and updated meta
     const newMessages: Message[] = message
       ? [...existingMessages, { role: "user", content: message }, { role: "assistant", content: cleanMessage, artifact }]
       : [...existingMessages, { role: "assistant", content: cleanMessage, artifact }];
 
     await db.update(conciergeConversations)
-      .set({ messages: newMessages, updatedAt: new Date() })
+      .set({ 
+        messages: newMessages, 
+        meta: { 
+          ...meta, 
+          userProfile,
+          messageCount: (meta.messageCount || 0) + (message ? 2 : 1)
+        },
+        updatedAt: new Date() 
+      })
       .where(eq(conciergeConversations.id, conversation.id));
 
     return NextResponse.json({ 
@@ -313,6 +339,10 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// ============================================================================
+// KERNEL UPDATE
+// ============================================================================
 
 async function updateKernelFromExtraction(
   kernelId: string,
@@ -354,7 +384,7 @@ async function updateKernelFromExtraction(
   if (extracted.budgetTotal) updates.budgetTotal = extracted.budgetTotal;
 
   // Merge arrays
-  const arrayFields = ['occupations', 'vibe', 'priorities'] as const;
+  const arrayFields = ['occupations', 'vibe', 'priorities', 'stressors'] as const;
   for (const field of arrayFields) {
     if (extracted[field] && Array.isArray(extracted[field])) {
       const current = (kernel[field] as string[]) || [];
