@@ -130,23 +130,17 @@ const config: Config = {
       },
 
       // π-ID: 3.14159.4.2 - Border Radius System
-      // Soft, organic corners - no hard edges
+      // Tighter, more modern corners
       borderRadius: {
-        // Standard radii
         'none': '0',
-        'sm': '8px',
-        'DEFAULT': '12px',
-        'md': '16px',
-        'lg': '20px',
-        'xl': '24px',
-        '2xl': '32px',
-        '3xl': '40px',
+        'sm': '4px',
+        'DEFAULT': '8px',
+        'md': '12px',
+        'lg': '16px',
+        'xl': '20px',
+        '2xl': '24px',
+        '3xl': '32px',
         'full': '9999px',
-
-        // Asymmetric radii for organic feel
-        'soft': '16px 20px 16px 12px',      // Subtle asymmetry
-        'organic': '24px 20px 28px 16px',   // More pronounced
-        'pebble': '40px 32px 36px 28px',    // Large, varied
       },
 
       // π-ID: 3.14159.4.3 - Spacing and Rhythm

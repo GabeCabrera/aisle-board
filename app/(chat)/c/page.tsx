@@ -41,13 +41,11 @@ function BreathingLogo({ size = 48 }: { size?: number }) {
   const [frame, setFrame] = useState(0);
   const [breathePhase, setBreathePhase] = useState(0);
 
-  // Wobbly animation - fast
   useEffect(() => {
     const interval = setInterval(() => setFrame(f => (f + 1) % 4), 120);
     return () => clearInterval(interval);
   }, []);
 
-  // Breathing animation - slow, smooth
   useEffect(() => {
     const interval = setInterval(() => {
       setBreathePhase(p => (p + 1) % 100);
@@ -55,10 +53,7 @@ function BreathingLogo({ size = 48 }: { size?: number }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate breathing scale (1.0 to 1.15, smooth sine wave)
   const breatheScale = 1 + 0.15 * Math.sin((breathePhase / 100) * Math.PI * 2);
-  
-  // Subtle rotation wobble
   const wobbleRotate = Math.sin((breathePhase / 100) * Math.PI * 4) * 2;
 
   return (
@@ -71,30 +66,18 @@ function BreathingLogo({ size = 48 }: { size?: number }) {
       }}
     >
       <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <path
-          d={leftRingPaths[frame]}
-          stroke="#D4A69C"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d={rightRingPaths[frame]}
-          stroke="#D4A69C"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-        />
+        <path d={leftRingPaths[frame]} stroke="#D4A69C" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        <path d={rightRingPaths[frame]} stroke="#D4A69C" strokeWidth="2.5" strokeLinecap="round" fill="none" />
       </svg>
     </div>
   );
 }
 
-// Message avatar
+// Message avatar - tighter radius
 function Avatar({ isUser }: { isUser: boolean }) {
   if (isUser) {
     return (
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sage-400 to-sage-500 flex items-center justify-center flex-shrink-0">
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sage-400 to-sage-500 flex items-center justify-center flex-shrink-0">
         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
         </svg>
@@ -102,22 +85,10 @@ function Avatar({ isUser }: { isUser: boolean }) {
     );
   }
   return (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-rose-500 flex items-center justify-center flex-shrink-0">
+    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 flex items-center justify-center flex-shrink-0">
       <svg viewBox="0 0 40 40" fill="none" className="w-5 h-5">
-        <path
-          d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
+        <path d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
       </svg>
     </div>
   );
@@ -133,11 +104,11 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Cycle thinking messages
   useEffect(() => {
     if (!isLoading) return;
     const interval = setInterval(() => {
@@ -154,7 +125,6 @@ export default function ChatPage() {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading]);
 
-  // Load existing conversation on mount
   useEffect(() => {
     if (status === "authenticated" && !hasLoaded) {
       loadConversation();
@@ -208,6 +178,11 @@ export default function ChatPage() {
     setInput("");
     setError(null);
     
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+    
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: "user",
@@ -252,7 +227,6 @@ export default function ChatPage() {
     }
   };
 
-  // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = "auto";
@@ -275,7 +249,7 @@ export default function ChatPage() {
           {/* Empty state */}
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-100 to-rose-200 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-rose-100 to-rose-200 flex items-center justify-center mb-4">
                 <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
                   <path d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22" stroke="#D4A69C" strokeWidth="2.5" strokeLinecap="round" fill="none" />
                   <path d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22" stroke="#D4A69C" strokeWidth="2.5" strokeLinecap="round" fill="none" />
@@ -289,18 +263,18 @@ export default function ChatPage() {
             </div>
           )}
           
-          {/* Messages */}
-          <div className="space-y-6">
+          {/* Messages - tighter border radius */}
+          <div className="space-y-4">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                 <Avatar isUser={msg.role === "user"} />
                 <div className={`flex-1 ${msg.role === "user" ? "flex justify-end" : ""}`}>
                   <div 
                     className={`
-                      inline-block max-w-[85%] px-4 py-3 rounded-2xl
+                      inline-block max-w-[85%] px-4 py-3
                       ${msg.role === "user" 
-                        ? "bg-sage-100 text-ink rounded-br-md" 
-                        : "bg-white border border-stone-200 text-ink"
+                        ? "bg-ink text-white rounded-2xl rounded-br-sm" 
+                        : "bg-white border border-stone-200 text-ink rounded-2xl rounded-bl-sm"
                       }
                     `}
                   >
@@ -316,7 +290,7 @@ export default function ChatPage() {
             ))}
           </div>
           
-          {/* Thinking indicator - breathing logo */}
+          {/* Thinking indicator */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-8">
               <BreathingLogo size={56} />
@@ -330,7 +304,7 @@ export default function ChatPage() {
           {error && (
             <div className="flex gap-3 mt-6">
               <Avatar isUser={false} />
-              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-2xl">
+              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-700">Something went wrong: {error}</p>
               </div>
             </div>
@@ -340,40 +314,68 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-stone-200 bg-white p-4">
+      {/* Pinterest-style input */}
+      <div className="p-4 pb-6">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3 items-end">
-            <div className="flex-1 relative">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message..."
-                className="w-full border border-stone-300 rounded-xl px-4 py-3 pr-12
-                  resize-none focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent
-                  bg-canvas text-ink placeholder:text-ink-faint
-                  min-h-[48px] max-h-[200px]"
-                rows={1}
-                disabled={isLoading}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={isLoading || !input.trim()}
-                className="absolute right-2 bottom-2 p-2 rounded-lg
-                  bg-rose-500 text-white
-                  disabled:opacity-40 disabled:cursor-not-allowed
-                  hover:bg-rose-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                </svg>
-              </button>
+          <div 
+            className={`
+              relative bg-white rounded-full
+              shadow-lg hover:shadow-xl
+              transition-all duration-200
+              ${isFocused ? "shadow-xl ring-2 ring-rose-200" : ""}
+            `}
+          >
+            {/* Left icon */}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+              <svg viewBox="0 0 40 40" fill="none" className="w-6 h-6">
+                <path d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22" stroke="#D4A69C" strokeWidth="2" strokeLinecap="round" fill="none" />
+                <path d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22" stroke="#D4A69C" strokeWidth="2" strokeLinecap="round" fill="none" />
+              </svg>
             </div>
+
+            {/* Textarea */}
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder="Ask me anything about wedding planning..."
+              className="w-full bg-transparent pl-14 pr-14 py-4
+                resize-none focus:outline-none
+                text-ink placeholder:text-stone-400
+                min-h-[56px] max-h-[200px]
+                rounded-full"
+              rows={1}
+              disabled={isLoading}
+            />
+
+            {/* Send button */}
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !input.trim()}
+              className={`
+                absolute right-3 top-1/2 -translate-y-1/2
+                w-10 h-10 rounded-full
+                flex items-center justify-center
+                transition-all duration-200
+                ${input.trim() 
+                  ? "bg-rose-500 text-white hover:bg-rose-600 hover:scale-105" 
+                  : "bg-stone-100 text-stone-400"
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+              `}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+              </svg>
+            </button>
           </div>
-          <p className="text-xs text-ink-faint mt-2 text-center">
-            Press Enter to send, Shift+Enter for new line
+          
+          {/* Helper text */}
+          <p className="text-xs text-stone-400 mt-2 text-center">
+            Press Enter to send · Shift+Enter for new line
           </p>
         </div>
       </div>

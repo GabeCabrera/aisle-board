@@ -232,17 +232,3 @@
   }
 }
 
-/* Utility classes for the design system */
-@layer utilities {
-  .rounded-organic {
-    border-radius: 24px 20px 28px 16px;
-  }
-  
-  .rounded-soft {
-    border-radius: 16px 20px 16px 12px;
-  }
-  
-  .rounded-pebble {
-    border-radius: 40px 32px 36px 28px;
-  }
-}

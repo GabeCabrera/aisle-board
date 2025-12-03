@@ -178,7 +178,7 @@ export function AppShell({ children }: AppShellProps) {
                 key={item.href}
                 href={item.href}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg
                   transition-all duration-150
                   ${isActive 
                     ? "bg-rose-100 text-rose-700" 
@@ -204,7 +204,7 @@ export function AppShell({ children }: AppShellProps) {
                 key={item.href}
                 href={item.href}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  flex items-center gap-3 px-3 py-2.5 rounded-lg
                   transition-all duration-150
                   ${isActive 
                     ? "bg-rose-100 text-rose-700" 
@@ -223,7 +223,7 @@ export function AppShell({ children }: AppShellProps) {
           {/* Collapse toggle */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full
               text-ink-soft hover:bg-stone-100 hover:text-ink transition-all duration-150"
           >
             <svg 
@@ -250,7 +250,7 @@ export function AppShell({ children }: AppShellProps) {
           <div className="relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-stone-100 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-stone-100 transition-colors"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-rose-500 flex items-center justify-center text-white text-sm font-medium">
                 {initials}
@@ -272,7 +272,7 @@ export function AppShell({ children }: AppShellProps) {
                   className="fixed inset-0 z-40" 
                   onClick={() => setUserMenuOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lifted border border-stone-200 py-2 z-50">
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lifted border border-stone-200 py-2 z-50">
                   <div className="px-4 py-2 border-b border-stone-100">
                     <p className="text-sm font-medium text-ink">{session?.user?.name}</p>
                     <p className="text-xs text-ink-soft truncate">{session?.user?.email}</p>
