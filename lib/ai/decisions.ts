@@ -351,7 +351,7 @@ export async function addCustomDecision(
 
   // Get max position
   const allDecisions = await getAllDecisions(tenantId);
-  const maxPosition = Math.max(...allDecisions.map(d => d.position), 0);
+  const maxPosition = Math.max(...allDecisions.map(d => d.position ?? 0), 0);
 
   const [newDecision] = await db.insert(weddingDecisions).values({
     tenantId,
