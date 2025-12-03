@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { weddingKernels, conciergeConversations } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Debug endpoint to check kernel and conversation state
  */

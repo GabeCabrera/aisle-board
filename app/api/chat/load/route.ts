@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { conciergeConversations } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Load the most recent conversation for the current user
  */

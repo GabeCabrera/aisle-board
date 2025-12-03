@@ -7,6 +7,8 @@ import {
   initializeDecisionsForTenant 
 } from "@/lib/ai/decisions";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
