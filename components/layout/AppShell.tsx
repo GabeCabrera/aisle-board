@@ -144,7 +144,7 @@ function NavItem({
   sidebarOpen: boolean;
 }) {
   return (
-    <a
+    <Link
       href={item.href}
       className={`
         group flex items-center gap-3 px-3 py-2.5 rounded-lg
@@ -154,14 +154,17 @@ function NavItem({
           : "text-ink-soft hover:bg-stone-50 hover:text-ink hover:translate-x-1"
         }
       `}
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
     >
-      <span className={`transition-transform duration-200 ${isActive ? "text-rose-600" : "group-hover:scale-110"}`}>
+      <span className={`transition-transform duration-200 pointer-events-none ${isActive ? "text-rose-600" : "group-hover:scale-110"}`}>
         {item.icon}
       </span>
       {sidebarOpen && (
-        <span className="font-medium text-sm">{item.label}</span>
+        <span className="font-medium text-sm pointer-events-none">{item.label}</span>
       )}
-    </a>
+    </Link>
   );
 }
 
