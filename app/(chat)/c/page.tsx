@@ -99,6 +99,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -111,34 +112,51 @@ export default function ChatPage() {
     if (!isLoading) inputRef.current?.focus();
   }, [isLoading]);
 
-  // Load initial greeting on mount
+  // Load existing conversation on mount
   useEffect(() => {
-    if (status === "authenticated" && messages.length === 0 && !isLoading) {
-      loadGreeting();
+    if (status === "authenticated" && !hasLoaded) {
+      loadConversation();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  const loadGreeting = async () => {
+  const loadConversation = async () => {
+    setHasLoaded(true);
     setIsLoading(true);
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: null, conversationId: null }),
-      });
-      const data = await response.json();
-      if (response.ok && data.message) {
-        setConversationId(data.conversationId);
-        setMessages([{
-          id: Date.now().toString(),
-          role: "assistant",
-          content: data.message,
-          artifact: data.artifact,
-        }]);
+      // First try to load existing conversation
+      const loadResponse = await fetch("/api/chat/load");
+      const loadData = await loadResponse.json();
+      
+      if (loadData.conversationId && loadData.messages?.length > 0) {
+        // We have an existing conversation, restore it
+        setConversationId(loadData.conversationId);
+        setMessages(loadData.messages.map((m: { role: string; content: string; artifact?: { type: string; data: unknown } }, i: number) => ({
+          id: `loaded-${i}`,
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          artifact: m.artifact,
+        })));
+      } else {
+        // No existing conversation, get a greeting
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: null, conversationId: null }),
+        });
+        const data = await response.json();
+        if (response.ok && data.message) {
+          setConversationId(data.conversationId);
+          setMessages([{
+            id: Date.now().toString(),
+            role: "assistant",
+            content: data.message,
+            artifact: data.artifact,
+          }]);
+        }
       }
     } catch (err) {
-      console.error("Failed to load greeting:", err);
+      console.error("Failed to load conversation:", err);
     } finally {
       setIsLoading(false);
     }
@@ -241,7 +259,6 @@ export default function ChatPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-stone-800 whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                        {/* Render artifact if present */}
                         {msg.artifact && (
                           <Artifact type={msg.artifact.type} data={msg.artifact.data} />
                         )}
