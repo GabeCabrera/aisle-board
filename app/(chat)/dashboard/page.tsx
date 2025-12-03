@@ -1,46 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-interface KernelData {
-  names?: string[];
-  weddingDate?: string;
-  guestCount?: number;
-  budgetTotal?: number;
-  vibe?: string[];
-  vendorsBooked?: string[];
-}
-
-interface DecisionProgress {
-  total: number;
-  decided: number;
-  locked: number;
-  percentComplete: number;
-}
+import { usePlannerData, formatCurrency } from "@/lib/hooks/usePlannerData";
+import Link from "next/link";
 
 export default function DashboardPage() {
-  const [kernel, setKernel] = useState<KernelData | null>(null);
-  const [progress, setProgress] = useState<DecisionProgress | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const res = await fetch("/api/chat/debug");
-        const data = await res.json();
-        if (data.kernel) {
-          setKernel(data.kernel);
-        }
-        // TODO: Load progress from decisions API
-        setProgress({ total: 35, decided: 4, locked: 1, percentComplete: 11 });
-      } catch (e) {
-        console.error("Failed to load dashboard data:", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+  const { data, loading } = usePlannerData();
 
   if (loading) {
     return (
@@ -54,22 +18,74 @@ export default function DashboardPage() {
     );
   }
 
-  const daysUntil = kernel?.weddingDate 
-    ? Math.ceil((new Date(kernel.weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : null;
+  const summary = data?.summary;
+  const budget = data?.budget;
+  const guests = data?.guests;
+  const vendors = data?.vendors;
+  const decisions = data?.decisions;
+  const kernel = data?.kernel;
 
-  const coupleNames = kernel?.names?.length === 2 
-    ? `${kernel.names[0]} & ${kernel.names[1]}` 
-    : "Your Wedding";
+  // Calculate alerts/priorities
+  const alerts: Array<{ type: "warning" | "info" | "success"; message: string; link?: string }> = [];
+  
+  // Budget alerts
+  if (budget && budget.total > 0 && budget.percentUsed > 100) {
+    alerts.push({ 
+      type: "warning", 
+      message: `You're over budget by ${formatCurrency(budget.spent - budget.total)}`,
+      link: "/budget"
+    });
+  } else if (budget && budget.total > 0 && budget.percentUsed > 90) {
+    alerts.push({ 
+      type: "warning", 
+      message: `Budget is ${budget.percentUsed}% allocated`,
+      link: "/budget"
+    });
+  }
+
+  // Vendor alerts
+  const essentialVendors = ["venue", "photographer", "catering", "officiant"];
+  const bookedCategories = vendors?.list
+    .filter(v => v.status === "booked" || v.status === "confirmed" || v.status === "paid")
+    .map(v => v.category.toLowerCase()) || [];
+  
+  const missingEssentials = essentialVendors.filter(v => !bookedCategories.some(b => b.includes(v)));
+  if (missingEssentials.length > 0 && summary?.daysUntil && summary.daysUntil < 180) {
+    alerts.push({ 
+      type: "warning", 
+      message: `Still need to book: ${missingEssentials.join(", ")}`,
+      link: "/vendors"
+    });
+  }
+
+  // Guest alerts
+  if (guests && guests.stats.total > 0 && guests.stats.pending > 0 && summary?.daysUntil && summary.daysUntil < 60) {
+    alerts.push({ 
+      type: "info", 
+      message: `${guests.stats.pending} guests haven't RSVP'd yet`,
+      link: "/guests"
+    });
+  }
+
+  // Success alerts
+  if (vendors && vendors.stats.booked >= 3) {
+    alerts.push({ 
+      type: "success", 
+      message: `${vendors.stats.booked} vendors booked!`,
+      link: "/vendors"
+    });
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-serif text-3xl text-ink mb-2">{coupleNames}</h1>
-        {kernel?.weddingDate && (
+        <h1 className="font-serif text-3xl text-ink mb-2">
+          {summary?.coupleNames || "Your Wedding"}
+        </h1>
+        {summary?.weddingDate && (
           <p className="text-ink-soft">
-            {new Date(kernel.weddingDate).toLocaleDateString("en-US", { 
+            {new Date(summary.weddingDate).toLocaleDateString("en-US", { 
               weekday: "long", 
               year: "numeric", 
               month: "long", 
@@ -79,13 +95,57 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <div className="space-y-2 mb-6">
+          {alerts.map((alert, i) => (
+            <Link 
+              key={i} 
+              href={alert.link || "#"}
+              className={`block p-4 rounded-xl border transition-colors ${
+                alert.type === "warning" 
+                  ? "bg-amber-50 border-amber-200 hover:border-amber-300" 
+                  : alert.type === "success"
+                    ? "bg-green-50 border-green-200 hover:border-green-300"
+                    : "bg-blue-50 border-blue-200 hover:border-blue-300"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {alert.type === "warning" && (
+                  <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                )}
+                {alert.type === "success" && (
+                  <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {alert.type === "info" && (
+                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                  </svg>
+                )}
+                <span className={`text-sm font-medium ${
+                  alert.type === "warning" ? "text-amber-800" 
+                    : alert.type === "success" ? "text-green-800"
+                    : "text-blue-800"
+                }`}>
+                  {alert.message}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Countdown */}
         <div className="bg-white rounded-2xl border border-stone-200 p-6">
           <p className="text-sm text-ink-soft mb-1">Days to go</p>
-          {daysUntil !== null ? (
-            <p className="text-4xl font-serif text-ink">{daysUntil}</p>
+          {summary?.daysUntil !== null ? (
+            <p className="text-4xl font-serif text-ink">{summary?.daysUntil}</p>
           ) : (
             <p className="text-xl text-ink-faint">Set a date</p>
           )}
@@ -94,43 +154,67 @@ export default function DashboardPage() {
         {/* Progress */}
         <div className="bg-white rounded-2xl border border-stone-200 p-6">
           <p className="text-sm text-ink-soft mb-1">Planning progress</p>
-          {progress ? (
+          {decisions?.progress ? (
             <>
-              <p className="text-4xl font-serif text-ink">{progress.percentComplete}%</p>
+              <p className="text-4xl font-serif text-ink">{decisions.progress.percentComplete}%</p>
               <div className="mt-2 h-2 bg-stone-100 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-rose-400 to-rose-500 rounded-full"
-                  style={{ width: `${progress.percentComplete}%` }}
+                  style={{ width: `${decisions.progress.percentComplete}%` }}
                 />
               </div>
-              <p className="text-xs text-ink-faint mt-2">{progress.decided} of {progress.total} decisions</p>
+              <p className="text-xs text-ink-faint mt-2">
+                {decisions.progress.decided} of {decisions.progress.total} decisions
+              </p>
             </>
           ) : (
-            <p className="text-xl text-ink-faint">Loading...</p>
+            <p className="text-xl text-ink-faint">Start planning</p>
           )}
         </div>
 
         {/* Budget */}
-        <div className="bg-white rounded-2xl border border-stone-200 p-6">
+        <Link href="/budget" className="bg-white rounded-2xl border border-stone-200 p-6 hover:border-rose-300 transition-colors">
           <p className="text-sm text-ink-soft mb-1">Budget</p>
-          {kernel?.budgetTotal ? (
-            <p className="text-4xl font-serif text-ink">
-              ${(kernel.budgetTotal / 100).toLocaleString()}
-            </p>
+          {budget && budget.total > 0 ? (
+            <>
+              <p className="text-4xl font-serif text-ink">
+                {formatCurrency(budget.total)}
+              </p>
+              <p className="text-xs text-ink-faint mt-2">
+                {formatCurrency(budget.spent)} allocated ({budget.percentUsed}%)
+              </p>
+            </>
+          ) : budget && budget.spent > 0 ? (
+            <>
+              <p className="text-4xl font-serif text-ink">
+                {formatCurrency(budget.spent)}
+              </p>
+              <p className="text-xs text-ink-faint mt-2">allocated so far</p>
+            </>
           ) : (
             <p className="text-xl text-ink-faint">Not set</p>
           )}
-        </div>
+        </Link>
 
         {/* Guests */}
-        <div className="bg-white rounded-2xl border border-stone-200 p-6">
-          <p className="text-sm text-ink-soft mb-1">Guest count</p>
-          {kernel?.guestCount ? (
-            <p className="text-4xl font-serif text-ink">{kernel.guestCount}</p>
+        <Link href="/guests" className="bg-white rounded-2xl border border-stone-200 p-6 hover:border-rose-300 transition-colors">
+          <p className="text-sm text-ink-soft mb-1">Guests</p>
+          {guests && guests.stats.total > 0 ? (
+            <>
+              <p className="text-4xl font-serif text-ink">{guests.stats.total}</p>
+              <p className="text-xs text-ink-faint mt-2">
+                {guests.stats.confirmed} confirmed, {guests.stats.pending} pending
+              </p>
+            </>
+          ) : kernel?.guestCount ? (
+            <>
+              <p className="text-4xl font-serif text-ink">~{kernel.guestCount}</p>
+              <p className="text-xs text-ink-faint mt-2">estimated</p>
+            </>
           ) : (
             <p className="text-xl text-ink-faint">Not set</p>
           )}
-        </div>
+        </Link>
       </div>
 
       {/* Quick actions */}
@@ -153,43 +237,66 @@ export default function DashboardPage() {
             </svg>
           }
           title="View checklist"
-          description="See what's next"
+          description={decisions?.progress 
+            ? `${decisions.progress.notStarted} items to do`
+            : "See what's next"
+          }
         />
         <QuickAction 
-          href="/budget"
+          href="/vendors"
           icon={
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
             </svg>
           }
-          title="Track budget"
-          description="Manage expenses"
+          title="Track vendors"
+          description={vendors?.stats.booked 
+            ? `${vendors.stats.booked} booked`
+            : "Manage your team"
+          }
         />
       </div>
 
       {/* Vendors booked */}
-      {kernel?.vendorsBooked && kernel.vendorsBooked.length > 0 && (
-        <div className="bg-white rounded-2xl border border-stone-200 p-6">
-          <h3 className="font-medium text-ink mb-4">Vendors Booked</h3>
+      {vendors && vendors.list.length > 0 && (
+        <div className="bg-white rounded-2xl border border-stone-200 p-6 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium text-ink">Your Vendors</h3>
+            <Link href="/vendors" className="text-sm text-rose-600 hover:text-rose-700">
+              View all →
+            </Link>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {kernel.vendorsBooked.map((vendor, i) => (
-              <span 
-                key={i}
-                className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium"
-              >
-                ✓ {vendor}
+            {vendors.list.slice(0, 8).map((vendor) => {
+              const isBooked = vendor.status === "booked" || vendor.status === "confirmed" || vendor.status === "paid";
+              return (
+                <span 
+                  key={vendor.id}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                    isBooked 
+                      ? "bg-green-50 text-green-700" 
+                      : "bg-stone-100 text-stone-600"
+                  }`}
+                >
+                  {isBooked && "✓ "}{vendor.name}
+                </span>
+              );
+            })}
+            {vendors.list.length > 8 && (
+              <span className="px-3 py-1.5 text-sm text-ink-faint">
+                +{vendors.list.length - 8} more
               </span>
-            ))}
+            )}
           </div>
         </div>
       )}
 
       {/* Vibe */}
-      {kernel?.vibe && kernel.vibe.length > 0 && (
-        <div className="bg-white rounded-2xl border border-stone-200 p-6 mt-4">
+      {summary?.vibe && summary.vibe.length > 0 && (
+        <div className="bg-white rounded-2xl border border-stone-200 p-6">
           <h3 className="font-medium text-ink mb-4">Your Vibe</h3>
           <div className="flex flex-wrap gap-2">
-            {kernel.vibe.map((v, i) => (
+            {summary.vibe.map((v, i) => (
               <span 
                 key={i}
                 className="px-3 py-1.5 bg-rose-50 text-rose-700 rounded-full text-sm"
@@ -198,6 +305,22 @@ export default function DashboardPage() {
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Empty state prompt */}
+      {!summary?.weddingDate && !budget?.spent && !guests?.stats.total && (
+        <div className="mt-8 p-6 bg-rose-50 rounded-2xl text-center">
+          <h3 className="font-medium text-ink mb-2">Let&apos;s get started!</h3>
+          <p className="text-ink-soft mb-4">
+            Head to chat and tell me about your wedding plans. I&apos;ll help you organize everything.
+          </p>
+          <Link 
+            href="/c" 
+            className="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 text-white rounded-xl hover:bg-rose-600 transition-colors"
+          >
+            Start chatting
+          </Link>
         </div>
       )}
     </div>
@@ -216,7 +339,7 @@ function QuickAction({
   description: string;
 }) {
   return (
-    <a 
+    <Link 
       href={href}
       className="bg-white rounded-2xl border border-stone-200 p-6 hover:border-rose-300 hover:shadow-soft transition-all group"
     >
@@ -225,6 +348,6 @@ function QuickAction({
       </div>
       <h3 className="font-medium text-ink mb-1">{title}</h3>
       <p className="text-sm text-ink-soft">{description}</p>
-    </a>
+    </Link>
   );
 }
