@@ -90,6 +90,25 @@ interface DecisionProgress {
 }
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+// Safely convert cents to dollars, handling edge cases
+function centsToDollars(cents: unknown): number {
+  const num = Number(cents);
+  if (!Number.isFinite(num) || num < 0 || num > 100000000000) { // Max 1 billion dollars
+    return 0;
+  }
+  return num / 100;
+}
+
+// Format currency display
+function formatCurrency(cents: unknown): string {
+  const dollars = centsToDollars(cents);
+  return dollars.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// ============================================================================
 // MAIN ARTIFACT RENDERER
 // ============================================================================
 
@@ -123,18 +142,24 @@ export function Artifact({ type, data }: ArtifactProps) {
 // ============================================================================
 
 function BudgetOverview({ data }: { data: { totalBudget: number; items: BudgetItem[] } }) {
-  const { totalBudget, items } = data;
+  const { totalBudget, items: rawItems } = data;
+  
+  // Ensure items is always an array
+  const items = Array.isArray(rawItems) ? rawItems : [];
   
   // Group by category
   const byCategory = items.reduce((acc, item) => {
+    if (!item?.category) return acc;
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {} as Record<string, BudgetItem[]>);
 
-  const totalSpent = items.reduce((sum, item) => sum + (item.amountPaid || 0), 0);
-  const totalEstimated = items.reduce((sum, item) => sum + (item.totalCost || 0), 0);
-  const remaining = (totalBudget || 0) - totalEstimated;
+  const totalPaid = items.reduce((sum, item) => sum + centsToDollars(item?.amountPaid), 0);
+  const totalEstimated = items.reduce((sum, item) => sum + centsToDollars(item?.totalCost), 0);
+  const budget = centsToDollars(totalBudget);
+  const remaining = budget - totalEstimated;
+  const percentAllocated = budget > 0 ? Math.min((totalEstimated / budget) * 100, 100) : 0;
 
   const categoryLabels: Record<string, string> = {
     venue: "Venue",
@@ -143,21 +168,21 @@ function BudgetOverview({ data }: { data: { totalBudget: number; items: BudgetIt
     videography: "Videography",
     florist: "Flowers",
     music_dj: "Music/DJ",
-    attire: "Attire",
+    attire: "Wedding Attire",
     hair_makeup: "Hair & Makeup",
     invitations: "Invitations",
     cake: "Cake",
     decorations: "Decor",
     transportation: "Transportation",
     officiant: "Officiant",
-    rings: "Rings",
+    rings: "Wedding Rings",
     favors: "Favors",
     honeymoon: "Honeymoon",
     other: "Other"
   };
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       {/* Header */}
       <div className="bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 border-b border-stone-200">
         <h3 className="font-medium text-stone-800">Budget Overview</h3>
@@ -167,41 +192,43 @@ function BudgetOverview({ data }: { data: { totalBudget: number; items: BudgetIt
       <div className="grid grid-cols-3 gap-4 p-4 border-b border-stone-100">
         <div>
           <p className="text-xs text-stone-500 uppercase tracking-wide">Total Budget</p>
-          <p className="text-xl font-semibold text-stone-800">${(totalBudget / 100).toLocaleString()}</p>
+          <p className="text-xl font-semibold text-stone-800">${formatCurrency(totalBudget)}</p>
         </div>
         <div>
           <p className="text-xs text-stone-500 uppercase tracking-wide">Estimated</p>
-          <p className="text-xl font-semibold text-stone-800">${(totalEstimated / 100).toLocaleString()}</p>
+          <p className="text-xl font-semibold text-stone-800">${totalEstimated.toLocaleString()}</p>
         </div>
         <div>
           <p className="text-xs text-stone-500 uppercase tracking-wide">Remaining</p>
           <p className={`text-xl font-semibold ${remaining >= 0 ? "text-green-600" : "text-red-600"}`}>
-            ${(remaining / 100).toLocaleString()}
+            ${Math.abs(remaining).toLocaleString()}{remaining < 0 ? " over" : ""}
           </p>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="px-4 py-2 border-b border-stone-100">
-        <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-rose-400 rounded-full transition-all"
-            style={{ width: `${Math.min((totalEstimated / (totalBudget || 1)) * 100, 100)}%` }}
-          />
+      {budget > 0 && (
+        <div className="px-4 py-2 border-b border-stone-100">
+          <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all ${percentAllocated > 100 ? "bg-red-400" : "bg-rose-400"}`}
+              style={{ width: `${Math.min(percentAllocated, 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-stone-500 mt-1">
+            {percentAllocated.toFixed(0)}% allocated
+          </p>
         </div>
-        <p className="text-xs text-stone-500 mt-1">
-          {((totalEstimated / (totalBudget || 1)) * 100).toFixed(0)}% allocated
-        </p>
-      </div>
+      )}
 
       {/* Categories */}
       <div className="divide-y divide-stone-100">
         {Object.entries(byCategory).map(([category, categoryItems]) => {
-          const categoryTotal = categoryItems.reduce((sum, i) => sum + (i.totalCost || 0), 0);
-          const categoryPaid = categoryItems.reduce((sum, i) => sum + (i.amountPaid || 0), 0);
+          const categoryTotal = categoryItems.reduce((sum, i) => sum + centsToDollars(i?.totalCost), 0);
+          const categoryPaid = categoryItems.reduce((sum, i) => sum + centsToDollars(i?.amountPaid), 0);
           
           return (
-            <div key={category} className="px-4 py-3 flex items-center justify-between">
+            <div key={category} className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 transition-colors">
               <div>
                 <p className="font-medium text-stone-700">{categoryLabels[category] || category}</p>
                 {categoryItems[0]?.vendor && (
@@ -209,9 +236,9 @@ function BudgetOverview({ data }: { data: { totalBudget: number; items: BudgetIt
                 )}
               </div>
               <div className="text-right">
-                <p className="font-medium text-stone-800">${(categoryTotal / 100).toLocaleString()}</p>
+                <p className="font-medium text-stone-800">${categoryTotal.toLocaleString()}</p>
                 {categoryPaid > 0 && (
-                  <p className="text-xs text-green-600">${(categoryPaid / 100).toLocaleString()} paid</p>
+                  <p className="text-xs text-green-600">${categoryPaid.toLocaleString()} paid</p>
                 )}
               </div>
             </div>
@@ -224,6 +251,16 @@ function BudgetOverview({ data }: { data: { totalBudget: number; items: BudgetIt
           No budget items yet. Tell me about your vendors and costs!
         </div>
       )}
+
+      {/* Total paid summary */}
+      {totalPaid > 0 && (
+        <div className="px-4 py-3 bg-green-50 border-t border-green-100">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-green-700">Total Deposits Paid</span>
+            <span className="font-semibold text-green-700">${totalPaid.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -233,7 +270,10 @@ function BudgetOverview({ data }: { data: { totalBudget: number; items: BudgetIt
 // ============================================================================
 
 function FullChecklist({ data }: { data: { progress: DecisionProgress; decisions: Decision[] } }) {
-  const { progress, decisions } = data;
+  const { progress, decisions: rawDecisions } = data;
+  
+  // Ensure decisions is always an array
+  const decisions = Array.isArray(rawDecisions) ? rawDecisions : [];
 
   const statusIcon = (status: string, isSkipped: boolean) => {
     if (isSkipped) return <span className="text-stone-400">—</span>;
@@ -276,33 +316,34 @@ function FullChecklist({ data }: { data: { progress: DecisionProgress; decisions
 
   // Group by category
   const byCategory = decisions.reduce((acc, d) => {
+    if (!d?.category) return acc;
     if (!acc[d.category]) acc[d.category] = [];
     acc[d.category].push(d);
     return acc;
   }, {} as Record<string, Decision[]>);
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       <div className="bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 border-b border-stone-200">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-medium text-stone-800">Wedding Checklist</h3>
-          <span className="text-sm text-stone-600">{progress.percentComplete}% complete</span>
+          <span className="text-sm text-stone-600">{progress?.percentComplete || 0}% complete</span>
         </div>
         <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-rose-400 to-amber-400 rounded-full"
-            style={{ width: `${progress.percentComplete}%` }}
+            style={{ width: `${progress?.percentComplete || 0}%` }}
           />
         </div>
         <div className="flex gap-4 mt-2 text-xs text-stone-500">
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-500" /> {progress.locked} locked
+            <div className="w-2 h-2 rounded-full bg-green-500" /> {progress?.locked || 0} locked
           </span>
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-300" /> {progress.decided - progress.locked} decided
+            <div className="w-2 h-2 rounded-full bg-green-300" /> {(progress?.decided || 0) - (progress?.locked || 0)} decided
           </span>
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-amber-400" /> {progress.researching} researching
+            <div className="w-2 h-2 rounded-full bg-amber-400" /> {progress?.researching || 0} researching
           </span>
         </div>
       </div>
@@ -317,7 +358,7 @@ function FullChecklist({ data }: { data: { progress: DecisionProgress; decisions
             </div>
             <div className="divide-y divide-stone-50">
               {categoryDecisions.map(decision => (
-                <div key={decision.id} className={`px-4 py-2 flex items-center gap-3 ${decision.isSkipped ? "opacity-50" : ""}`}>
+                <div key={decision.id} className={`px-4 py-2 flex items-center gap-3 hover:bg-stone-50 transition-colors ${decision.isSkipped ? "opacity-50" : ""}`}>
                   {statusIcon(decision.status, decision.isSkipped)}
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${decision.status === "locked" ? "font-medium" : ""} ${decision.isSkipped ? "line-through text-stone-400" : "text-stone-700"}`}>
@@ -327,13 +368,21 @@ function FullChecklist({ data }: { data: { progress: DecisionProgress; decisions
                     {decision.choiceName && <p className="text-xs text-stone-500 truncate">{decision.choiceName}</p>}
                     {decision.status === "locked" && decision.lockDetails && <p className="text-xs text-green-600">{decision.lockDetails}</p>}
                   </div>
-                  {decision.choiceAmount && <p className="text-sm text-stone-600">${(decision.choiceAmount / 100).toLocaleString()}</p>}
+                  {decision.choiceAmount && decision.choiceAmount > 0 && (
+                    <p className="text-sm text-stone-600">${formatCurrency(decision.choiceAmount)}</p>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         ))}
       </div>
+
+      {decisions.length === 0 && (
+        <div className="p-4 text-center text-stone-500">
+          No decisions tracked yet. Start chatting to build your checklist!
+        </div>
+      )}
     </div>
   );
 }
@@ -343,7 +392,8 @@ function FullChecklist({ data }: { data: { progress: DecisionProgress; decisions
 // ============================================================================
 
 function GuestList({ data }: { data: { guests: Guest[]; stats: { total: number; confirmed: number; pending: number } } }) {
-  const { guests, stats } = data;
+  const { guests: rawGuests, stats } = data;
+  const guests = Array.isArray(rawGuests) ? rawGuests : [];
   const [filter, setFilter] = useState<string>("all");
 
   const filteredGuests = guests.filter(g => {
@@ -362,24 +412,24 @@ function GuestList({ data }: { data: { guests: Guest[]; stats: { total: number; 
   };
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       {/* Header */}
       <div className="bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 border-b border-stone-200 flex items-center justify-between">
         <h3 className="font-medium text-stone-800">Guest List</h3>
-        <span className="text-sm text-stone-600">{stats.total} guests</span>
+        <span className="text-sm text-stone-600">{stats?.total || guests.length} guests</span>
       </div>
 
       {/* Stats */}
       <div className="flex gap-2 p-3 border-b border-stone-100 overflow-x-auto">
         {[
-          { key: "all", label: "All", count: stats.total },
-          { key: "confirmed", label: "Confirmed", count: stats.confirmed },
-          { key: "pending", label: "Pending", count: stats.pending },
+          { key: "all", label: "All", count: stats?.total || guests.length },
+          { key: "confirmed", label: "Confirmed", count: stats?.confirmed || 0 },
+          { key: "pending", label: "Pending", count: stats?.pending || 0 },
         ].map(({ key, label, count }) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
-            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 rounded-full text-sm whitespace-nowrap transition-all ${
               filter === key 
                 ? "bg-stone-800 text-white" 
                 : "bg-stone-100 text-stone-600 hover:bg-stone-200"
@@ -393,7 +443,7 @@ function GuestList({ data }: { data: { guests: Guest[]; stats: { total: number; 
       {/* Guest rows */}
       <div className="divide-y divide-stone-100 max-h-64 overflow-y-auto">
         {filteredGuests.map(guest => (
-          <div key={guest.id} className="px-4 py-2 flex items-center justify-between">
+          <div key={guest.id} className="px-4 py-2 flex items-center justify-between hover:bg-stone-50 transition-colors">
             <div>
               <p className="font-medium text-stone-700">{guest.name}</p>
               {guest.group && <p className="text-xs text-stone-500">{guest.group}</p>}
@@ -407,7 +457,7 @@ function GuestList({ data }: { data: { guests: Guest[]; stats: { total: number; 
 
       {guests.length === 0 && (
         <div className="p-4 text-center text-stone-500">
-          No guests yet. Tell me who you're inviting!
+          No guests yet. Tell me who you&apos;re inviting!
         </div>
       )}
     </div>
@@ -422,23 +472,23 @@ function GuestStats({ data }: { data: { stats: { total: number; confirmed: numbe
   const { stats } = data;
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4 p-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4 p-4">
       <h3 className="font-medium text-stone-800 mb-3">RSVP Status</h3>
       <div className="grid grid-cols-4 gap-4 text-center">
         <div>
-          <p className="text-2xl font-bold text-stone-800">{stats.total}</p>
+          <p className="text-2xl font-bold text-stone-800">{stats?.total || 0}</p>
           <p className="text-xs text-stone-500">Invited</p>
         </div>
         <div>
-          <p className="text-2xl font-bold text-green-600">{stats.confirmed}</p>
+          <p className="text-2xl font-bold text-green-600">{stats?.confirmed || 0}</p>
           <p className="text-xs text-stone-500">Yes</p>
         </div>
         <div>
-          <p className="text-2xl font-bold text-red-600">{stats.declined}</p>
+          <p className="text-2xl font-bold text-red-600">{stats?.declined || 0}</p>
           <p className="text-xs text-stone-500">No</p>
         </div>
         <div>
-          <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+          <p className="text-2xl font-bold text-amber-600">{stats?.pending || 0}</p>
           <p className="text-xs text-stone-500">Pending</p>
         </div>
       </div>
@@ -451,10 +501,11 @@ function GuestStats({ data }: { data: { stats: { total: number; confirmed: numbe
 // ============================================================================
 
 function Timeline({ data }: { data: { events: TimelineEvent[] } }) {
-  const { events } = data;
+  const { events: rawEvents } = data;
+  const events = Array.isArray(rawEvents) ? rawEvents : [];
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       <div className="bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 border-b border-stone-200">
         <h3 className="font-medium text-stone-800">Day-Of Timeline</h3>
       </div>
@@ -489,7 +540,7 @@ function Timeline({ data }: { data: { events: TimelineEvent[] } }) {
           </div>
         ) : (
           <p className="text-center text-stone-500">
-            No timeline yet. Let's plan your day!
+            No timeline yet. Let&apos;s plan your day!
           </p>
         )}
       </div>
@@ -502,7 +553,8 @@ function Timeline({ data }: { data: { events: TimelineEvent[] } }) {
 // ============================================================================
 
 function Checklist({ data }: { data: { tasks: Task[] } }) {
-  const { tasks } = data;
+  const { tasks: rawTasks } = data;
+  const tasks = Array.isArray(rawTasks) ? rawTasks : [];
 
   const todoTasks = tasks.filter(t => t.status === "todo");
   const doneTasks = tasks.filter(t => t.status === "done");
@@ -514,7 +566,7 @@ function Checklist({ data }: { data: { tasks: Task[] } }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       <div className="bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 border-b border-stone-200 flex items-center justify-between">
         <h3 className="font-medium text-stone-800">Tasks</h3>
         <span className="text-sm text-stone-600">
@@ -526,7 +578,7 @@ function Checklist({ data }: { data: { tasks: Task[] } }) {
         {todoTasks.map(task => (
           <div 
             key={task.id} 
-            className={`px-4 py-3 border-l-4 ${priorityColors[task.priority] || priorityColors.medium}`}
+            className={`px-4 py-3 border-l-4 hover:bg-stone-50 transition-colors ${priorityColors[task.priority] || priorityColors.medium}`}
           >
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 rounded border-2 border-stone-300 mt-0.5" />
@@ -574,7 +626,8 @@ function Checklist({ data }: { data: { tasks: Task[] } }) {
 // ============================================================================
 
 function VendorList({ data }: { data: { vendors: Vendor[] } }) {
-  const { vendors } = data;
+  const { vendors: rawVendors } = data;
+  const vendors = Array.isArray(rawVendors) ? rawVendors : [];
 
   const statusLabels: Record<string, { label: string; color: string }> = {
     researching: { label: "Researching", color: "bg-stone-100 text-stone-600" },
@@ -607,7 +660,7 @@ function VendorList({ data }: { data: { vendors: Vendor[] } }) {
   const inProgress = vendors.filter(v => ["contacted", "meeting_scheduled", "researching"].includes(v.status));
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       <div className="bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 border-b border-stone-200">
         <h3 className="font-medium text-stone-800">Vendors</h3>
       </div>
@@ -619,13 +672,13 @@ function VendorList({ data }: { data: { vendors: Vendor[] } }) {
           </div>
           <div className="divide-y divide-stone-100">
             {booked.map(vendor => (
-              <div key={vendor.id} className="px-4 py-3 flex items-center justify-between">
+              <div key={vendor.id} className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 transition-colors">
                 <div>
                   <p className="font-medium text-stone-700">{vendor.name}</p>
                   <p className="text-sm text-stone-500">{categoryLabels[vendor.category] || vendor.category}</p>
                 </div>
-                {vendor.price && (
-                  <p className="font-medium text-stone-700">${(vendor.price / 100).toLocaleString()}</p>
+                {vendor.price && vendor.price > 0 && (
+                  <p className="font-medium text-stone-700">${formatCurrency(vendor.price)}</p>
                 )}
               </div>
             ))}
@@ -642,7 +695,7 @@ function VendorList({ data }: { data: { vendors: Vendor[] } }) {
             {inProgress.map(vendor => {
               const status = statusLabels[vendor.status] || statusLabels.researching;
               return (
-                <div key={vendor.id} className="px-4 py-3 flex items-center justify-between">
+                <div key={vendor.id} className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 transition-colors">
                   <div>
                     <p className="font-medium text-stone-700">{vendor.name}</p>
                     <p className="text-sm text-stone-500">{categoryLabels[vendor.category] || vendor.category}</p>
@@ -659,7 +712,7 @@ function VendorList({ data }: { data: { vendors: Vendor[] } }) {
 
       {vendors.length === 0 && (
         <div className="p-4 text-center text-stone-500">
-          No vendors yet. Tell me who you're considering!
+          No vendors yet. Tell me who you&apos;re considering!
         </div>
       )}
     </div>
@@ -673,9 +726,9 @@ function VendorList({ data }: { data: { vendors: Vendor[] } }) {
 function Countdown({ data }: { data: { weddingDate: string; daysUntil: number } }) {
   const { weddingDate, daysUntil } = data;
 
-  if (!weddingDate || daysUntil === null) {
+  if (!weddingDate || daysUntil === null || daysUntil === undefined) {
     return (
-      <div className="bg-white rounded-xl border border-stone-200 p-6 my-4 text-center">
+      <div className="bg-white rounded-lg border border-stone-200 p-6 my-4 text-center">
         <p className="text-stone-500">No wedding date set yet!</p>
       </div>
     );
@@ -689,7 +742,7 @@ function Countdown({ data }: { data: { weddingDate: string; daysUntil: number } 
   });
 
   return (
-    <div className="bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl border border-rose-200 p-6 my-4 text-center">
+    <div className="bg-gradient-to-r from-rose-50 to-amber-50 rounded-lg border border-rose-200 p-6 my-4 text-center">
       <p className="text-6xl font-bold text-rose-500 mb-2">{daysUntil}</p>
       <p className="text-lg text-stone-600 mb-1">days until your wedding</p>
       <p className="text-sm text-stone-500">{formattedDate}</p>
@@ -702,24 +755,28 @@ function Countdown({ data }: { data: { weddingDate: string; daysUntil: number } 
 // ============================================================================
 
 function WeddingSummary({ data }: { data: unknown }) {
-  const { kernel, budget, guests } = data as {
-    kernel: Record<string, unknown>;
-    budget: { total: number; items: BudgetItem[] };
-    guests: Guest[];
+  const rawData = data as {
+    kernel?: Record<string, unknown>;
+    budget?: { total: number; items: BudgetItem[] };
+    guests?: Guest[];
   };
 
-  const names = (kernel?.names as string[]) || [];
-  const weddingDate = kernel?.weddingDate as string;
-  const vibe = (kernel?.vibe as string[]) || [];
+  const kernel = rawData?.kernel || {};
+  const budget = rawData?.budget || { total: 0, items: [] };
+  const guests = Array.isArray(rawData?.guests) ? rawData.guests : [];
 
-  const totalBudget = budget?.total || 0;
-  const budgetAllocated = (budget?.items || []).reduce((sum, i) => sum + (i.totalCost || 0), 0);
+  const names = Array.isArray(kernel?.names) ? kernel.names as string[] : [];
+  const weddingDate = kernel?.weddingDate as string;
+  const vibe = Array.isArray(kernel?.vibe) ? kernel.vibe as string[] : [];
+
+  const totalBudget = centsToDollars(budget?.total);
+  const budgetAllocated = (budget?.items || []).reduce((sum, i) => sum + centsToDollars(i?.totalCost), 0);
   
   const guestCount = guests?.length || 0;
   const confirmedGuests = guests?.filter(g => g.rsvp === "yes").length || 0;
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden my-4">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden my-4">
       <div className="bg-gradient-to-r from-rose-100 to-amber-100 px-4 py-4 border-b border-stone-200 text-center">
         <h3 className="text-xl font-serif text-stone-800">
           {names.length >= 2 ? `${names[0]} & ${names[1]}` : "Your Wedding"}
@@ -737,8 +794,8 @@ function WeddingSummary({ data }: { data: unknown }) {
           <p className="text-xs text-stone-500">Guests ({confirmedGuests} confirmed)</p>
         </div>
         <div className="p-4 text-center">
-          <p className="text-2xl font-bold text-stone-800">${(totalBudget / 100).toLocaleString()}</p>
-          <p className="text-xs text-stone-500">Budget (${(budgetAllocated / 100).toLocaleString()} allocated)</p>
+          <p className="text-2xl font-bold text-stone-800">${totalBudget.toLocaleString()}</p>
+          <p className="text-xs text-stone-500">Budget (${budgetAllocated.toLocaleString()} allocated)</p>
         </div>
       </div>
 
