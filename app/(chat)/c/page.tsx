@@ -213,6 +213,7 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const prevMessageCountRef = useRef(0);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -222,9 +223,14 @@ export default function ChatPage() {
     return () => clearInterval(interval);
   }, [isLoading]);
 
+  // Only auto-scroll when a NEW message is added, not on typewriter state updates
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const currentCount = messages.length;
+    if (currentCount > prevMessageCountRef.current || isLoading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevMessageCountRef.current = currentCount;
+  }, [messages.length, isLoading]);
 
   useEffect(() => {
     if (!isLoading) inputRef.current?.focus();
