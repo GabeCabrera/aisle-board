@@ -7,11 +7,24 @@ export const FREE_AI_MESSAGE_LIMIT = 10;
 
 // Subscription prices (set these in Stripe dashboard and copy the IDs here)
 export const STRIPE_PRICES = {
-  monthly: process.env.STRIPE_PRICE_MONTHLY!, // $12/month
-  yearly: process.env.STRIPE_PRICE_YEARLY!,   // $99/year
+  monthly: process.env.STRIPE_PRICE_MONTHLY!,           // $11.99/month
+  yearly: process.env.STRIPE_PRICE_YEARLY!,             // $119/year
+  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY!, // $24.99/month
+  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY!,   // $249/year
 };
 
-export type PlanType = "free" | "monthly" | "yearly";
+// Plan types - includes both standard and premium tiers
+export type PlanType = "free" | "monthly" | "yearly" | "premium_monthly" | "premium_yearly";
+
+// Helper to check if a plan is a premium tier
+export function isPremiumPlan(plan: PlanType): boolean {
+  return plan === "premium_monthly" || plan === "premium_yearly";
+}
+
+// Helper to check if a plan is any paid tier
+export function isPaidPlan(plan: PlanType): boolean {
+  return plan !== "free";
+}
 
 export interface PlanAccess {
   plan: PlanType;
@@ -123,8 +136,10 @@ export function canAccessTemplate(access: PlanAccess, templateIsFree: boolean): 
 export function getPlanDisplayName(plan: PlanType, isLegacy: boolean): string {
   if (isLegacy) return "Complete (Legacy)";
   switch (plan) {
-    case "monthly": return "AIsle Monthly";
-    case "yearly": return "AIsle Yearly";
+    case "monthly": return "Aisle Monthly";
+    case "yearly": return "Aisle Yearly";
+    case "premium_monthly": return "Aisle+ Monthly";
+    case "premium_yearly": return "Aisle+ Yearly";
     default: return "Free";
   }
 }

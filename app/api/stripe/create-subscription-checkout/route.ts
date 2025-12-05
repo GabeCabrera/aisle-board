@@ -12,10 +12,15 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 // Get price IDs from environment variables
-const PRICES = {
-  monthly: process.env.STRIPE_PRICE_MONTHLY!,
-  yearly: process.env.STRIPE_PRICE_YEARLY!,
+const PRICES: Record<string, string | undefined> = {
+  monthly: process.env.STRIPE_PRICE_MONTHLY,
+  yearly: process.env.STRIPE_PRICE_YEARLY,
+  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY,
 };
+
+// Valid billing cycle options
+const VALID_BILLING_CYCLES = ["monthly", "yearly", "premium_monthly", "premium_yearly"];
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,14 +35,14 @@ export async function POST(request: NextRequest) {
 
     const { billingCycle, promoCode } = await request.json();
 
-    if (!billingCycle || !["monthly", "yearly"].includes(billingCycle)) {
+    if (!billingCycle || !VALID_BILLING_CYCLES.includes(billingCycle)) {
       return NextResponse.json(
         { error: "Invalid billing cycle" },
         { status: 400 }
       );
     }
 
-    const priceId = PRICES[billingCycle as "monthly" | "yearly"];
+    const priceId = PRICES[billingCycle];
     
     if (!priceId) {
       return NextResponse.json(
