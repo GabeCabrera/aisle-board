@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Artifact } from "@/components/artifacts";
+import { useBrowser } from "@/components/layout/AppShell";
+import { Code, ExternalLink } from "lucide-react";
 
 interface Message {
   id: string;
@@ -106,6 +108,91 @@ function useTypewriter(text: string, isTyping: boolean, speed: number = 8) {
   return { displayedText, isComplete };
 }
 
+// Live Widget Preview Card - Shows in chat with "Open in Tab" button
+function LiveWidgetCard({ 
+  title, 
+  code, 
+  language = "jsx" 
+}: { 
+  title: string; 
+  code: string; 
+  language?: string;
+}) {
+  let browser: ReturnType<typeof useBrowser> | null = null;
+  try {
+    browser = useBrowser();
+  } catch {
+    // Not in browser context
+  }
+
+  const handleOpenInTab = () => {
+    if (browser) {
+      browser.createArtifactTab(title, code, language as "jsx" | "html" | "markdown");
+    }
+  };
+
+  // Show first few lines of code as preview
+  const codePreview = code.split('\n').slice(0, 5).join('\n');
+
+  return (
+    <div 
+      className="mt-3 rounded-xl overflow-hidden"
+      style={{
+        background: 'linear-gradient(180deg, #1c1917 0%, #292524 100%)',
+        boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.3), 0 4px 8px -2px rgba(0, 0, 0, 0.2)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-6 h-6 rounded flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+              boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)',
+            }}
+          >
+            <Code className="w-3.5 h-3.5 text-white" />
+          </div>
+          <span className="text-sm font-medium text-stone-200">{title}</span>
+          <span className="px-2 py-0.5 rounded text-xs bg-emerald-900/50 text-emerald-400 font-mono">
+            {language.toUpperCase()}
+          </span>
+        </div>
+        {browser && (
+          <button
+            onClick={handleOpenInTab}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105"
+            style={{
+              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+              boxShadow: '0 2px 8px -2px rgba(16, 185, 129, 0.4)',
+              color: 'white',
+            }}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Open Widget
+          </button>
+        )}
+      </div>
+
+      {/* Code preview */}
+      <div className="p-4 max-h-32 overflow-hidden relative">
+        <pre className="text-xs text-emerald-300/70 font-mono whitespace-pre-wrap">
+          {codePreview}
+          {code.split('\n').length > 5 && '\n...'}
+        </pre>
+        <div 
+          className="absolute inset-x-0 bottom-0 h-12"
+          style={{
+            background: 'linear-gradient(to top, #292524 0%, transparent 100%)',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Message bubble component with depth and typewriter effect
 function MessageBubble({ 
   content, 
@@ -194,7 +281,15 @@ function MessageBubble({
       </div>
       {artifact && isComplete && (
         <div className="mt-3">
-          <Artifact type={artifact.type} data={artifact.data} />
+          {artifact.type === 'live_widget' ? (
+            <LiveWidgetCard 
+              title={(artifact.data as { title?: string })?.title || 'Widget'}
+              code={(artifact.data as { code?: string })?.code || ''}
+              language={(artifact.data as { language?: string })?.language || 'jsx'}
+            />
+          ) : (
+            <Artifact type={artifact.type} data={artifact.data} />
+          )}
         </div>
       )}
     </div>
