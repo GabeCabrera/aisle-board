@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Artifact } from "@/components/artifacts";
 import { useBrowser } from "@/components/layout/AppShell";
 import { Code, ExternalLink } from "lucide-react";
 import { broadcastPlannerDataChanged } from "@/lib/hooks/usePlannerData";
+import { ArtifactHistoryDrawer, ArtifactHistoryButton } from "@/components/artifact-history-drawer";
 
 interface Message {
   id: string;
@@ -299,7 +300,7 @@ function MessageBubble({
 
 export default function ChatPage() {
   const { status } = useSession();
-  
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -308,10 +309,24 @@ export default function ChatPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [thinkingMessage, setThinkingMessage] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
-  
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef(0);
+
+  // Extract artifacts from messages for the history drawer
+  const artifactHistory = useMemo(() => {
+    return messages
+      .filter((m) => m.artifact && m.role === "assistant")
+      .map((m, index) => ({
+        id: m.id,
+        type: m.artifact!.type,
+        data: m.artifact!.data,
+        timestamp: new Date(Date.now() - index * 60000), // Approximate timestamps
+      }))
+      .reverse(); // Most recent first
+  }, [messages]);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -466,6 +481,23 @@ export default function ChatPage() {
 
   return (
     <div className="h-full flex flex-col bg-stone-50">
+      {/* Artifact History Button - Fixed in top right */}
+      {artifactHistory.length > 0 && (
+        <div className="fixed top-4 right-4 z-30">
+          <ArtifactHistoryButton
+            onClick={() => setIsHistoryDrawerOpen(true)}
+            count={artifactHistory.length}
+          />
+        </div>
+      )}
+
+      {/* Artifact History Drawer */}
+      <ArtifactHistoryDrawer
+        isOpen={isHistoryDrawerOpen}
+        onClose={() => setIsHistoryDrawerOpen(false)}
+        artifacts={artifactHistory}
+      />
+
       {/* Subtle ambient glow */}
       <div className="fixed bottom-0 left-0 right-0 h-96 pointer-events-none z-0 overflow-hidden">
         <div 
