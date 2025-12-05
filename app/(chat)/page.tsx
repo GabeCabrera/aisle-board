@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { Artifact } from "@/components/artifacts";
 import { useBrowser } from "@/components/layout/AppShell";
 import { Code, ExternalLink } from "lucide-react";
+import { broadcastPlannerDataChanged } from "@/lib/hooks/usePlannerData";
 
 interface Message {
   id: string;
@@ -419,6 +420,12 @@ export default function ChatPage() {
 
       if (data.conversationId) {
         setConversationId(data.conversationId);
+      }
+
+      // Broadcast to other tabs that planner data may have changed
+      // This triggers automatic refresh in Budget, Guests, Vendors, etc.
+      if (data.toolResults && data.toolResults.length > 0) {
+        broadcastPlannerDataChanged();
       }
 
       const newMessageId = (Date.now() + 1).toString();

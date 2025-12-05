@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePlannerData, formatCurrency, Vendor } from "@/lib/hooks/usePlannerData";
 import {
   Building2, Utensils, Camera, Video, Flower2, Music, Guitar, Cake,
-  Heart, Scissors, Sparkles, Armchair, Car, ClipboardList, Mail, Pin
+  Heart, Scissors, Sparkles, Armchair, Car, ClipboardList, Mail, Pin,
+  RefreshCw, Clock
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
@@ -43,9 +44,46 @@ function getCategoryConfig(category: string) {
   return { Icon: Pin, color: "bg-stone-50 text-stone-700" };
 }
 
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
+
 export default function VendorsTool() {
-  const { data, loading } = usePlannerData();
+  const { data, loading, refetch, lastRefresh } = usePlannerData();
   const [filter, setFilter] = useState<"all" | "booked" | "researching">("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [timeAgo, setTimeAgo] = useState("just now");
+
+  // Update "time ago" display every 10 seconds
+  useEffect(() => {
+    const updateTimeAgo = () => setTimeAgo(formatTimeAgo(lastRefresh));
+    updateTimeAgo();
+    const interval = setInterval(updateTimeAgo, 10000);
+    return () => clearInterval(interval);
+  }, [lastRefresh]);
+
+  // Refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefresh > 30000) {
+        refetch();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [lastRefresh, refetch]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
 
   if (loading) {
     return (
@@ -86,9 +124,26 @@ export default function VendorsTool() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="font-serif text-3xl text-ink mb-1">Vendors</h1>
-        <p className="text-ink-soft">Track your wedding vendors</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="font-serif text-3xl text-ink mb-1">Vendors</h1>
+          <p className="text-ink-soft">Track your wedding vendors</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-ink-faint">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Updated {timeAgo}</span>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-ink-soft hover:text-ink hover:bg-stone-100 transition-all disabled:opacity-50"
+            title="Refresh data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
       </div>
 
       {!hasData ? (

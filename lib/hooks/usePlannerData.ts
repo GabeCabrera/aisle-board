@@ -1,6 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
+// Channel name for real-time sync between chat and tools
+export const PLANNER_SYNC_CHANNEL = "planner-data-changed";
+
+// Custom event name for same-tab communication
+export const PLANNER_DATA_CHANGED_EVENT = "planner-data-changed-event";
+
+// Broadcast that planner data has changed (call from chat after tool calls)
+// This handles both cross-tab (BroadcastChannel) and same-tab (CustomEvent) scenarios
+export function broadcastPlannerDataChanged() {
+  if (typeof window === "undefined") return;
+  
+  console.log("[PlannerData] Broadcasting data change signal...");
+  
+  // Same-tab: Dispatch a CustomEvent that components in the same tab can listen for
+  window.dispatchEvent(new CustomEvent(PLANNER_DATA_CHANGED_EVENT, {
+    detail: { timestamp: Date.now() }
+  }));
+  
+  // Cross-tab: Use BroadcastChannel for other tabs
+  if ("BroadcastChannel" in window) {
+    const channel = new BroadcastChannel(PLANNER_SYNC_CHANNEL);
+    channel.postMessage({ type: "data-changed", timestamp: Date.now() });
+    channel.close();
+  }
+}
 
 // ============================================================================
 // TYPES
@@ -168,8 +194,10 @@ export function usePlannerData() {
   const [data, setData] = useState<PlannerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<number>(Date.now());
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/planner/data");
@@ -177,32 +205,78 @@ export function usePlannerData() {
       const json = await res.json();
       setData(json);
       setError(null);
+      setLastRefresh(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
 
-  return { data, loading, error, refetch: fetchData };
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Listen for real-time updates via CustomEvent (same-tab) and BroadcastChannel (cross-tab)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Handler for data change events
+    const handleDataChange = () => {
+      // Debounce: only refetch if it's been at least 500ms since last refresh
+      const now = Date.now();
+      if (now - lastRefresh > 500) {
+        console.log("[PlannerData] Received sync signal, refreshing...");
+        fetchData();
+      }
+    };
+
+    // Same-tab: Listen for CustomEvent
+    const customEventHandler = () => handleDataChange();
+    window.addEventListener(PLANNER_DATA_CHANGED_EVENT, customEventHandler);
+
+    // Cross-tab: Listen via BroadcastChannel
+    if ("BroadcastChannel" in window) {
+      channelRef.current = new BroadcastChannel(PLANNER_SYNC_CHANNEL);
+      channelRef.current.onmessage = (event) => {
+        if (event.data?.type === "data-changed") {
+          handleDataChange();
+        }
+      };
+    }
+
+    return () => {
+      window.removeEventListener(PLANNER_DATA_CHANGED_EVENT, customEventHandler);
+      channelRef.current?.close();
+      channelRef.current = null;
+    };
+  }, [fetchData, lastRefresh]);
+
+  return { 
+    data, 
+    loading, 
+    error, 
+    refetch: fetchData,
+    lastRefresh 
+  };
 }
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
-export function formatCurrency(cents: number): string {
-  // Values are stored in cents, convert to dollars for display
+export function formatCurrency(amount: number): string {
+  // Values are now stored in dollars (as strings in DB, parsed to numbers)
+  // If the amount looks like cents (> 10000 for typical wedding budget items), convert
+  const dollars = amount > 10000 ? amount / 100 : amount;
+  
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(cents / 100);
+  }).format(dollars);
 }
 
 export function formatDate(dateString: string): string {

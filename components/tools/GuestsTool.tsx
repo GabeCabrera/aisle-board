@@ -1,13 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePlannerData, Guest } from "@/lib/hooks/usePlannerData";
+import { RefreshCw, Clock } from "lucide-react";
+
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
 
 export default function GuestsTool() {
-  const { data, loading } = usePlannerData();
+  const { data, loading, refetch, lastRefresh } = usePlannerData();
   const [filter, setFilter] = useState<"all" | "confirmed" | "pending" | "declined">("all");
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState<"none" | "side" | "group">("none");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [timeAgo, setTimeAgo] = useState("just now");
+
+  // Update "time ago" display every 10 seconds
+  useEffect(() => {
+    const updateTimeAgo = () => setTimeAgo(formatTimeAgo(lastRefresh));
+    updateTimeAgo();
+    const interval = setInterval(updateTimeAgo, 10000);
+    return () => clearInterval(interval);
+  }, [lastRefresh]);
+
+  // Refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefresh > 30000) {
+        refetch();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [lastRefresh, refetch]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
 
   if (loading) {
     return (
@@ -70,9 +108,26 @@ export default function GuestsTool() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="font-serif text-3xl text-ink mb-1">Guest List</h1>
-        <p className="text-ink-soft">Manage your wedding guests</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="font-serif text-3xl text-ink mb-1">Guest List</h1>
+          <p className="text-ink-soft">Manage your wedding guests</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-ink-faint">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Updated {timeAgo}</span>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-ink-soft hover:text-ink hover:bg-stone-100 transition-all disabled:opacity-50"
+            title="Refresh data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
       </div>
 
       {!hasData ? (
