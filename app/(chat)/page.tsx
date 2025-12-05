@@ -363,7 +363,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50">
+    <div className="h-full flex flex-col bg-stone-50">
       {/* Subtle ambient glow */}
       <div className="fixed bottom-0 left-0 right-0 h-96 pointer-events-none z-0 overflow-hidden">
         <div 
@@ -390,7 +390,7 @@ export default function ChatPage() {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto pb-36 md:pb-28 relative z-10">
+      <div className="flex-1 overflow-y-auto pb-32 relative z-10">
         <div className="max-w-3xl mx-auto px-4 py-6 md:pt-8">
           {/* Empty state */}
           {messages.length === 0 && !isLoading && (
@@ -504,7 +504,7 @@ export default function ChatPage() {
       </div>
 
       {/* Fixed input bar with depth */}
-      <div className="fixed bottom-16 md:bottom-0 inset-x-0 p-4 pb-4 md:pb-6 z-20">
+      <div className="fixed bottom-0 inset-x-0 p-4 pb-6 z-20">
         <div 
           className="absolute inset-0"
           style={{

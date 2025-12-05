@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { 
+  ChevronLeft,
+  ChevronRight,
   Home,
-  LayoutGrid,
-  MessageCircle,
+  X,
+  Plus,
+  Star,
   Settings,
   DollarSign,
   Users,
@@ -16,8 +19,53 @@ import {
   LayoutDashboard,
   ChevronDown,
   LogOut,
-  User
+  User,
+  Code,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface Tab {
+  id: string;
+  type: "chat" | "tool" | "artifact";
+  toolId?: string;
+  title: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  closable: boolean;
+  artifactData?: {
+    code: string;
+    title: string;
+  };
+}
+
+interface BrowserContextType {
+  tabs: Tab[];
+  activeTabId: string;
+  history: string[];
+  historyIndex: number;
+  favorites: string[];
+  openTab: (tab: Omit<Tab, "id">) => string;
+  closeTab: (tabId: string) => void;
+  switchTab: (tabId: string) => void;
+  goBack: () => void;
+  goForward: () => void;
+  goHome: () => void;
+  toggleFavorite: (toolId: string) => void;
+  openTool: (toolId: string) => void;
+  createArtifactTab: (title: string, code: string) => string;
+}
+
+const BrowserContext = createContext<BrowserContextType | null>(null);
+
+export function useBrowser() {
+  const context = useContext(BrowserContext);
+  if (!context) throw new Error("useBrowser must be used within BrowserProvider");
+  return context;
+}
 
 // =============================================================================
 // AISLE LOGO
@@ -40,7 +88,6 @@ const tools = [
   { 
     id: "dashboard", 
     label: "Dashboard", 
-    description: "Your wedding overview",
     icon: LayoutDashboard,
     gradient: "linear-gradient(135deg, #F43F5E 0%, #E11D48 100%)",
     shadow: "rgba(244, 63, 94, 0.4)",
@@ -48,7 +95,6 @@ const tools = [
   { 
     id: "budget", 
     label: "Budget", 
-    description: "Track expenses",
     icon: DollarSign,
     gradient: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
     shadow: "rgba(16, 185, 129, 0.4)",
@@ -56,7 +102,6 @@ const tools = [
   { 
     id: "guests", 
     label: "Guests", 
-    description: "Manage RSVPs",
     icon: Users,
     gradient: "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
     shadow: "rgba(59, 130, 246, 0.4)",
@@ -64,7 +109,6 @@ const tools = [
   { 
     id: "vendors", 
     label: "Vendors", 
-    description: "Your team",
     icon: Store,
     gradient: "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
     shadow: "rgba(139, 92, 246, 0.4)",
@@ -72,7 +116,6 @@ const tools = [
   { 
     id: "timeline", 
     label: "Timeline", 
-    description: "Day-of schedule",
     icon: Calendar,
     gradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
     shadow: "rgba(245, 158, 11, 0.4)",
@@ -80,7 +123,6 @@ const tools = [
   { 
     id: "checklist", 
     label: "Checklist", 
-    description: "To-do list",
     icon: CheckCircle,
     gradient: "linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)",
     shadow: "rgba(20, 184, 166, 0.4)",
@@ -88,7 +130,6 @@ const tools = [
   { 
     id: "inspo", 
     label: "Inspo", 
-    description: "Save ideas",
     icon: Sparkles,
     gradient: "linear-gradient(135deg, #EC4899 0%, #DB2777 100%)",
     shadow: "rgba(236, 72, 153, 0.4)",
@@ -96,140 +137,144 @@ const tools = [
   { 
     id: "settings", 
     label: "Settings", 
-    description: "Preferences",
     icon: Settings,
     gradient: "linear-gradient(135deg, #64748B 0%, #475569 100%)",
     shadow: "rgba(100, 116, 139, 0.4)",
   },
 ];
 
+const getToolById = (id: string) => tools.find(t => t.id === id);
+
 // =============================================================================
-// BOTTOM SHEET (Pinterest-style slide up)
+// TAB COMPONENT
 // =============================================================================
 
-function BottomSheet({ 
-  isOpen, 
-  onClose, 
-  children,
-  title
+function TabItem({ 
+  tab, 
+  isActive, 
+  onSelect, 
+  onClose 
 }: { 
-  isOpen: boolean; 
-  onClose: () => void;
-  children: React.ReactNode;
-  title?: string;
+  tab: Tab; 
+  isActive: boolean; 
+  onSelect: () => void; 
+  onClose?: () => void;
 }) {
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsAnimating(true));
-      });
-    } else {
-      setIsAnimating(false);
-      const timer = setTimeout(() => setShouldRender(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
-
-  if (!shouldRender) return null;
+  const tool = tab.toolId ? getToolById(tab.toolId) : null;
+  const Icon = tab.icon || tool?.icon || Code;
 
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Backdrop */}
+    <button
+      onClick={onSelect}
+      className={`
+        group flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg
+        transition-all duration-200 relative min-w-[120px] max-w-[200px]
+        ${isActive 
+          ? "bg-white text-stone-800 shadow-sm" 
+          : "bg-stone-100/50 text-stone-500 hover:bg-stone-100 hover:text-stone-700"
+        }
+      `}
+      style={{
+        borderBottom: isActive ? '2px solid white' : '2px solid transparent',
+        marginBottom: isActive ? '-2px' : '0',
+      }}
+    >
+      {/* Icon */}
       <div 
-        className={`absolute inset-0 backdrop-blur-md transition-opacity duration-300 ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ backgroundColor: 'rgba(61, 56, 51, 0.4)' }}
-        onClick={onClose}
-      />
-      
-      {/* Sheet */}
-      <div 
-        className={`absolute inset-x-0 bottom-0 rounded-t-3xl transition-transform duration-300 ease-out ${
-          isAnimating ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{ 
-          maxHeight: "85vh",
-          background: 'linear-gradient(180deg, #FFFFFF 0%, #FDFCFA 100%)',
-          boxShadow: '0 -12px 48px -12px rgba(61, 56, 51, 0.25), 0 -4px 16px -4px rgba(61, 56, 51, 0.1)',
+        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+        style={tool ? {
+          background: tool.gradient,
+          boxShadow: `0 2px 4px -1px ${tool.shadow}`,
+        } : {
+          background: tab.type === 'chat' 
+            ? 'linear-gradient(135deg, #D4A69C 0%, #C4918A 100%)'
+            : 'linear-gradient(135deg, #64748B 0%, #475569 100%)',
         }}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2">
-          <div 
-            className="w-10 h-1.5 rounded-full"
-            style={{
-              background: 'linear-gradient(90deg, #DDD8CF 0%, #CEC7BC 100%)',
-              boxShadow: 'inset 0 1px 2px rgba(61, 56, 51, 0.1)',
-            }}
-          />
-        </div>
-        
-        {/* Header */}
-        {title && (
-          <div className="px-6 pb-4">
-            <h2 className="font-serif text-xl text-stone-800">{title}</h2>
-          </div>
-        )}
-        
-        {/* Content */}
-        <div className="overflow-y-auto" style={{ maxHeight: "calc(85vh - 60px)" }}>
-          {children}
-        </div>
+        <Icon className="w-3 h-3 text-white" />
       </div>
+      
+      {/* Title */}
+      <span className="truncate">{tab.title}</span>
+      
+      {/* Close button */}
+      {tab.closable && onClose && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className={`
+            ml-auto p-0.5 rounded transition-all
+            ${isActive 
+              ? "opacity-60 hover:opacity-100 hover:bg-stone-200" 
+              : "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-stone-200"
+            }
+          `}
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
+    </button>
+  );
+}
+
+// =============================================================================
+// FAVORITES BAR
+// =============================================================================
+
+function FavoritesBar({ 
+  favorites, 
+  onOpenTool 
+}: { 
+  favorites: string[]; 
+  onOpenTool: (toolId: string) => void;
+}) {
+  if (favorites.length === 0) return null;
+
+  return (
+    <div 
+      className="flex items-center gap-1 px-3 py-1.5 border-b"
+      style={{ 
+        background: 'linear-gradient(180deg, #FAFAF9 0%, #F5F5F4 100%)',
+        borderColor: 'rgba(61, 56, 51, 0.06)',
+      }}
+    >
+      {favorites.map(toolId => {
+        const tool = getToolById(toolId);
+        if (!tool) return null;
+        return (
+          <button
+            key={toolId}
+            onClick={() => onOpenTool(toolId)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-stone-600 hover:bg-white hover:shadow-sm transition-all"
+          >
+            <div 
+              className="w-4 h-4 rounded flex items-center justify-center"
+              style={{
+                background: tool.gradient,
+                boxShadow: `0 1px 2px -1px ${tool.shadow}`,
+              }}
+            >
+              <tool.icon className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span>{tool.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 // =============================================================================
-// FULL SCREEN MODAL (for tools)
+// TOOL CONTENT RENDERER
 // =============================================================================
 
-function FullScreenModal({ 
-  isOpen, 
-  onClose, 
-  toolId 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void;
-  toolId: string;
-}) {
+function ToolContent({ toolId }: { toolId: string }) {
   const [Component, setComponent] = useState<React.ComponentType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-
-  const tool = tools.find(t => t.id === toolId);
 
   useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsAnimating(true));
-      });
-    } else {
-      setIsAnimating(false);
-      const timer = setTimeout(() => setShouldRender(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    
     setLoading(true);
     const loadComponent = async () => {
       try {
@@ -270,167 +315,93 @@ function FullScreenModal({
       }
     };
     loadComponent();
-  }, [isOpen, toolId]);
+  }, [toolId]);
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+  const tool = getToolById(toolId);
 
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) {
-      window.addEventListener("keydown", handleEscape);
-      return () => window.removeEventListener("keydown", handleEscape);
-    }
-  }, [isOpen, onClose]);
-
-  if (!shouldRender) return null;
-
-  return (
-    <div className="fixed inset-0 z-50">
-      {/* Modal slides up from bottom on mobile, fades in on desktop */}
-      <div 
-        className={`
-          absolute inset-0
-          transition-all duration-300 ease-out
-          md:inset-4 md:rounded-3xl
-          ${isAnimating 
-            ? "translate-y-0 opacity-100" 
-            : "translate-y-full md:translate-y-0 md:opacity-0 md:scale-95"
-          }
-        `}
-        style={{
-          background: 'linear-gradient(180deg, #FFFFFF 0%, #FDFCFA 100%)',
-          boxShadow: '0 24px 64px -16px rgba(61, 56, 51, 0.25), 0 8px 24px -8px rgba(61, 56, 51, 0.1)',
-        }}
-      >
-        {/* Header */}
-        <div 
-          className="sticky top-0 z-10 backdrop-blur-xl"
-          style={{
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(253,252,250,0.9) 100%)',
-            borderBottom: '1px solid rgba(61, 56, 51, 0.06)',
-          }}
-        >
-          <div className="flex items-center justify-between px-4 h-14 md:h-16">
-            {/* Back/Close button */}
-            <button
-              onClick={onClose}
-              className="flex items-center gap-2 -ml-2 p-2 rounded-xl transition-all duration-200 hover:-translate-x-0.5"
-              style={{
-                color: '#6B6560',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(61, 56, 51, 0.05)';
-                e.currentTarget.style.color = '#3D3833';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = '#6B6560';
-              }}
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-              </svg>
-              <span className="text-sm font-medium hidden sm:inline">Back</span>
-            </button>
-            
-            {/* Title */}
-            <div className="flex items-center gap-2.5">
-              {tool && (
-                <div 
-                  className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: tool.gradient,
-                    boxShadow: `0 4px 12px -2px ${tool.shadow}, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                  }}
-                >
-                  <tool.icon className="w-5 h-5 text-white drop-shadow-sm" />
-                </div>
-              )}
-              <h2 className="font-serif text-lg text-stone-800">{tool?.label}</h2>
-            </div>
-            
-            {/* Spacer */}
-            <div className="w-16" />
-          </div>
-        </div>
-        
-        {/* Content */}
-        <div className="overflow-y-auto h-[calc(100%-3.5rem)] md:h-[calc(100%-4rem)]">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="flex items-center gap-2">
-                <div 
-                  className="w-2.5 h-2.5 rounded-full animate-bounce"
-                  style={{ background: tool?.gradient || '#D4A69C', animationDelay: '0ms' }}
-                />
-                <div 
-                  className="w-2.5 h-2.5 rounded-full animate-bounce"
-                  style={{ background: tool?.gradient || '#D4A69C', animationDelay: '150ms' }}
-                />
-                <div 
-                  className="w-2.5 h-2.5 rounded-full animate-bounce"
-                  style={{ background: tool?.gradient || '#D4A69C', animationDelay: '300ms' }}
-                />
-              </div>
-            </div>
-          ) : Component ? (
-            <Component />
-          ) : (
-            <div className="p-8 text-center text-stone-500">Could not load content</div>
-          )}
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-2.5 h-2.5 rounded-full animate-bounce"
+            style={{ background: tool?.gradient || '#D4A69C', animationDelay: '0ms' }}
+          />
+          <div 
+            className="w-2.5 h-2.5 rounded-full animate-bounce"
+            style={{ background: tool?.gradient || '#D4A69C', animationDelay: '150ms' }}
+          />
+          <div 
+            className="w-2.5 h-2.5 rounded-full animate-bounce"
+            style={{ background: tool?.gradient || '#D4A69C', animationDelay: '300ms' }}
+          />
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (!Component) {
+    return <div className="p-8 text-center text-stone-500">Could not load content</div>;
+  }
+
+  return <Component />;
 }
 
 // =============================================================================
-// TOOLS GRID (Pinterest board-style)
+// ARTIFACT RUNNER (for dynamic code widgets)
 // =============================================================================
 
-function ToolsGrid({ onSelectTool }: { onSelectTool: (id: string) => void }) {
+function ArtifactRunner({ code, title }: { code: string; title: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // For now, display the code. In production, this would render the component.
+  // The artifact system already handles React component rendering.
+  
   return (
-    <div className="p-4 pb-8">
-      <div className="grid grid-cols-4 gap-4">
-        {tools.map((tool) => (
+    <div className="h-full flex flex-col bg-stone-900 text-stone-100">
+      {/* Artifact header */}
+      <div className="flex items-center justify-between px-4 py-2 bg-stone-800 border-b border-stone-700">
+        <div className="flex items-center gap-2">
+          <Code className="w-4 h-4 text-emerald-400" />
+          <span className="text-sm font-medium">{title}</span>
+        </div>
+        <div className="flex items-center gap-1">
           <button
-            key={tool.id}
-            onClick={() => onSelectTool(tool.id)}
-            className="flex flex-col items-center p-3 rounded-2xl transition-all duration-300 group hover:-translate-y-1"
-            style={{
-              background: 'transparent',
-            }}
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="p-1.5 rounded hover:bg-stone-700 transition-colors"
           >
-            <div 
-              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-110 group-active:scale-95"
-              style={{
-                background: tool.gradient,
-                boxShadow: `0 6px 16px -4px ${tool.shadow}, 0 2px 4px -1px ${tool.shadow}, inset 0 1px 0 rgba(255,255,255,0.2)`,
-              }}
-            >
-              <tool.icon className="w-7 h-7 text-white drop-shadow-sm" />
-            </div>
-            <span className="text-xs font-medium text-stone-700 text-center leading-tight">{tool.label}</span>
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
           </button>
-        ))}
+        </div>
+      </div>
+      
+      {/* Code display / runner */}
+      <div className="flex-1 overflow-auto p-4">
+        {error ? (
+          <div className="text-red-400 text-sm">{error}</div>
+        ) : (
+          <pre className="text-sm text-emerald-300 font-mono whitespace-pre-wrap">
+            {code}
+          </pre>
+        )}
       </div>
     </div>
   );
 }
 
 // =============================================================================
-// PROFILE MENU
+// PROFILE DROPDOWN
 // =============================================================================
 
-function ProfileMenu({ onSelectTool }: { onSelectTool: (id: string) => void }) {
+function ProfileDropdown() {
   const { data: session } = useSession();
+  const [open, setOpen] = useState(false);
+  const browser = useBrowser();
   
   const initials = session?.user?.name
     ?.split(" ")
@@ -440,377 +411,426 @@ function ProfileMenu({ onSelectTool }: { onSelectTool: (id: string) => void }) {
     .slice(0, 2) || "?";
 
   return (
-    <div className="p-4 pb-8">
-      {/* User info card */}
-      <div 
-        className="flex items-center gap-4 p-4 rounded-2xl mb-4"
-        style={{
-          background: 'linear-gradient(135deg, #F8F6F3 0%, #F2EFEA 100%)',
-          boxShadow: 'inset 0 1px 2px rgba(61, 56, 51, 0.05)',
-        }}
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 p-1.5 rounded-full transition-all duration-200 hover:bg-stone-100"
       >
         <div 
-          className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-medium"
+          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium"
           style={{
             background: 'linear-gradient(135deg, #D4A69C 0%, #C4918A 100%)',
-            boxShadow: '0 4px 12px -2px rgba(196, 145, 138, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+            boxShadow: '0 2px 6px -1px rgba(196, 145, 138, 0.4)',
           }}
         >
           {initials}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-stone-800 truncate">{session?.user?.name}</p>
-          <p className="text-sm text-stone-500 truncate">{session?.user?.email}</p>
-        </div>
-      </div>
-      
-      {/* Menu items */}
-      <div className="space-y-1">
-        <button
-          onClick={() => onSelectTool("settings")}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200"
-          style={{ color: '#4A4540' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(61, 56, 51, 0.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-        >
-          <User className="w-5 h-5 text-stone-500" />
-          <span>Account Settings</span>
-        </button>
-        <button
-          onClick={() => signOut()}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-red-600"
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-        >
-          <LogOut className="w-5 h-5" />
-          <span>Sign Out</span>
-        </button>
-      </div>
+        <ChevronDown 
+          className="w-3.5 h-3.5 text-stone-400 transition-transform duration-200"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div 
+            className="absolute right-0 top-full mt-2 w-56 rounded-xl py-1 z-50"
+            style={{
+              background: 'linear-gradient(180deg, #FFFFFF 0%, #FDFCFA 100%)',
+              boxShadow: '0 12px 32px -8px rgba(61, 56, 51, 0.2), 0 4px 12px -4px rgba(61, 56, 51, 0.1)',
+              border: '1px solid rgba(61, 56, 51, 0.06)',
+            }}
+          >
+            <div className="px-3 py-2 border-b" style={{ borderColor: 'rgba(61, 56, 51, 0.06)' }}>
+              <p className="font-medium text-stone-800 text-sm truncate">{session?.user?.name}</p>
+              <p className="text-xs text-stone-500 truncate">{session?.user?.email}</p>
+            </div>
+            <div className="p-1">
+              <button
+                onClick={() => {
+                  browser.openTool("settings");
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-50"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
+              <button
+                onClick={() => signOut()}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // =============================================================================
-// BOTTOM NAV (Pinterest-style with depth)
+// NEW TAB DROPDOWN
 // =============================================================================
 
-function BottomNav({ 
-  activeTab, 
-  onTabChange 
-}: { 
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}) {
-  const tabs = [
-    { id: "chat", icon: MessageCircle, label: "Chat" },
-    { id: "dashboard", icon: Home, label: "Home" },
-    { id: "tools", icon: LayoutGrid, label: "Tools" },
-    { id: "profile", icon: User, label: "Profile" },
-  ];
+function NewTabDropdown() {
+  const [open, setOpen] = useState(false);
+  const browser = useBrowser();
 
   return (
-    <nav 
-      className="fixed bottom-0 inset-x-0 z-40 pb-safe"
-      style={{
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.98) 100%)',
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 -4px 24px -4px rgba(61, 56, 51, 0.1), 0 -1px 0 rgba(61, 56, 51, 0.05)',
-      }}
-    >
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className="flex flex-col items-center justify-center w-16 h-full transition-all duration-200"
-            >
-              <div 
-                className="p-2 rounded-2xl transition-all duration-300"
-                style={{
-                  background: isActive ? 'linear-gradient(135deg, #FAF0EE 0%, #F5E1DD 100%)' : 'transparent',
-                  boxShadow: isActive ? '0 2px 8px -2px rgba(212, 166, 156, 0.3), inset 0 1px 0 rgba(255,255,255,0.8)' : 'none',
-                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-all"
+        title="New tab"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div 
+            className="absolute left-0 top-full mt-2 w-48 rounded-xl py-1 z-50"
+            style={{
+              background: 'linear-gradient(180deg, #FFFFFF 0%, #FDFCFA 100%)',
+              boxShadow: '0 12px 32px -8px rgba(61, 56, 51, 0.2), 0 4px 12px -4px rgba(61, 56, 51, 0.1)',
+              border: '1px solid rgba(61, 56, 51, 0.06)',
+            }}
+          >
+            {tools.map(tool => (
+              <button
+                key={tool.id}
+                onClick={() => {
+                  browser.openTool(tool.id);
+                  setOpen(false);
                 }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 transition-colors"
               >
-                <tab.icon 
-                  className="w-6 h-6 transition-all"
-                  style={{ 
-                    color: isActive ? '#C4918A' : '#9C9691',
-                    strokeWidth: isActive ? 2.5 : 2,
+                <div 
+                  className="w-5 h-5 rounded flex items-center justify-center"
+                  style={{
+                    background: tool.gradient,
+                    boxShadow: `0 2px 4px -1px ${tool.shadow}`,
                   }}
-                />
-              </div>
-              <span 
-                className="text-[10px] font-medium mt-0.5 transition-all"
-                style={{ 
-                  color: isActive ? '#C4918A' : '#9C9691',
-                  opacity: isActive ? 1 : 0.8,
-                }}
-              >
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+                >
+                  <tool.icon className="w-3 h-3 text-white" />
+                </div>
+                {tool.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
 // =============================================================================
-// DESKTOP HEADER
+// BROWSER CHROME (the shell)
 // =============================================================================
 
-function DesktopHeader({ onOpenTool }: { onOpenTool: (id: string) => void }) {
-  const { data: session } = useSession();
-  const [profileOpen, setProfileOpen] = useState(false);
-  
-  const initials = session?.user?.name
-    ?.split(" ")
-    .map(n => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?";
+function BrowserChrome({ children }: { children: React.ReactNode }) {
+  const browser = useBrowser();
+  const activeTab = browser.tabs.find(t => t.id === browser.activeTabId);
+  const canGoBack = browser.historyIndex > 0;
+  const canGoForward = browser.historyIndex < browser.history.length - 1;
 
   return (
-    <header 
-      className="hidden md:flex fixed top-0 left-0 right-0 h-16 z-40"
-      style={{
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(253,252,250,0.9) 100%)',
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 4px 24px -4px rgba(61, 56, 51, 0.08), 0 1px 0 rgba(61, 56, 51, 0.04)',
-      }}
-    >
-      <div className="flex items-center justify-between w-full max-w-7xl mx-auto px-6">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div 
-            className="p-1.5 rounded-xl"
-            style={{
-              background: 'linear-gradient(135deg, #FAF0EE 0%, #F5E1DD 100%)',
-              boxShadow: '0 2px 8px -2px rgba(212, 166, 156, 0.3)',
-            }}
-          >
-            <AisleLogo size={28} className="text-rose-400" />
-          </div>
-          <span className="font-serif text-xl text-stone-800">Aisle</span>
-        </div>
-
-        {/* Center nav */}
-        <div 
-          className="flex items-center gap-1 p-1.5 rounded-full"
-          style={{
-            background: 'linear-gradient(135deg, #F8F6F3 0%, #F2EFEA 100%)',
-            boxShadow: 'inset 0 1px 2px rgba(61, 56, 51, 0.06)',
-          }}
-        >
-          {tools.slice(0, 6).map((tool) => (
-            <button
-              key={tool.id}
-              onClick={() => onOpenTool(tool.id)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
-              style={{ color: '#6B6560' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #FFFFFF 0%, #FDFCFA 100%)';
-                e.currentTarget.style.color = '#3D3833';
-                e.currentTarget.style.boxShadow = '0 2px 8px -2px rgba(61, 56, 51, 0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = '#6B6560';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <tool.icon className="w-4 h-4" />
-              <span className="hidden lg:inline">{tool.label}</span>
-            </button>
+    <div className="h-screen flex flex-col bg-stone-50">
+      {/* Title bar / Tab bar */}
+      <div 
+        className="flex items-end gap-1 px-2 pt-2"
+        style={{
+          background: 'linear-gradient(180deg, #E7E5E4 0%, #D6D3D1 100%)',
+        }}
+      >
+        {/* Tabs */}
+        <div className="flex items-end gap-0.5 flex-1 overflow-x-auto pb-0">
+          {browser.tabs.map(tab => (
+            <TabItem
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === browser.activeTabId}
+              onSelect={() => browser.switchTab(tab.id)}
+              onClose={tab.closable ? () => browser.closeTab(tab.id) : undefined}
+            />
           ))}
+          
+          {/* New tab button */}
+          <NewTabDropdown />
         </div>
 
         {/* Profile */}
-        <div className="relative">
-          <button
-            onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2 p-1.5 rounded-full transition-all duration-200"
-            style={{
-              background: profileOpen ? 'rgba(61, 56, 51, 0.05)' : 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              if (!profileOpen) e.currentTarget.style.background = 'rgba(61, 56, 51, 0.05)';
-            }}
-            onMouseLeave={(e) => {
-              if (!profileOpen) e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <div 
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium"
-              style={{
-                background: 'linear-gradient(135deg, #D4A69C 0%, #C4918A 100%)',
-                boxShadow: '0 2px 8px -2px rgba(196, 145, 138, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-              }}
-            >
-              {initials}
-            </div>
-            <ChevronDown 
-              className="w-4 h-4 text-stone-500 transition-transform duration-200"
-              style={{ transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-            />
-          </button>
+        <div className="pb-2">
+          <ProfileDropdown />
+        </div>
+      </div>
 
-          {profileOpen && (
+      {/* Navigation bar */}
+      <div 
+        className="flex items-center gap-2 px-3 py-2 border-b"
+        style={{
+          background: 'linear-gradient(180deg, #FFFFFF 0%, #FAFAF9 100%)',
+          borderColor: 'rgba(61, 56, 51, 0.08)',
+        }}
+      >
+        {/* Nav buttons */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={browser.goBack}
+            disabled={!canGoBack}
+            className="p-1.5 rounded-lg transition-all disabled:opacity-30"
+            style={{ color: canGoBack ? '#57534e' : '#a8a29e' }}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={browser.goForward}
+            disabled={!canGoForward}
+            className="p-1.5 rounded-lg transition-all disabled:opacity-30"
+            style={{ color: canGoForward ? '#57534e' : '#a8a29e' }}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={browser.goHome}
+            className="p-1.5 rounded-lg text-stone-600 hover:bg-stone-100 transition-all"
+          >
+            <Home className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Address bar */}
+        <div 
+          className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg"
+          style={{
+            background: 'linear-gradient(135deg, #F5F5F4 0%, #E7E5E4 100%)',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+          }}
+        >
+          {activeTab?.toolId && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-              <div 
-                className="absolute right-0 top-full mt-2 w-64 rounded-2xl py-2 z-50"
-                style={{
-                  background: 'linear-gradient(180deg, #FFFFFF 0%, #FDFCFA 100%)',
-                  boxShadow: '0 12px 32px -8px rgba(61, 56, 51, 0.2), 0 4px 12px -4px rgba(61, 56, 51, 0.1)',
-                  border: '1px solid rgba(61, 56, 51, 0.06)',
-                  animation: 'fadeInScale 0.2s ease-out',
-                }}
-              >
-                <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(61, 56, 51, 0.06)' }}>
-                  <p className="font-medium text-stone-800 truncate">{session?.user?.name}</p>
-                  <p className="text-sm text-stone-500 truncate">{session?.user?.email}</p>
-                </div>
-                <div className="p-1">
-                  <button
-                    onClick={() => {
-                      onOpenTool("settings");
-                      setProfileOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors"
-                    style={{ color: '#6B6560' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(61, 56, 51, 0.05)';
-                      e.currentTarget.style.color = '#3D3833';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = '#6B6560';
+              {(() => {
+                const tool = getToolById(activeTab.toolId);
+                if (!tool) return null;
+                return (
+                  <div 
+                    className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: tool.gradient,
                     }}
                   >
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </button>
-                  <button
-                    onClick={() => signOut()}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-red-600 transition-colors"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign out
-                  </button>
-                </div>
-              </div>
+                    <tool.icon className="w-2.5 h-2.5 text-white" />
+                  </div>
+                );
+              })()}
             </>
+          )}
+          {activeTab?.type === 'chat' && (
+            <AisleLogo size={16} className="text-rose-400 flex-shrink-0" />
+          )}
+          {activeTab?.type === 'artifact' && (
+            <Code className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+          )}
+          <span className="text-sm text-stone-600 truncate">
+            {activeTab?.type === 'chat' && 'aisle://chat'}
+            {activeTab?.type === 'tool' && `aisle://${activeTab.toolId}`}
+            {activeTab?.type === 'artifact' && `aisle://artifact/${activeTab.title.toLowerCase().replace(/\s+/g, '-')}`}
+          </span>
+          
+          {/* Favorite button for tools */}
+          {activeTab?.toolId && (
+            <button
+              onClick={() => browser.toggleFavorite(activeTab.toolId!)}
+              className="ml-auto p-1 rounded hover:bg-stone-200 transition-colors"
+            >
+              <Star 
+                className={`w-4 h-4 ${browser.favorites.includes(activeTab.toolId) ? 'text-amber-500 fill-amber-500' : 'text-stone-400'}`}
+              />
+            </button>
           )}
         </div>
       </div>
-    </header>
+
+      {/* Favorites bar */}
+      <FavoritesBar favorites={browser.favorites} onOpenTool={browser.openTool} />
+
+      {/* Content area */}
+      <div className="flex-1 overflow-hidden bg-white">
+        {children}
+      </div>
+    </div>
   );
 }
 
 // =============================================================================
-// MAIN APP SHELL
+// MAIN APP SHELL WITH BROWSER PROVIDER
 // =============================================================================
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [activeTab, setActiveTab] = useState("chat");
-  const [toolsSheetOpen, setToolsSheetOpen] = useState(false);
-  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-
-  const handleTabChange = useCallback((tab: string) => {
-    if (tab === "tools") {
-      setToolsSheetOpen(true);
-    } else if (tab === "profile") {
-      setProfileSheetOpen(true);
-    } else if (tab === "dashboard") {
-      setActiveModal("dashboard");
-      setActiveTab("chat");
-    } else {
-      setActiveTab(tab);
+  // Initialize with chat tab
+  const [tabs, setTabs] = useState<Tab[]>([
+    {
+      id: "chat",
+      type: "chat",
+      title: "Chat",
+      icon: AisleLogo as unknown as React.ComponentType<{ className?: string }>,
+      closable: false,
     }
+  ]);
+  const [activeTabId, setActiveTabId] = useState("chat");
+  const [history, setHistory] = useState<string[]>(["chat"]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('aisle-favorites');
+      return saved ? JSON.parse(saved) : ['dashboard', 'budget'];
+    }
+    return ['dashboard', 'budget'];
+  });
+
+  // Save favorites to localStorage
+  useEffect(() => {
+    localStorage.setItem('aisle-favorites', JSON.stringify(favorites));
+  }, [favorites]);
+
+  const openTab = useCallback((tabData: Omit<Tab, "id">) => {
+    const id = `tab-${Date.now()}`;
+    const newTab: Tab = { ...tabData, id };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(id);
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), id]);
+    setHistoryIndex(prev => prev + 1);
+    return id;
+  }, [historyIndex]);
+
+  const closeTab = useCallback((tabId: string) => {
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== tabId);
+      if (tabId === activeTabId && newTabs.length > 0) {
+        // Switch to the tab before this one, or the first tab
+        const closedIndex = prev.findIndex(t => t.id === tabId);
+        const newIndex = Math.max(0, closedIndex - 1);
+        setActiveTabId(newTabs[newIndex].id);
+      }
+      return newTabs;
+    });
+  }, [activeTabId]);
+
+  const switchTab = useCallback((tabId: string) => {
+    if (tabId !== activeTabId) {
+      setActiveTabId(tabId);
+      setHistory(prev => [...prev.slice(0, historyIndex + 1), tabId]);
+      setHistoryIndex(prev => prev + 1);
+    }
+  }, [activeTabId, historyIndex]);
+
+  const goBack = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      const tabId = history[newIndex];
+      // Check if tab still exists
+      if (tabs.find(t => t.id === tabId)) {
+        setHistoryIndex(newIndex);
+        setActiveTabId(tabId);
+      }
+    }
+  }, [historyIndex, history, tabs]);
+
+  const goForward = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const tabId = history[newIndex];
+      if (tabs.find(t => t.id === tabId)) {
+        setHistoryIndex(newIndex);
+        setActiveTabId(tabId);
+      }
+    }
+  }, [historyIndex, history, tabs]);
+
+  const goHome = useCallback(() => {
+    switchTab("chat");
+  }, [switchTab]);
+
+  const toggleFavorite = useCallback((toolId: string) => {
+    setFavorites(prev => 
+      prev.includes(toolId) 
+        ? prev.filter(id => id !== toolId)
+        : [...prev, toolId]
+    );
   }, []);
 
-  const handleSelectTool = useCallback((toolId: string) => {
-    setToolsSheetOpen(false);
-    setProfileSheetOpen(false);
-    setActiveModal(toolId);
-  }, []);
+  const openTool = useCallback((toolId: string) => {
+    // Check if tool is already open
+    const existingTab = tabs.find(t => t.type === 'tool' && t.toolId === toolId);
+    if (existingTab) {
+      switchTab(existingTab.id);
+      return existingTab.id;
+    }
+
+    const tool = getToolById(toolId);
+    if (!tool) return "";
+
+    return openTab({
+      type: "tool",
+      toolId,
+      title: tool.label,
+      icon: tool.icon,
+      closable: true,
+    });
+  }, [tabs, switchTab, openTab]);
+
+  const createArtifactTab = useCallback((title: string, code: string) => {
+    return openTab({
+      type: "artifact",
+      title,
+      icon: Code,
+      closable: true,
+      artifactData: { code, title },
+    });
+  }, [openTab]);
+
+  const browserContext: BrowserContextType = {
+    tabs,
+    activeTabId,
+    history,
+    historyIndex,
+    favorites,
+    openTab,
+    closeTab,
+    switchTab,
+    goBack,
+    goForward,
+    goHome,
+    toggleFavorite,
+    openTool,
+    createArtifactTab,
+  };
+
+  const activeTab = tabs.find(t => t.id === activeTabId);
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      {/* Desktop header */}
-      <DesktopHeader onOpenTool={handleSelectTool} />
-      
-      {/* Main content */}
-      <main className="pb-20 md:pb-0 md:pt-16">
-        {children}
-      </main>
-
-      {/* Mobile bottom nav */}
-      <div className="md:hidden">
-        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
-      </div>
-
-      {/* Tools bottom sheet (mobile) */}
-      <BottomSheet 
-        isOpen={toolsSheetOpen} 
-        onClose={() => setToolsSheetOpen(false)}
-        title="Tools"
-      >
-        <ToolsGrid onSelectTool={handleSelectTool} />
-      </BottomSheet>
-
-      {/* Profile bottom sheet (mobile) */}
-      <BottomSheet 
-        isOpen={profileSheetOpen} 
-        onClose={() => setProfileSheetOpen(false)}
-        title="Profile"
-      >
-        <ProfileMenu onSelectTool={handleSelectTool} />
-      </BottomSheet>
-
-      {/* Tool modal */}
-      {activeModal && (
-        <FullScreenModal 
-          isOpen={!!activeModal}
-          onClose={() => setActiveModal(null)}
-          toolId={activeModal}
-        />
-      )}
-
-      {/* Global styles for animations */}
-      <style jsx global>{`
-        @keyframes fadeInScale {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(-4px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-      `}</style>
-    </div>
+    <BrowserContext.Provider value={browserContext}>
+      <BrowserChrome>
+        {/* Render content based on active tab */}
+        <div className="h-full overflow-auto">
+          {activeTab?.type === 'chat' && children}
+          {activeTab?.type === 'tool' && activeTab.toolId && (
+            <ToolContent toolId={activeTab.toolId} />
+          )}
+          {activeTab?.type === 'artifact' && activeTab.artifactData && (
+            <ArtifactRunner 
+              code={activeTab.artifactData.code} 
+              title={activeTab.artifactData.title} 
+            />
+          )}
+        </div>
+      </BrowserChrome>
+    </BrowserContext.Provider>
   );
 }
 
