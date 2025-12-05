@@ -73,20 +73,32 @@ function BreathingLogo({ size = 48 }: { size?: number }) {
   );
 }
 
-// Message avatar with hover effect
+// Message avatar with depth
 function Avatar({ isUser }: { isUser: boolean }) {
   if (isUser) {
     return (
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sage-400 to-sage-500 flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110">
-        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div 
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 hover:scale-110 hover:-translate-y-0.5"
+        style={{
+          background: 'linear-gradient(135deg, #A8B8A0 0%, #6B7F64 100%)',
+          boxShadow: '0 4px 12px -2px rgba(107, 127, 100, 0.4), 0 2px 4px -1px rgba(107, 127, 100, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
+        }}
+      >
+        <svg className="w-4.5 h-4.5 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
         </svg>
       </div>
     );
   }
   return (
-    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110">
-      <svg viewBox="0 0 40 40" fill="none" className="w-5 h-5">
+    <div 
+      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 hover:scale-110 hover:-translate-y-0.5"
+      style={{
+        background: 'linear-gradient(135deg, #D4A69C 0%, #A67169 100%)',
+        boxShadow: '0 4px 12px -2px rgba(166, 113, 105, 0.4), 0 2px 4px -1px rgba(166, 113, 105, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
+      }}
+    >
+      <svg viewBox="0 0 40 40" fill="none" className="w-5 h-5 drop-shadow-sm">
         <path d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
         <path d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" />
       </svg>
@@ -112,7 +124,6 @@ function useTypewriter(text: string, isTyping: boolean, speed: number = 8) {
 
     const interval = setInterval(() => {
       if (index < text.length) {
-        // Type multiple characters at once for speed
         const charsToAdd = Math.min(speed, text.length - index);
         setDisplayedText(text.slice(0, index + charsToAdd));
         index += charsToAdd;
@@ -120,7 +131,7 @@ function useTypewriter(text: string, isTyping: boolean, speed: number = 8) {
         setIsComplete(true);
         clearInterval(interval);
       }
-    }, 16); // ~60fps
+    }, 16);
 
     return () => clearInterval(interval);
   }, [text, isTyping, speed]);
@@ -128,7 +139,7 @@ function useTypewriter(text: string, isTyping: boolean, speed: number = 8) {
   return { displayedText, isComplete };
 }
 
-// Message bubble component with typewriter effect
+// Message bubble component with depth and typewriter effect
 function MessageBubble({ 
   content, 
   isUser, 
@@ -150,6 +161,25 @@ function MessageBubble({
       onTypewriterComplete();
     }
   }, [isComplete, onTypewriterComplete]);
+
+  // User bubble styles - dark with depth
+  const userBubbleStyle = {
+    background: 'linear-gradient(135deg, #4A4540 0%, #3D3833 100%)',
+    boxShadow: isHovered 
+      ? '0 8px 24px -4px rgba(61, 56, 51, 0.3), 0 4px 8px -2px rgba(61, 56, 51, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)'
+      : '0 4px 12px -2px rgba(61, 56, 51, 0.25), 0 2px 4px -1px rgba(61, 56, 51, 0.15), inset 0 1px 0 rgba(255,255,255,0.05)',
+    transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+  };
+
+  // Assistant bubble styles - light with depth
+  const assistantBubbleStyle = {
+    background: 'linear-gradient(135deg, #FFFFFF 0%, #FDFCFA 100%)',
+    boxShadow: isHovered
+      ? '0 8px 24px -4px rgba(61, 56, 51, 0.12), 0 4px 8px -2px rgba(61, 56, 51, 0.08), inset 0 -1px 0 rgba(61, 56, 51, 0.05)'
+      : '0 4px 12px -2px rgba(61, 56, 51, 0.08), 0 2px 4px -1px rgba(61, 56, 51, 0.05), inset 0 -1px 0 rgba(61, 56, 51, 0.03)',
+    transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+    border: '1px solid rgba(61, 56, 51, 0.08)',
+  };
   
   return (
     <div className={`flex-1 ${isUser ? "flex justify-end" : ""}`}>
@@ -158,29 +188,34 @@ function MessageBubble({
         onMouseLeave={() => setIsHovered(false)}
         className={`
           inline-block max-w-[85%] px-4 py-3 relative group
-          transition-all duration-200
+          transition-all duration-300 ease-out
           ${isUser 
-            ? "bg-ink text-white rounded-2xl rounded-br-sm hover:bg-ink/90" 
-            : "bg-white border border-stone-200 text-ink rounded-2xl rounded-bl-sm hover:border-stone-300 hover:shadow-md"
+            ? "text-white rounded-2xl rounded-br-md" 
+            : "text-ink rounded-2xl rounded-bl-md"
           }
         `}
+        style={isUser ? userBubbleStyle : assistantBubbleStyle}
       >
         <p className="whitespace-pre-wrap leading-relaxed">
           {displayedText}
           {!isComplete && <span className="inline-block w-0.5 h-4 bg-rose-400 ml-0.5 animate-pulse" />}
         </p>
         
-        {/* Hover actions - only show when complete */}
+        {/* Hover actions */}
         {isComplete && (
           <div className={`
-            absolute -top-8 ${isUser ? "right-0" : "left-0"} 
+            absolute -top-9 ${isUser ? "right-0" : "left-0"} 
             flex gap-1 
             transition-all duration-200
             ${isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"}
           `}>
             <button 
               onClick={() => navigator.clipboard.writeText(content)}
-              className="p-1.5 rounded-md bg-white border border-stone-200 text-stone-500 hover:text-ink hover:border-stone-300 hover:shadow-sm transition-all"
+              className="p-1.5 rounded-lg text-stone-500 hover:text-ink transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #FFFFFF 0%, #F8F6F3 100%)',
+                boxShadow: '0 2px 8px -2px rgba(61, 56, 51, 0.15), 0 1px 2px rgba(61, 56, 51, 0.1)',
+              }}
               title="Copy"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -223,7 +258,6 @@ export default function ChatPage() {
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Only auto-scroll when a NEW message is added, not on typewriter state updates
   useEffect(() => {
     const currentCount = messages.length;
     if (currentCount > prevMessageCountRef.current || isLoading) {
@@ -257,7 +291,7 @@ export default function ChatPage() {
           role: m.role as "user" | "assistant",
           content: m.content,
           artifact: m.artifact,
-          isTyping: false, // Don't animate loaded messages
+          isTyping: false,
         })));
       } else {
         const response = await fetch("/api/chat", {
@@ -273,7 +307,7 @@ export default function ChatPage() {
             role: "assistant",
             content: data.message,
             artifact: data.artifact,
-            isTyping: true, // Animate initial greeting
+            isTyping: true,
           }]);
         }
       }
@@ -331,7 +365,7 @@ export default function ChatPage() {
         role: "assistant",
         content: data.message,
         artifact: data.artifact,
-        isTyping: true, // Enable typewriter effect
+        isTyping: true,
       }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -364,31 +398,44 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen flex flex-col bg-stone-50">
       {/* Subtle ambient glow */}
-      <div className="fixed bottom-0 left-0 right-0 h-80 pointer-events-none z-0 overflow-hidden">
+      <div className="fixed bottom-0 left-0 right-0 h-96 pointer-events-none z-0 overflow-hidden">
         <div 
           className="absolute inset-0 animate-wave-slow"
           style={{
-            background: 'radial-gradient(ellipse 100% 100% at 50% 100%, rgba(212,166,156,0.3) 0%, transparent 70%)',
-            filter: 'blur(40px)',
+            background: 'radial-gradient(ellipse 100% 100% at 50% 100%, rgba(212,166,156,0.35) 0%, transparent 70%)',
+            filter: 'blur(60px)',
           }}
         />
         <div 
           className="absolute inset-0 animate-wave-medium"
           style={{
-            background: 'radial-gradient(ellipse 80% 80% at 30% 100%, rgba(168,184,160,0.25) 0%, transparent 60%)',
-            filter: 'blur(30px)',
+            background: 'radial-gradient(ellipse 80% 80% at 30% 100%, rgba(168,184,160,0.3) 0%, transparent 60%)',
+            filter: 'blur(50px)',
+          }}
+        />
+        <div 
+          className="absolute inset-0 animate-wave-fast"
+          style={{
+            background: 'radial-gradient(ellipse 60% 60% at 70% 100%, rgba(196,181,164,0.25) 0%, transparent 50%)',
+            filter: 'blur(40px)',
           }}
         />
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto pb-32 md:pb-24 relative z-10">
+      <div className="flex-1 overflow-y-auto pb-36 md:pb-28 relative z-10">
         <div className="max-w-3xl mx-auto px-4 py-6 md:pt-8">
           {/* Empty state */}
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-rose-100 to-rose-200 flex items-center justify-center mb-4 transition-transform duration-300 hover:scale-105">
-                <svg viewBox="0 0 40 40" fill="none" className="w-10 h-10">
+              <div 
+                className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 transition-all duration-300 hover:scale-105 hover:-translate-y-1"
+                style={{
+                  background: 'linear-gradient(135deg, #FAF0EE 0%, #F5E1DD 100%)',
+                  boxShadow: '0 8px 24px -4px rgba(212, 166, 156, 0.3), 0 4px 8px -2px rgba(212, 166, 156, 0.2), inset 0 1px 0 rgba(255,255,255,0.8)',
+                }}
+              >
+                <svg viewBox="0 0 40 40" fill="none" className="w-12 h-12 drop-shadow-sm">
                   <path d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22" stroke="#D4A69C" strokeWidth="2.5" strokeLinecap="round" fill="none" />
                   <path d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22" stroke="#D4A69C" strokeWidth="2.5" strokeLinecap="round" fill="none" />
                 </svg>
@@ -399,8 +446,8 @@ export default function ChatPage() {
                 budgets to guest lists. What&apos;s on your mind?
               </p>
               
-              {/* Suggestion chips */}
-              <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-lg">
+              {/* Suggestion chips with depth */}
+              <div className="flex flex-wrap gap-3 mt-8 justify-center max-w-lg">
                 {[
                   "Help me set a budget",
                   "Find venue ideas",
@@ -413,9 +460,21 @@ export default function ChatPage() {
                       setInput(suggestion);
                       inputRef.current?.focus();
                     }}
-                    className="px-4 py-2 rounded-full border border-stone-200 text-sm text-ink-soft
-                      hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50
-                      transition-all duration-200 hover:shadow-sm hover:-translate-y-0.5"
+                    className="px-5 py-2.5 rounded-full text-sm text-ink-soft
+                      transition-all duration-300 hover:-translate-y-1 active:translate-y-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #FFFFFF 0%, #F8F6F3 100%)',
+                      boxShadow: '0 4px 12px -2px rgba(61, 56, 51, 0.1), 0 2px 4px -1px rgba(61, 56, 51, 0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+                      border: '1px solid rgba(61, 56, 51, 0.06)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(212, 166, 156, 0.2), 0 4px 8px -2px rgba(212, 166, 156, 0.15), inset 0 1px 0 rgba(255,255,255,0.8)';
+                      e.currentTarget.style.borderColor = 'rgba(212, 166, 156, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = '0 4px 12px -2px rgba(61, 56, 51, 0.1), 0 2px 4px -1px rgba(61, 56, 51, 0.06), inset 0 1px 0 rgba(255,255,255,0.8)';
+                      e.currentTarget.style.borderColor = 'rgba(61, 56, 51, 0.06)';
+                    }}
                   >
                     {suggestion}
                   </button>
@@ -425,7 +484,7 @@ export default function ChatPage() {
           )}
           
           {/* Messages */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                 <Avatar isUser={msg.role === "user"} />
@@ -440,13 +499,21 @@ export default function ChatPage() {
             ))}
           </div>
           
-          {/* Thinking indicator - left aligned */}
+          {/* Thinking indicator */}
           {isLoading && (
-            <div className="flex items-center gap-3 py-4 mt-2">
+            <div className="flex items-center gap-3 py-4 mt-3">
               <BreathingLogo size={32} />
-              <p className="text-sm text-ink-soft animate-pulse">
-                {thinkingMessages[thinkingMessage]}
-              </p>
+              <div 
+                className="px-4 py-2 rounded-full"
+                style={{
+                  background: 'linear-gradient(135deg, #FFFFFF 0%, #FDFCFA 100%)',
+                  boxShadow: '0 4px 12px -2px rgba(61, 56, 51, 0.08), 0 2px 4px -1px rgba(61, 56, 51, 0.05)',
+                }}
+              >
+                <p className="text-sm text-ink-soft animate-pulse">
+                  {thinkingMessages[thinkingMessage]}
+                </p>
+              </div>
             </div>
           )}
           
@@ -454,7 +521,14 @@ export default function ChatPage() {
           {error && (
             <div className="flex gap-3 mt-6">
               <Avatar isUser={false} />
-              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg hover:border-red-300 transition-colors">
+              <div 
+                className="px-4 py-3 rounded-2xl"
+                style={{
+                  background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+                  boxShadow: '0 4px 12px -2px rgba(220, 38, 38, 0.15), 0 2px 4px -1px rgba(220, 38, 38, 0.1)',
+                  border: '1px solid rgba(220, 38, 38, 0.1)',
+                }}
+              >
                 <p className="text-sm text-red-700">Something went wrong: {error}</p>
               </div>
             </div>
@@ -464,22 +538,28 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Fixed input bar */}
-      <div className="fixed bottom-16 md:bottom-0 inset-x-0 p-4 pb-4 md:pb-6 bg-gradient-to-t from-stone-50 via-stone-50/90 to-transparent z-20">
+      {/* Fixed input bar with depth */}
+      <div className="fixed bottom-16 md:bottom-0 inset-x-0 p-4 pb-4 md:pb-6 z-20">
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to top, rgba(248,246,243,1) 0%, rgba(248,246,243,0.95) 60%, rgba(248,246,243,0) 100%)',
+          }}
+        />
         <div className="max-w-3xl mx-auto relative">
           <div 
-            className={`
-              relative bg-white rounded-full
-              border-2 transition-all duration-200 ease-out
-              ${isFocused 
-                ? "border-rose-300 shadow-lg" 
-                : "border-transparent shadow-md hover:shadow-lg"
-              }
-            `}
+            className="relative rounded-full transition-all duration-300"
+            style={{
+              background: 'linear-gradient(135deg, #FFFFFF 0%, #FDFCFA 100%)',
+              boxShadow: isFocused 
+                ? '0 12px 32px -8px rgba(212, 166, 156, 0.25), 0 6px 12px -4px rgba(212, 166, 156, 0.15), inset 0 1px 0 rgba(255,255,255,0.8), 0 0 0 3px rgba(212, 166, 156, 0.15)'
+                : '0 8px 24px -4px rgba(61, 56, 51, 0.12), 0 4px 8px -2px rgba(61, 56, 51, 0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+              border: isFocused ? '1px solid rgba(212, 166, 156, 0.3)' : '1px solid rgba(61, 56, 51, 0.06)',
+            }}
           >
             {/* Left icon */}
             <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-              <svg viewBox="0 0 40 40" fill="none" className={`w-6 h-6 transition-transform duration-200 ${isFocused ? "scale-110" : ""}`}>
+              <svg viewBox="0 0 40 40" fill="none" className={`w-6 h-6 transition-transform duration-300 ${isFocused ? "scale-110" : ""}`}>
                 <path d="M 4 22 C 4 14, 8 12, 14 12 C 21 12, 24 15, 24 22 C 24 29, 20 32, 14 32 C 7 32, 4 28, 4 22" stroke="#D4A69C" strokeWidth="2" strokeLinecap="round" fill="none" />
                 <path d="M 16 22 C 16 14, 20 12, 26 12 C 33 12, 36 15, 36 22 C 36 29, 32 32, 26 32 C 19 32, 16 28, 16 22" stroke="#D4A69C" strokeWidth="2" strokeLinecap="round" fill="none" />
               </svg>
@@ -502,30 +582,42 @@ export default function ChatPage() {
               disabled={isLoading}
             />
 
-            {/* Send button */}
+            {/* Send button with depth */}
             <button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className={`
-                absolute right-3 top-1/2 -translate-y-1/2
-                w-10 h-10 rounded-full
-                flex items-center justify-center
-                transition-all duration-200
-                ${input.trim() 
-                  ? "bg-rose-500 text-white hover:bg-rose-600 hover:scale-110 active:scale-95" 
-                  : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: input.trim() 
+                  ? 'linear-gradient(135deg, #D4A69C 0%, #C4918A 100%)'
+                  : 'linear-gradient(135deg, #F2EFEA 0%, #E8E4DD 100%)',
+                boxShadow: input.trim()
+                  ? '0 4px 12px -2px rgba(196, 145, 138, 0.4), 0 2px 4px -1px rgba(196, 145, 138, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)'
+                  : '0 2px 8px -2px rgba(61, 56, 51, 0.1), inset 0 1px 0 rgba(255,255,255,0.5)',
+                color: input.trim() ? 'white' : '#9C9691',
+                transform: input.trim() ? 'scale(1)' : 'scale(0.95)',
+              }}
+              onMouseEnter={(e) => {
+                if (input.trim()) {
+                  e.currentTarget.style.transform = 'scale(1.1)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px -2px rgba(196, 145, 138, 0.5), 0 4px 8px -2px rgba(196, 145, 138, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
                 }
-                disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-              `}
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = input.trim() ? 'scale(1)' : 'scale(0.95)';
+                if (input.trim()) {
+                  e.currentTarget.style.boxShadow = '0 4px 12px -2px rgba(196, 145, 138, 0.4), 0 2px 4px -1px rgba(196, 145, 138, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)';
+                }
+              }}
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
               </svg>
             </button>
           </div>
           
           {/* Helper text */}
-          <p className="text-xs text-stone-400 mt-2 text-center">
+          <p className="text-xs text-stone-400 mt-3 text-center">
             Press Enter to send · Shift+Enter for new line
           </p>
         </div>
