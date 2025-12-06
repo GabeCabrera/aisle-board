@@ -233,7 +233,7 @@ export default function GuestsTool() {
         <>
           {/* Stats Cards */}
           <Grid container spacing={2} sx={{ mb: 4 }}>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Total Guests</Typography>
@@ -246,7 +246,7 @@ export default function GuestsTool() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card data-testid="confirmed-card">
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Confirmed</Typography>
@@ -256,7 +256,7 @@ export default function GuestsTool() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Pending</Typography>
@@ -266,7 +266,7 @@ export default function GuestsTool() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Declined</Typography>

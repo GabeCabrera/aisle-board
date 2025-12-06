@@ -294,7 +294,7 @@ export default function VendorsTool() {
         <>
           {/* Stats Cards */}
           <Grid container spacing={2} sx={{ mb: 4 }}>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                     <CardContent>
                         <Typography color="text.secondary" gutterBottom>Total Vendors</Typography>
@@ -302,7 +302,7 @@ export default function VendorsTool() {
                     </CardContent>
                 </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card data-testid="booked-card">
                     <CardContent>
                         <Typography color="text.secondary" gutterBottom>Booked</Typography>
@@ -310,7 +310,7 @@ export default function VendorsTool() {
                     </CardContent>
                 </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                     <CardContent>
                         <Typography color="text.secondary" gutterBottom>Total Cost</Typography>
@@ -318,7 +318,7 @@ export default function VendorsTool() {
                     </CardContent>
                 </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card>
                     <CardContent>
                         <Typography color="text.secondary" gutterBottom>Deposits Paid</Typography>

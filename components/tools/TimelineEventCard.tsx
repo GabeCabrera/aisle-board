@@ -43,7 +43,7 @@ export default function TimelineEventCard({ event }: { event: TimelineEvent }) {
   return (
     <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
       <Grid container spacing={1} alignItems="center">
-        <Grid xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <Box sx={{ textAlign: { xs: 'left', sm: 'right' }, pr: { sm: 2 } }}>
             <Typography variant="h6" component="p" sx={{ mb: 0.5 }}>
               {formatTime(event.time)}
@@ -55,7 +55,7 @@ export default function TimelineEventCard({ event }: { event: TimelineEvent }) {
             )}
           </Box>
         </Grid>
-        <Grid xs={12} sm={9}>
+        <Grid size={{ xs: 12, sm: 9 }}>
           <Typography variant="h6" component="h3">
             {event.title}
           </Typography>

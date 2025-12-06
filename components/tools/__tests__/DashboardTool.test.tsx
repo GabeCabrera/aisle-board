@@ -50,30 +50,7 @@ describe('DashboardTool', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('renders empty state when no data is available', async () => {
-    mockedUsePlannerData.mockReturnValue({
-      data: {
-        summary: {},
-        budget: {},
-        guests: { stats: {} },
-        vendors: { list: [], stats: {} },
-        decisions: {},
-        kernel: {},
-      },
-      loading: false,
-      refetch: jest.fn(),
-      lastRefresh: Date.now(),
-    });
-    render(<DashboardTool />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Let's get started!")).toBeInTheDocument();
-      expect(screen.getByText("Head to chat and tell me about your wedding plans. I'll help you organize everything.")).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /Start chatting/i })).toBeInTheDocument();
-    });
-  });
-
-  it('renders dashboard data when available', async () => {
+  it('renders the new Wedding Hub dashboard correctly', async () => {
     const mockData = {
       summary: {
         coupleNames: 'John & Jane',
@@ -119,62 +96,31 @@ describe('DashboardTool', () => {
       expect(screen.getByText('John & Jane')).toBeInTheDocument();
       expect(screen.getByText(MOCK_DATE_STRING)).toBeInTheDocument();
 
-      // Stats cards
-      expect(screen.getByText('Days to go')).toBeInTheDocument();
-      expect(screen.getByText('30')).toBeInTheDocument();
-      
-      expect(screen.getByText('Planning progress')).toBeInTheDocument();
+      // Hub cards
+      expect(screen.getByRole('heading', { name: 'Checklist' })).toBeInTheDocument();
       expect(screen.getByText('50%')).toBeInTheDocument();
       expect(screen.getByText('5 of 10 decisions')).toBeInTheDocument();
 
-      expect(screen.getByText('Budget')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Budget' })).toBeInTheDocument();
       expect(screen.getByText('$20000')).toBeInTheDocument();
       expect(screen.getByText('$15000 allocated (75%)')).toBeInTheDocument();
 
-      expect(screen.getByText('Guests')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Guests' })).toBeInTheDocument();
       expect(screen.getByText('100')).toBeInTheDocument();
       expect(screen.getByText('80 confirmed, 20 pending')).toBeInTheDocument();
 
-      // Quick actions
-      expect(screen.getByRole('link', { name: /Chat with Aisle/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /View checklist/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /Track vendors/i })).toBeInTheDocument();
-
-      // Vendors section
-      expect(screen.getByText('Your Vendors')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Vendors' })).toBeInTheDocument();
       expect(screen.getByText('Venue Co.')).toBeInTheDocument();
       expect(screen.getByText('Photog Inc.')).toBeInTheDocument();
     });
   });
 
-  it('displays alerts based on data', async () => {
-    mockedUsePlannerData.mockReturnValue({
-      data: {
-        summary: { daysUntil: 50 },
-        budget: { total: 10000, spent: 11000, percentUsed: 110 },
-        guests: { stats: { total: 50, confirmed: 40, pending: 10 } },
-        vendors: { list: [], stats: { booked: 0 } },
-        decisions: {},
-        kernel: {},
-      },
-      loading: false,
-      refetch: jest.fn(),
-      lastRefresh: Date.now(),
-    });
-    render(<DashboardTool />);
-
-    await waitFor(() => {
-      expect(screen.getByText("You're over budget by $1000")).toBeInTheDocument();
-      expect(screen.getByText("10 guests haven't RSVP'd yet")).toBeInTheDocument();
-    });
-  });
-
   it('handles refresh button click', async () => {
     const mockRefetch = jest.fn(async () => {
-      // Simulate an asynchronous operation
       await new Promise(resolve => setTimeout(resolve, 10));
       return {};
     });
+
     mockedUsePlannerData.mockReturnValue({
       data: {
         summary: {},

@@ -139,7 +139,7 @@ export default function BudgetTool() {
         <>
           {/* Summary Cards */}
           <Grid container spacing={2} sx={{ mb: 4 }}>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Total Budget</Typography>
@@ -149,7 +149,7 @@ export default function BudgetTool() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card sx={{ bgcolor: isOverBudget ? 'error.light' : 'background.paper' }}>
                 <CardContent>
                   <Typography color={isOverBudget ? 'error.contrastText' : 'text.secondary'} gutterBottom>Allocated</Typography>
@@ -164,7 +164,7 @@ export default function BudgetTool() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Paid So Far</Typography>
@@ -174,7 +174,7 @@ export default function BudgetTool() {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card>
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom>Still Owed</Typography>
