@@ -134,6 +134,10 @@ export async function executeToolCall(
       case "analyze_planning_gaps":
         return await analyzePlanningGaps(parameters, context);
 
+      // External tools
+      case "web_search":
+        return await webSearch(parameters, context);
+
       default:
         return {
           success: false,
@@ -2169,4 +2173,24 @@ async function updateKernelDecision(
       updatedAt: new Date() 
     })
     .where(eq(weddingKernels.tenantId, tenantId));
+}
+
+// ============================================================================
+// WEB SEARCH TOOL
+// ============================================================================
+
+async function webSearch(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const query = params.query as string;
+  console.log(`Searching web for: ${query}`);
+
+  // TODO: Integrate a real search provider like Serper, Google Custom Search, or Tavily.
+  // For now, since we don't have an API key in the env, we'll return a placeholder.
+  
+  return {
+    success: false, 
+    message: "Web search is not yet configured. Please add a valid search API key (e.g. GOOGLE_SEARCH_KEY) to your environment variables."
+  };
 }

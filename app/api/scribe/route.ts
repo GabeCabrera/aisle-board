@@ -412,6 +412,17 @@ export async function POST(request: NextRequest) {
             required: ["decisionName"],
           },
         },
+        {
+          name: "web_search",
+          description: "Search the web for information about wedding vendors, venues, etiquette, or inspiration. Use this when the user asks a question that requires current or specific external knowledge.",
+          input_schema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "The search query" }
+            },
+            required: ["query"]
+          }
+        },
         /* Temporarily disabled for debugging
         {
           name: "lock_decision",
