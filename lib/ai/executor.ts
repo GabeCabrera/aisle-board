@@ -6,20 +6,21 @@
  */
 
 import { db } from "@/lib/db";
-import { 
-  weddingKernels, 
-  pages, 
+import {
+  weddingKernels,
+  pages,
   planners,
   calendarEvents,
   tenants,
   rsvpForms,
-  rsvpResponses
+  rsvpResponses,
+  users // Added users for adminUpgradeUser
 } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm"; // Added sql for adminUpgradeUser
 
-// ============================================================================
+// ============================================================================ 
 // TYPES
-// ============================================================================
+// ============================================================================ 
 
 export interface ToolContext {
   tenantId: string;
@@ -36,9 +37,9 @@ export interface ToolResult {
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // MAIN EXECUTOR
-// ============================================================================
+// ============================================================================ 
 
 export async function executeToolCall(
   toolName: string,
@@ -148,12 +149,12 @@ export async function executeToolCall(
   }
 }
 
-// ============================================================================
+// ============================================================================ 
 // HELPER: Get or create planner and page
-// ============================================================================
+// ============================================================================ 
 
 async function getOrCreatePage(
-  tenantId: string, 
+  tenantId: string,
   templateId: string
 ): Promise<{ plannerId: string; pageId: string; fields: Record<string, unknown> }> {
   // Get or create planner
@@ -216,9 +217,9 @@ function getDefaultFields(templateId: string): Record<string, unknown> {
   return defaults[templateId] || {};
 }
 
-// ============================================================================
+// ============================================================================ 
 // BUDGET TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function addBudgetItem(
   params: Record<string, unknown>,
@@ -410,9 +411,9 @@ async function setTotalBudget(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // GUEST TOOLS
-// ============================================================================
+// ============================================================================ 
 
 interface GuestData {
   id: string;
@@ -671,7 +672,7 @@ async function deleteGuest(
   return {
     success: true,
     message: `Removed ${deletedGuest.name} from guest list. Total guests: ${guests.length}`,
-    data: { guest: deletedGuest, totalGuests: guests.length, pageId }
+    data: deletedGuest
   };
 }
 
@@ -932,7 +933,7 @@ async function syncRsvpResponses(
     return {
       success: true,
       message: params.onlyNew !== false 
-        ? "No new RSVP responses to sync." 
+        ? "No new RSVP responses to sync."
         : "No RSVP responses found."
     };
   }
@@ -981,7 +982,7 @@ async function syncRsvpResponses(
         createdAt: new Date().toISOString()
       };
       guests.push(newGuest);
-      added.push(response.name);
+      added.push(newGuest.name);
     }
 
     // Mark response as synced
@@ -1000,6 +1001,14 @@ async function syncRsvpResponses(
     .set({ guestCount: guests.length, updatedAt: new Date() })
     .where(eq(weddingKernels.tenantId, context.tenantId));
 
+  // ADDED: Update checklist for guest_list decision
+  if (guests.length > 0) {
+      await updateDecisionFn(context.tenantId, "guest_list", {
+          status: "decided" // Once responses are synced, it's pretty decided
+      });
+  }
+
+
   let message = `Synced ${responses.length} RSVP response${responses.length > 1 ? "s" : ""}:`;
   if (added.length > 0) {
     message += `\n• Added: ${added.join(", ")}`;
@@ -1016,9 +1025,9 @@ async function syncRsvpResponses(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // RSVP TOOLS
-// ============================================================================
+// ============================================================================ 
 
 function generateSlug(displayName: string): string {
   return displayName
@@ -1124,7 +1133,7 @@ async function createRsvpLink(
 
   return {
     success: true,
-    message: `I've created your RSVP link! Share this with your guests:\n\n**${link}**\n\nGuests can use this to submit their name, ${params.collectAddress !== false ? "address, " : ""}${params.collectMealChoice ? "meal choice, " : ""}and RSVP status.`,
+    message: `I've created your RSVP link! Share this with your guests:\n\n**${link}**\n\nGuests can use this to submit their name, ${params.collectAddress !== false ? "address, " : ""}${params.collectMealChoice ? "meal choice, " : ""}and RSVP status.`, 
     data: { slug: newForm.slug, link, fields, mealOptions }
   };
 }
@@ -1239,9 +1248,9 @@ async function getRsvpResponses(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // CALENDAR TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function addEvent(
   params: Record<string, unknown>,
@@ -1310,9 +1319,9 @@ async function addDayOfEvent(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // VENDOR TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function addVendor(
   params: Record<string, unknown>,
@@ -1452,7 +1461,7 @@ async function deleteVendor(
 
   // Find by ID first
   if (params.vendorId) {
-    vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
+    vendorIndex = vendors.findIndex(v => v.id === params.itemId);
   }
   // Fall back to name match (case insensitive)
   else if (params.vendorName) {
@@ -1479,9 +1488,9 @@ async function deleteVendor(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // TASK TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function addTask(
   params: Record<string, unknown>,
@@ -1581,9 +1590,9 @@ async function deleteTask(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // ARTIFACT TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function showArtifact(
   params: Record<string, unknown>,
@@ -1659,7 +1668,7 @@ async function showArtifact(
       });
       const weddingDate = kernel?.weddingDate;
       const daysUntil = weddingDate 
-        ? Math.ceil((weddingDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        ? Math.ceil((new Date(weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : null;
       data = { weddingDate, daysUntil };
       break;
@@ -1705,9 +1714,9 @@ async function showArtifact(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // KERNEL TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function updateWeddingDetails(
   params: Record<string, unknown>,
@@ -1815,9 +1824,9 @@ async function updatePreferences(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // DECISION TOOLS
-// ============================================================================
+// ============================================================================ 
 
 import {
   getDecision,
@@ -1954,9 +1963,9 @@ async function handleAddCustomDecision(
   return { success: result.success, message: result.message };
 }
 
-// ============================================================================
+// ============================================================================ 
 // PLANNING ANALYSIS TOOLS
-// ============================================================================
+// ============================================================================ 
 
 async function analyzePlanningGaps(
   params: Record<string, unknown>,
@@ -2125,9 +2134,9 @@ async function analyzePlanningGaps(
   };
 }
 
-// ============================================================================
+// ============================================================================ 
 // HELPER: Update kernel decisions (legacy)
-// ============================================================================
+// ============================================================================ 
 
 async function updateKernelDecision(
   tenantId: string,
@@ -2153,8 +2162,8 @@ async function updateKernelDecision(
   }
 
   await db.update(weddingKernels)
-    .set({ 
-      decisions, 
+    .set({
+      decisions,
       vendorsBooked,
       updatedAt: new Date() 
     })
