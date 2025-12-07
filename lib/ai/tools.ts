@@ -854,6 +854,10 @@ export const tools: ToolDefinition[] = [
           type: "number",
           description: "Cost in dollars if applicable"
         },
+        estimatedCost: {
+          type: "number",
+          description: "Estimated cost in dollars"
+        },
         notes: {
           type: "string",
           description: "Any notes about this decision"

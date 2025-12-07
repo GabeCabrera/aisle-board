@@ -1851,13 +1851,22 @@ async function handleUpdateDecision(
 ): Promise<ToolResult> {
   await initializeDecisionsForTenant(context.tenantId);
 
+  const estimatedCost = params.estimatedCost ? (params.estimatedCost as number) : undefined;
+  const choiceAmount = params.choiceAmount ? (params.choiceAmount as number) : undefined;
+
+  // Sync with total budget if this is the budget decision
+  if (params.decisionName === "budget" && (estimatedCost !== undefined || choiceAmount !== undefined)) {
+    await setTotalBudget({ amount: estimatedCost ?? choiceAmount }, context);
+  }
+
   const result = await updateDecisionFn(
     context.tenantId,
     params.decisionName as string,
     {
       status: params.status as "not_started" | "researching" | "decided" | undefined,
       choiceName: params.choiceName as string | undefined,
-      choiceAmount: params.choiceAmount ? (params.choiceAmount as number) * 100 : undefined,
+      choiceAmount: choiceAmount ? choiceAmount * 100 : undefined,
+      estimatedCost: estimatedCost ? estimatedCost * 100 : undefined,
       choiceNotes: params.notes as string | undefined,
       force: params.force as boolean | undefined,
     }
