@@ -22,7 +22,11 @@ import {
   Menu,
   MenuItem,
 } from '@mui/material';
-import { Add, MoreVert, FavoriteBorder, Favorite, Delete } from '@mui/icons-material';
+import Add from '@mui/icons-material/Add';
+import MoreVert from '@mui/icons-material/MoreVert';
+import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
+import Favorite from '@mui/icons-material/Favorite';
+import Delete from '@mui/icons-material/Delete';
 import { Palette, Spark } from '@/lib/db/schema';
 import { toast } from "sonner";
 

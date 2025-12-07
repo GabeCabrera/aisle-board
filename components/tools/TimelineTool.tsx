@@ -31,8 +31,8 @@ import {
   Star as OtherIcon,
   Home as PrepIcon,
 } from "@mui/icons-material";
-
 import { useBrowser } from "@/components/layout/browser-context";
+import TimelineEventCard, { formatTime } from './TimelineEventCard';
 
 const getCategoryIcon = (category: string) => {
   switch (category.toLowerCase()) {
@@ -50,8 +50,6 @@ const getCategoryIcon = (category: string) => {
 };
 
 const categoryOrder = ["Prep", "Ceremony", "Cocktail Hour", "Reception", "Other"];
-
-import TimelineEventCard, { formatTime } from './TimelineEventCard';
 
 
 export default function TimelineTool() {
