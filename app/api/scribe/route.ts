@@ -513,4 +513,4 @@ export async function POST(request: NextRequest) {
           input_schema: {
             type: "object",
             properties: {
-              guests: { type: "array", items: { type: "string" }, description: "An array of guest names (e.g., ['John Doe', 'Jane Smith']).
+              guests: { type: "array", items: { type: "string" }, description: "An array of guest names (e.g., ['John Doe', 'Jane Smith'])." },
