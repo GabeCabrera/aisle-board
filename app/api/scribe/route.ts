@@ -582,7 +582,7 @@ export async function POST(request: NextRequest) {
         assistantMessage += contentBlock.text;
       } else if (contentBlock.type === "tool_use") {
         const toolName = contentBlock.name;
-        const toolParameters = contentBlock.input;
+        const toolParameters = contentBlock.input as Record<string, unknown>;
 
         // Execute the tool call using our executor
         const toolContext = { tenantId: session.user.tenantId, userId: session.user.id };
