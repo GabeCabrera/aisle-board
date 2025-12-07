@@ -6,6 +6,8 @@ import { tenants, planners, pages, rsvpResponses } from "@/lib/db/schema";
 import { count, eq, sql, avg } from "drizzle-orm";
 import { getTenantById, getPlannerByTenantId, getPagesByPlannerId } from "@/lib/db/queries";
 
+export const dynamic = "force-dynamic";
+
 // ============================================================================
 // TYPES
 // ============================================================================

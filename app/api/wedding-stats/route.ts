@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getTenantById, getPlannerByTenantId, getPagesByPlannerId } from "@/lib/db/queries";
 
+export const dynamic = "force-dynamic";
+
 // Types
 interface WeddingStats {
   daysUntil: number | null;

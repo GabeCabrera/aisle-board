@@ -5,6 +5,8 @@ import { palettes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // Get all palettes for the current user
 export async function GET() {
   const session = await getServerSession(authOptions);

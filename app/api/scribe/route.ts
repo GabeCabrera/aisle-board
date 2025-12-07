@@ -14,6 +14,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getTenantAccess, incrementAIUsage, FREE_AI_MESSAGE_LIMIT } from "@/lib/subscription";
 import { executeToolCall } from "@/lib/ai/executor"; // Import executeToolCall
 
+export const dynamic = "force-dynamic";
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
