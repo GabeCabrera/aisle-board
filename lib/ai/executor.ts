@@ -251,6 +251,15 @@ async function addBudgetItem(
     amount: params.estimatedCost
   });
 
+  // Update checklist decision
+  const decisionName = getDecisionNameFromCategory(params.category as string);
+  if (decisionName) {
+      await updateDecisionFn(context.tenantId, decisionName, {
+          status: "researching", // Start researching if we are budgeting
+          estimatedCost: (params.estimatedCost as number) * 100
+      });
+  }
+
   return {
     success: true,
     message: `Added ${params.category} to budget: ${(params.estimatedCost as number).toLocaleString()}`,
@@ -475,6 +484,13 @@ async function addGuest(
   await db.update(weddingKernels)
     .set({ guestCount: guests.length, updatedAt: new Date() })
     .where(eq(weddingKernels.tenantId, context.tenantId));
+
+  // Update checklist decision
+  if (guests.length > 0) {
+      await updateDecisionFn(context.tenantId, "guest_list", {
+          status: "researching"
+      });
+  }
 
   const extras: string[] = [];
   if (params.group) extras.push(`group: ${params.group}`);
@@ -1280,6 +1296,13 @@ async function addDayOfEvent(
     .set({ fields: { ...fields, events }, updatedAt: new Date() })
     .where(eq(pages.id, pageId));
 
+  // Update checklist decision
+  if (events.length > 0) {
+      await updateDecisionFn(context.tenantId, "day_of_timeline", {
+          status: "researching"
+      });
+  }
+
   return {
     success: true,
     message: `Added "${params.event}" at ${params.time} to day-of timeline`,
@@ -1327,11 +1350,44 @@ async function addVendor(
     locked: params.status === "booked"
   });
 
+  // Update checklist decision
+  const decisionName = getDecisionNameFromCategory(params.category as string);
+  if (decisionName) {
+    const decisionStatus = params.status === "booked" || params.status === "confirmed" ? "decided" : "researching";
+    await updateDecisionFn(context.tenantId, decisionName, {
+      status: decisionStatus,
+      choiceName: params.name as string,
+      // If booked, we could lock it, but let's stick to decided/researching for now unless explicitly locked
+    });
+    
+    if (params.status === "booked") {
+        // If booked, allows updating the "locked" state if we wanted, but updateDecisionFn handles auto-lock on deposit
+    }
+  }
+
   return {
     success: true,
     message: `Added ${params.name} (${params.category}) to vendors`,
     data: newVendor
   };
+}
+
+function getDecisionNameFromCategory(category: string): string | null {
+  const c = (category || "").toLowerCase();
+  if (c.includes("photo")) return "photographer";
+  if (c.includes("video")) return "videographer";
+  if (c.includes("cater")) return "caterer";
+  if (c.includes("dj") || c.includes("band") || c.includes("music")) return "dj_band";
+  if (c.includes("flower") || c.includes("florist")) return "florist";
+  if (c.includes("officiant") || c.includes("pastor") || c.includes("priest")) return "officiant";
+  if (c.includes("cake") || c.includes("baker") || c.includes("dessert")) return "cake_baker";
+  if (c.includes("hair") || c.includes("makeup") || c.includes("beauty")) return "hair_makeup";
+  if (c.includes("dress") || c.includes("gown")) return "wedding_dress";
+  if (c.includes("suit") || c.includes("tux")) return "partner_attire";
+  if (c.includes("transport") || c.includes("limo") || c.includes("bus")) return "transportation";
+  if (c.includes("hotel") || c.includes("accommodation") || c.includes("room")) return "accommodations";
+  if (c.includes("invitation") || c.includes("stationery") || c.includes("paper")) return "invitations";
+  return null;
 }
 
 async function updateVendorStatus(
@@ -1366,6 +1422,16 @@ async function updateVendorStatus(
     name: vendor.name,
     locked: params.status === "booked"
   });
+
+  // Update checklist decision
+  const decisionName = getDecisionNameFromCategory(vendor.category as string);
+  if (decisionName) {
+    const decisionStatus = params.status === "booked" || params.status === "confirmed" ? "decided" : "researching";
+    await updateDecisionFn(context.tenantId, decisionName, {
+        status: decisionStatus,
+        choiceName: vendor.name as string,
+    });
+  }
 
   return {
     success: true,
