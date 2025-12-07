@@ -276,7 +276,7 @@ function extractNames(text: string): string | null {
 }
 
 function stripNameTag(text: string): string {
-  return text.replace(/\\n\\\[NAMES:\\s*.+?\\\]/g, "").trim();
+  return text.replace(/\\n\\\\[NAMES:\\s*.+?\\\]/g, "").trim();
 }
 
 // ============================================================================ 
@@ -514,3 +514,170 @@ export async function POST(request: NextRequest) {
             type: "object",
             properties: {
               guests: { type: "array", items: { type: "string" }, description: "An array of guest names (e.g., ['John Doe', 'Jane Smith'])." },
+              side: { type: "string", enum: ["bride", "groom", "both"], description: "Which partner's side the guests are on." },
+              group: { type: "string", description: "The group these guests belong to (e.g., 'Family', 'Friends', 'Work')." },
+              plusOnes: { type: "boolean", description: "Whether these guests are invited with plus-ones." },
+            },
+            required: ["guests"],
+          },
+        },
+        {
+          name: "add_event",
+          description: "Adds a general event to the wedding planning calendar.",
+          input_schema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "The title of the event (e.g., 'Cake Tasting', 'Dress Fitting')." },
+              date: { type: "string", format: "date", description: "The date of the event (YYYY-MM-DD)." },
+              time: { type: "string", format: "time", description: "The time of the event (HH:MM)." },
+              location: { type: "string", description: "The location of the event." },
+              category: { type: "string", description: "The category of the event (e.g., 'vendor', 'appointment', 'milestone')." },
+              notes: { type: "string", description: "Any notes for the event." },
+            },
+            required: ["title", "date"],
+          },
+        },
+        {
+          name: "add_day_of_event",
+          description: "Adds an event to the detailed day-of wedding timeline.",
+          input_schema: {
+            type: "object",
+            properties: {
+              event: { type: "string", description: "The name of the event (e.g., 'Ceremony Starts', 'First Dance')." },
+              time: { type: "string", format: "time", description: "The time of the event (HH:MM)." },
+              duration: { type: "number", description: "The duration of the event in minutes." },
+              location: { type: "string", description: "The location for this specific timeline event." },
+              notes: { type: "string", description: "Any specific notes or instructions for this event." },
+            },
+            required: ["event", "time"],
+          },
+        },
+        {
+          name: "update_wedding_details",
+          description: "Updates core wedding details such as wedding date, guest count, or venue information.",
+          input_schema: {
+            type: "object",
+            properties: {
+              weddingDate: { type: "string", format: "date", description: "The new wedding date (YYYY-MM-DD)." },
+              guestCount: { type: "number", description: "The estimated number of guests." },
+              venueName: { type: "string", description: "The name of the chosen ceremony/reception venue." },
+              venueAddress: { type: "string", description: "The address of the chosen venue." },
+              venueCost: { type: "number", description: "The estimated cost of the venue, in USD." },
+              ceremonyTime: { type: "string", format: "time", description: "The time the ceremony starts (HH:MM)." },
+              receptionTime: { type: "string", format: "time", description: "The time the reception starts (HH:MM)." },
+            },
+          },
+        },
+      ],
+    });
+
+    let assistantMessage = "";
+    let shouldRefreshPlannerData = false; // Flag to indicate if planner data might have changed
+    let namesExtracted = false;
+    let displayName: string | null = null;
+    
+    // Process Claude's response content blocks
+    for (const contentBlock of response.content) {
+      if (contentBlock.type === "text") {
+        assistantMessage += contentBlock.text;
+      } else if (contentBlock.type === "tool_use") {
+        const toolName = contentBlock.name;
+        const toolParameters = contentBlock.input;
+
+        // Execute the tool call using our executor
+        const toolContext = { tenantId: session.user.tenantId, userId: session.user.id };
+        const toolResult = await executeToolCall(toolName, toolParameters, toolContext);
+
+        // Add tool execution result to the messages
+        // Claude might want to see this output in the next turn
+        // For now, we'll just append a simplified message to the assistant's response
+        assistantMessage += `\n\n(Executed tool: ${toolName}) Result: ${toolResult.message}`;
+        
+        if (toolResult.success) {
+            shouldRefreshPlannerData = true; // Data changed, refresh frontend
+        } else {
+            // If tool failed, inform the user or try to recover
+            assistantMessage += `\n\n(Tool execution failed: ${toolResult.message})`;
+        }
+        
+        // IMPORTANT: If Claude expects a tool_output block before its final text,
+        // this logic needs to be extended to make another API call to Claude
+        // with the tool_output. For simplicity, we are assuming Claude provides
+        // final text after tool_use in a single response.
+      }
+    }
+
+    // Check if names were extracted (only if no tool_use for onboarding)
+    if (isOnboarding && !shouldRefreshPlannerData) { // Only extract names if no tool use happened
+      displayName = extractNames(assistantMessage);
+      if (displayName) {
+        namesExtracted = true;
+        assistantMessage = stripNameTag(assistantMessage);
+      }
+    }
+
+    // Update conversation with new messages
+    const updatedMessages: Message[] = [
+      ...existingMessages,
+      { role: "user", content: message, timestamp: new Date().toISOString() },
+      { role: "assistant", content: assistantMessage, timestamp: new Date().toISOString() },
+    ];
+
+    await db
+      .update(conciergeConversations)
+      .set({
+        messages: updatedMessages,
+        updatedAt: new Date(),
+      })
+      .where(eq(conciergeConversations.id, conversation.id));
+
+    return NextResponse.json({
+      message: assistantMessage,
+      conversationId: conversation.id,
+      namesExtracted,
+      displayName,
+      // Include updated usage info
+      aiAccess: {
+        messagesUsed: usageResult.newCount,
+        messagesRemaining: usageResult.remaining,
+        hasFullAccess: usageResult.remaining === "unlimited",
+      },
+      shouldRefreshPlannerData, // Include the refresh flag
+    });
+  } catch (error) {
+    console.error("Scribe error:", error);
+    return NextResponse.json(
+      { error: "Failed to get response" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Clear conversation history
+export async function DELETE() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Mark current conversation as inactive
+    await db
+      .update(conciergeConversations)
+      .set({ isActive: false })
+      .where(
+        and(
+          eq(conciergeConversations.tenantId, session.user.tenantId),
+          eq(conciergeConversations.isActive, true)
+        )
+      );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Clear conversation error:", error);
+    return NextResponse.json(
+      { error: "Failed to clear conversation" },
+      { status: 500 }
+    );
+  }
+}
