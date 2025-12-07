@@ -14,8 +14,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getTenantAccess, incrementAIUsage, FREE_AI_MESSAGE_LIMIT } from "@/lib/subscription";
 import { executeToolCall } from "@/lib/ai/executor"; // Import executeToolCall
 
-export const dynamic = "force-dynamic";
-
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -58,8 +56,8 @@ Get to know them naturally through conversation. You want to learn:
 When you learn their names, include this at the END of your response on its own line:
 [NAMES: Person1 & Person2]
 
-For example if they say "I'm Sarah and my fiance is Mike", include:
-[NAMES: Sarah & Mike]
+For example if they say "I'm Sarah and my fiance is John", include:
+[NAMES: Sarah & John]
 
 Only include this tag when you first learn their names, not in subsequent messages.`;
 }
@@ -96,8 +94,7 @@ function buildSystemPrompt(plannerName: string, context: {
 - Wedding Date: ${weddingDate ? new Date(weddingDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "Not yet set"}
 ${daysUntil !== null ? `- Days until wedding: ${daysUntil}` : ""}
 - Guest count: ${guestCount > 0 ? guestCount : "Not yet determined"}
-- Budget: ${budget > 0 ? `$
-${budget.toLocaleString()}` : "Not yet set"}
+- Budget: ${budget > 0 ? `$${budget.toLocaleString()}` : "Not yet set"}
 - Location: ${location || "Not yet decided"}
 
 ## Their Vibe
@@ -279,12 +276,14 @@ function extractNames(text: string): string | null {
 }
 
 function stripNameTag(text: string): string {
-  return text.replace(/\n?\\\[NAMES:\s*.+?\\\]/g, "").trim();
+  return text.replace(/\\n?\\\[NAMES:\s*.+?\\\]/g, "").trim();
 }
 
 // ============================================================================ 
 // API HANDLERS
 // ============================================================================ 
+
+export const dynamic = "force-dynamic";
 
 // GET - Fetch conversation history and AI access status
 export async function GET() {
