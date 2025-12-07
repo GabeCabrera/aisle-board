@@ -2,24 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { 
-  conciergeConversations, 
-  vibeProfiles, 
-  tenants, 
-  pages, 
-  planners 
+import {
+  conciergeConversations,
+  vibeProfiles,
+  tenants,
+  pages,
+  planners
 } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { getTenantAccess, incrementAIUsage, FREE_AI_MESSAGE_LIMIT } from "@/lib/subscription";
+import { executeToolCall } from "@/lib/ai/executor"; // Import executeToolCall
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// ============================================================================
+// ============================================================================ 
 // SYSTEM PROMPTS
-// ============================================================================
+// ============================================================================ 
 
 function buildOnboardingSystemPrompt(plannerName: string) {
   return `You are ${plannerName}, a warm and friendly wedding planner. You're meeting a new couple for the first time.
@@ -144,9 +145,9 @@ When they share Pinterest boards or describe inspiration, identify patterns and 
 Remember: You're not just answering questions. You're helping them feel excited and capable of planning the wedding of their dreams. Every interaction should leave them feeling better than before.`;
 }
 
-// ============================================================================
+// ============================================================================ 
 // HELPER FUNCTIONS
-// ============================================================================
+// ============================================================================ 
 
 interface Message {
   role: "user" | "assistant";
@@ -267,7 +268,7 @@ async function getOrCreateConversation(tenantId: string) {
 }
 
 function extractNames(text: string): string | null {
-  const match = text.match(/\[NAMES:\s*(.+?)\]/);
+  const match = text.match(/\\\[NAMES:\\s*(.+?)\\\]/);
   if (match) {
     return match[1].trim();
   }
@@ -275,12 +276,12 @@ function extractNames(text: string): string | null {
 }
 
 function stripNameTag(text: string): string {
-  return text.replace(/\n?\[NAMES:\s*.+?\]/g, "").trim();
+  return text.replace(/\\n\\\[NAMES:\\s*.+?\\\]/g, "").trim();
 }
 
-// ============================================================================
+// ============================================================================ 
 // API HANDLERS
-// ============================================================================
+// ============================================================================ 
 
 // GET - Fetch conversation history and AI access status
 export async function GET() {
@@ -342,7 +343,7 @@ export async function POST(request: NextRequest) {
     
     if (!usageResult.allowed) {
       return NextResponse.json(
-        { 
+        {
           error: "AI message limit reached",
           limitReached: true,
           messagesUsed: usageResult.newCount,
@@ -386,85 +387,130 @@ export async function POST(request: NextRequest) {
       max_tokens: 1024,
       system: systemPrompt,
       messages: claudeMessages,
-    });
-
-    let assistantMessage = response.content[0].type === "text" 
-      ? response.content[0].text 
-      : "";
-
-    // Check if names were extracted
-    let namesExtracted = false;
-    let displayName: string | null = null;
-    
-    if (isOnboarding) {
-      displayName = extractNames(assistantMessage);
-      if (displayName) {
-        namesExtracted = true;
-        assistantMessage = stripNameTag(assistantMessage);
-      }
-    }
-
-    // Update conversation with new messages
-    const updatedMessages: Message[] = [
-      ...existingMessages,
-      { role: "user", content: message, timestamp: new Date().toISOString() },
-      { role: "assistant", content: assistantMessage, timestamp: new Date().toISOString() },
-    ];
-
-    await db
-      .update(conciergeConversations)
-      .set({
-        messages: updatedMessages,
-        updatedAt: new Date(),
-      })
-      .where(eq(conciergeConversations.id, conversation.id));
-
-    return NextResponse.json({
-      message: assistantMessage,
-      conversationId: conversation.id,
-      namesExtracted,
-      displayName,
-      // Include updated usage info
-      aiAccess: {
-        messagesUsed: usageResult.newCount,
-        messagesRemaining: usageResult.remaining,
-        hasFullAccess: usageResult.remaining === "unlimited",
-      },
-    });
-  } catch (error) {
-    console.error("Scribe error:", error);
-    return NextResponse.json(
-      { error: "Failed to get response" },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - Clear conversation history
-export async function DELETE() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Mark current conversation as inactive
-    await db
-      .update(conciergeConversations)
-      .set({ isActive: false })
-      .where(
-        and(
-          eq(conciergeConversations.tenantId, session.user.tenantId),
-          eq(conciergeConversations.isActive, true)
-        )
-      );
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Clear conversation error:", error);
-    return NextResponse.json(
-      { error: "Failed to clear conversation" },
-      { status: 500 }
-    );
-  }
-}
+      tools: [ // Define tools available to Claude
+        // Decision tools
+        {
+          name: "update_decision",
+          description: "Update the status or details of a specific wedding decision on the checklist.",
+          input_schema: {
+            type: "object",
+            properties: {
+              decisionName: { type: "string", description: "The internal name of the decision (e.g., 'ceremony_venue', 'photographer', 'guest_count')." },
+              status: { type: "string", enum: ["not_started", "researching", "decided", "locked"], description: "The new status of the decision." },
+              choiceName: { type: "string", description: "The name of the chosen option (e.g., 'Alpine Arts Center', 'John Smith Photography')." },
+              choiceAmount: { type: "number", description: "The monetary amount associated with the choice, in USD." },
+              choiceNotes: { type: "string", description: "Any specific notes about the choice." },
+              estimatedCost: { type: "number", description: "The estimated cost for this decision, in USD." },
+              depositAmount: { type: "number", description: "The amount of deposit paid, in USD." },
+              depositPaidAt: { type: "string", format: "date-time", description: "Timestamp when deposit was paid." },
+              contractSigned: { type: "boolean", description: "Whether a contract has been signed." },
+              contractSignedAt: { type: "string", format: "date-time", description: "Timestamp when contract was signed." },
+              isSkipped: { type: "boolean", description: "Whether this required decision is being skipped." },
+            },
+            required: ["decisionName"],
+          },
+        },
+        {
+          name: "lock_decision",
+          description: "Locks a decision, preventing further changes. Use when a decision is final, like a signed contract or paid deposit.",
+          input_schema: {
+            type: "object",
+            properties: {
+              decisionName: { type: "string", description: "The internal name of the decision to lock." },
+              reason: { type: "string", enum: ["deposit_paid", "contract_signed", "full_payment", "date_passed", "user_confirmed"], description: "The reason for locking the decision." },
+              details: { type: "string", description: "Optional: additional details about why the decision was locked." },
+            },
+            required: ["decisionName", "reason"],
+          },
+        },
+        {
+          name: "add_budget_item",
+          description: "Adds a new item to the budget, e.g., a vendor service or a specific expense.",
+          input_schema: {
+            type: "object",
+            properties: {
+              category: { type: "string", description: "The category of the budget item (e.g., 'Venue', 'Photography', 'Flowers')." },
+              vendor: { type: "string", description: "The name of the vendor (if applicable)." },
+              estimatedCost: { type: "number", description: "The estimated total cost of this item, in USD." },
+              amountPaid: { type: "number", description: "The amount paid towards this item so far, in USD." },
+              notes: { type: "string", description: "Any specific notes about this budget item." },
+            },
+            required: ["category", "estimatedCost"],
+          },
+        },
+        {
+          name: "update_budget_item",
+          description: "Updates an existing budget item. Can modify cost, paid amount, vendor, or notes.",
+          input_schema: {
+            type: "object",
+            properties: {
+              itemId: { type: "string", description: "The unique ID of the budget item to update. Prefer this if available." },
+              category: { type: "string", description: "The category of the budget item (e.g., 'Venue'). Can be used with vendor to identify." },
+              vendor: { type: "string", description: "The name of the vendor. Can be used with category to identify if ID not available." },
+              estimatedCost: { type: "number", description: "The new estimated total cost of this item, in USD." },
+              amountPaid: { type: "number", description: "The new amount paid towards this item, in USD." },
+              notes: { type: "string", description: "New specific notes about this budget item." },
+            },
+            anyOf: [{ required: ["itemId"] }, { required: ["category", "vendor"] }],
+          },
+        },
+        {
+          name: "add_vendor",
+          description: "Adds a new vendor to the vendor contact list. Use when a couple mentions a new vendor they are considering or have booked.",
+          input_schema: {
+            type: "object",
+            properties: {
+              category: { type: "string", description: "The category of the vendor (e.g., 'Venue', 'Photographer', 'Caterer')." },
+              name: { type: "string", description: "The name of the vendor (e.g., 'Alpine Arts Center', 'John Smith Photography')." },
+              contactName: { type: "string", description: "The primary contact person at the vendor." },
+              email: { type: "string", format: "email", description: "The vendor's email address." },
+              phone: { type: "string", description: "The vendor's phone number." },
+              website: { type: "string", format: "url", description: "The vendor's website URL." },
+              status: { type: "string", enum: ["researching", "contacted", "booked", "confirmed", "paid"], description: "The current status with this vendor." },
+              price: { type: "number", description: "The total price quoted by the vendor, in USD." },
+              notes: { type: "string", description: "Any specific notes about this vendor." },
+            },
+            required: ["category", "name"],
+          },
+        },
+        {
+          name: "update_vendor_status",
+          description: "Updates the status or details of an existing vendor.",
+          input_schema: {
+            type: "object",
+            properties: {
+              vendorId: { type: "string", description: "The unique ID of the vendor to update. Prefer this if available." },
+              vendorName: { type: "string", description: "The name of the vendor (e.g., 'Alpine Arts Center'). Can be used with category if ID not available." },
+              category: { type: "string", description: "The category of the vendor (e.g., 'Venue'). Can be used with vendorName if ID not available." },
+              status: { type: "string", enum: ["researching", "contacted", "booked", "confirmed", "paid"], description: "The new status of the vendor." },
+              depositPaid: { type: "boolean", description: "Whether a deposit has been paid." },
+              contractSigned: { type: "boolean", description: "Whether a contract has been signed." },
+            },
+            anyOf: [{ required: ["vendorId"] }, { required: ["vendorName", "category"] }],
+            required: ["status"], // Status is always required when updating vendor status
+          },
+        },
+        {
+          name: "add_guest",
+          description: "Adds a single guest to the guest list.",
+          input_schema: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "The full name of the guest." },
+              email: { type: "string", format: "email", description: "The guest's email address." },
+              side: { type: "string", enum: ["bride", "groom", "both"], description: "Which partner's side the guest is on." },
+              group: { type: "string", description: "The guest's group (e.g., 'Family', 'Friends', 'Work')." },
+              rsvp: { type: "string", enum: ["pending", "confirmed", "declined"], description: "The guest's RSVP status." },
+              plusOne: { type: "boolean", description: "Whether the guest is invited with a plus-one." },
+              notes: { type: "string", description: "Any special notes for this guest." },
+            },
+            required: ["name"],
+          },
+        },
+        {
+          name: "add_guest_group",
+          description: "Adds multiple guests to the guest list, often belonging to the same group or side.",
+          input_schema: {
+            type: "object",
+            properties: {
+              guests: { type: "array", items: { type: "string" }, description: "An array of guest names (e.g., ['John Doe', 'Jane Smith']).

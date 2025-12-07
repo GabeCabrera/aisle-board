@@ -5,6 +5,11 @@ import { Send, Sparkles, RotateCcw, X, Minimize2, Crown, ClipboardList, MessageC
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+import { broadcastPlannerDataChanged } from "@/lib/hooks/usePlannerData";
+
+// Custom event name for same-tab communication
+export const PLANNER_DATA_CHANGED_EVENT = "planner-data-changed-event";
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -128,6 +133,11 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe" }: 
       }
 
       if (!res.ok) throw new Error("Failed to send message");
+
+      // Check if planner data needs to be refreshed
+      if (data.shouldRefreshPlannerData) {
+        broadcastPlannerDataChanged();
+      }
 
       const assistantMessage: Message = {
         role: "assistant",
