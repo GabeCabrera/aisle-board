@@ -753,7 +753,7 @@ export default function InspoTool() {
               {explorePalettes.length > 0 ? (
                   <Grid container spacing={3}>
                       {explorePalettes.map(palette => (
-                          <Grid item xs={12} sm={6} md={4} lg={3} key={palette.id}>
+                          <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={palette.id}>
                               <PublicPaletteCard palette={palette} onClick={setSelectedPublicPalette} />
                           </Grid>
                       ))}
