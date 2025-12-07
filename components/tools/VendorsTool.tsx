@@ -74,7 +74,7 @@ const categoryConfig: Record<string, { Icon: React.ElementType; color: string }>
   };
   
   function getCategoryConfig(category: string) {
-    const key = category.toLowerCase();
+    const key = (category || "").toLowerCase();
     for (const [k, v] of Object.entries(categoryConfig)) {
       if (key.includes(k)) return v;
     }
