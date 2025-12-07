@@ -1662,17 +1662,42 @@ async function updateWeddingDetails(
 
   // Update venue in decisions
   if (params.venueName || params.venueAddress) {
+    const venueName = params.venueName as string;
+    const venueCost = params.venueCost ? (params.venueCost as number) * 100 : undefined; // Assuming venueCost might be passed
+    
+    // Update weddingKernels
     const kernel = await db.query.weddingKernels.findFirst({
       where: eq(weddingKernels.tenantId, context.tenantId)
     });
     const decisions = (kernel?.decisions as Record<string, unknown>) || {};
     decisions.venue = {
       ...(decisions.venue as Record<string, unknown> || {}),
-      name: params.venueName || (decisions.venue as Record<string, unknown>)?.name,
+      name: venueName || (decisions.venue as Record<string, unknown>)?.name,
       address: params.venueAddress,
       locked: true
     };
     updates.decisions = decisions;
+
+    // Synchronize with weddingDecisions table
+    await updateDecisionFn(
+      context.tenantId,
+      "ceremony_venue",
+      {
+        choiceName: venueName,
+        status: "decided",
+        estimatedCost: venueCost,
+      }
+    );
+
+    await updateDecisionFn(
+      context.tenantId,
+      "reception_venue",
+      {
+        choiceName: venueName,
+        status: "decided",
+        estimatedCost: venueCost,
+      }
+    );
   }
 
   await db.update(weddingKernels)
