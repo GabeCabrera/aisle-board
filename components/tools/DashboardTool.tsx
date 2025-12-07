@@ -2,42 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePlannerData, formatCurrency } from "@/lib/hooks/usePlannerData";
-import Link from "next/link";
-import {
-  Box,
-  Typography,
-  Container,
-  CircularProgress,
-  Paper,
-  Button,
-  Grid,
-  Chip,
-  Alert,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Card,
-  CardContent,
-  CardActionArea,
-  LinearProgress,
-} from "@mui/material";
-import {
-  Refresh as RefreshIcon,
-  AccessTime as ClockIcon,
-  Warning as WarningIcon,
-  Info as InfoIcon,
-  CheckCircle as CheckCircleIcon,
-  ChatBubbleOutline as ChatIcon,
-  Checklist as ChecklistIcon,
-  Store as StoreIcon,
-  CalendarMonth as CalendarIcon,
-  AttachMoney as BudgetIcon,
-  People as PeopleIcon,
-  Cake as CakeIcon,
-  Favorite as FavoriteIcon,
-} from "@mui/icons-material";
-import { formatDistanceToNow } from "date-fns";
+import { useBrowser } from "@/components/layout/browser-context";
 
 // Helper to format time ago
 function formatTimeAgo(timestamp: number): string {
@@ -47,6 +12,7 @@ function formatTimeAgo(timestamp: number): string {
 
 export default function DashboardTool() {
   const { data, loading, refetch, lastRefresh } = usePlannerData();
+  const browser = useBrowser();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeAgo, setTimeAgo] = useState("just now");
 
@@ -77,6 +43,10 @@ export default function DashboardTool() {
     setIsRefreshing(false);
   };
 
+  const handleToolClick = (toolId: string) => {
+    browser.openTool(toolId);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 6 }}>
@@ -95,7 +65,7 @@ export default function DashboardTool() {
   const alerts: Array<{
     type: "warning" | "info" | "success";
     message: string;
-    link?: string;
+    toolId?: string;
   }> = [];
 
   // Calculate alerts/priorities
@@ -106,13 +76,13 @@ export default function DashboardTool() {
       message: `You're over budget by ${formatCurrency(
         budget.spent - budget.total
       )}`,
-      link: "/budget", // Assuming a route exists
+      toolId: "budget",
     });
   } else if (budget && budget.total > 0 && budget.percentUsed > 90) {
     alerts.push({
       type: "warning",
       message: `Budget is ${budget.percentUsed}% allocated`,
-      link: "/budget",
+      toolId: "budget",
     });
   }
 
@@ -133,7 +103,7 @@ export default function DashboardTool() {
     alerts.push({
       type: "warning",
       message: `Still need to book: ${missingEssentials.join(", ")}`,
-      link: "/vendors",
+      toolId: "vendors",
     });
   }
 
@@ -148,7 +118,7 @@ export default function DashboardTool() {
     alerts.push({
       type: "info",
       message: `${guests.stats.pending} guests haven't RSVP'd yet`,
-      link: "/guests",
+      toolId: "guests",
     });
   }
 
@@ -157,7 +127,7 @@ export default function DashboardTool() {
     alerts.push({
       type: "success",
       message: `${vendors.stats.booked} vendors booked!`,
-      link: "/vendors",
+      toolId: "vendors",
     });
   }
 
@@ -220,13 +190,12 @@ export default function DashboardTool() {
             {alerts.map((alert, i) => (
               <ListItem
                 key={i}
-                component={Link}
-                href={alert.link || "#"}
+                button
+                onClick={() => handleToolClick(alert.toolId || "dashboard")}
                 sx={{
                   mb: 1,
                   borderRadius: 1,
                   "&:last-child": { mb: 0 },
-                  textDecoration: "none",
                 }}
                 disablePadding
               >
@@ -252,7 +221,7 @@ export default function DashboardTool() {
         {/* Checklist */}
         <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ height: '100%' }}>
-                <CardActionArea component={Link} href="/checklist" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardActionArea onClick={() => handleToolClick("checklist")} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent>
                         <Typography variant="h5" component="h2" gutterBottom>
                             Checklist
@@ -284,7 +253,7 @@ export default function DashboardTool() {
         {/* Budget */}
         <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ height: '100%' }}>
-                <CardActionArea component={Link} href="/budget" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardActionArea onClick={() => handleToolClick("budget")} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent>
                         <Typography variant="h5" component="h2" gutterBottom>
                             Budget
@@ -320,7 +289,7 @@ export default function DashboardTool() {
         {/* Guests */}
         <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ height: '100%' }}>
-                <CardActionArea component={Link} href="/guests" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardActionArea onClick={() => handleToolClick("guests")} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent>
                         <Typography variant="h5" component="h2" gutterBottom>
                             Guests
@@ -356,7 +325,7 @@ export default function DashboardTool() {
         {/* Vendors */}
         <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ height: '100%' }}>
-                <CardActionArea component={Link} href="/vendors" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardActionArea onClick={() => handleToolClick("vendors")} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <CardContent>
                         <Typography variant="h5" component="h2" gutterBottom>
                             Vendors

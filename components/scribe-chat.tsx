@@ -82,7 +82,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe" }: 
 
   const loadConversation = async () => {
     try {
-      const res = await fetch("/api/concierge");
+      const res = await fetch("/api/scribe");
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
@@ -113,7 +113,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe" }: 
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
-      const res = await fetch("/api/concierge", {
+      const res = await fetch("/api/scribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, aiName }),
@@ -151,7 +151,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe" }: 
     if (!confirm("Start a new conversation? Your current chat will be saved.")) return;
     
     try {
-      await fetch("/api/concierge", { method: "DELETE" });
+      await fetch("/api/scribe", { method: "DELETE" });
       setMessages([]);
     } catch (error) {
       console.error("Failed to clear conversation:", error);
