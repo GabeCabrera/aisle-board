@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Sparkles, RotateCcw, X, Minimize2, Crown, ClipboardList, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -379,3 +381,50 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
             )}
           </div>
         </div>
+
+        {/* Input Area */}
+        {!showUpgradePrompt && (
+          <div className={`flex-shrink-0 p-4 border-t border-warm-100 bg-white ${variant === "overlay" ? "rounded-b-2xl" : ""}`}>
+            <div className="flex items-end gap-3">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                                     placeholder={`Message ${aiName}...`}                  className="w-full resize-none px-4 py-3 bg-warm-50 border border-warm-200 rounded-2xl text-sm leading-relaxed placeholder:text-warm-400 transition-shadow duration-200 focus:outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  rows={1}
+                  disabled={isLoading}
+                  style={{ minHeight: "48px" }}
+                />
+              </div>
+              <Button
+                onClick={sendMessage}
+                disabled={!input.trim() || isLoading}
+                className="h-12 w-12 p-0 bg-warm-800 hover:bg-warm-700 disabled:bg-warm-300 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md disabled:shadow-none"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Floating trigger button
+export function ScribeTrigger({ onClick, aiName = "Scribe" }: { onClick: () => void; aiName?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground rounded-full shadow-lg hover:from-primary/90 hover:to-primary hover:shadow-xl hover:scale-[1.02] transition-all duration-200 group"
+    >
+      <div className="relative">
+        <Sparkles className="w-5 h-5" />
+        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-rose-400 rounded-full animate-pulse" />
+      </div>
+      <span className="font-medium">Ask {aiName}</span>
+    </button>
+  );
+}
