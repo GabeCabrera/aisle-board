@@ -830,7 +830,7 @@ export const tools: ToolDefinition[] = [
           description: "The decision identifier",
           enum: [
             "wedding_date", "budget", "guest_count", "style",
-            "ceremony_venue", "reception_venue",
+            "ceremony_venue", "reception_venue", "rehearsal_dinner_venue",
             "photographer", "videographer", "caterer", "dj_band", "florist", "officiant", "cake_baker", "hair_makeup",
             "wedding_dress", "partner_attire", "wedding_rings", "wedding_party_attire",
             "ceremony_music", "vows", "readings",

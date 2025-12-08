@@ -23,6 +23,7 @@ export const DEFAULT_DECISIONS = [
   // Venue
   { name: "ceremony_venue", displayName: "Ceremony Venue", category: "venue", isRequired: true, position: 10 },
   { name: "reception_venue", displayName: "Reception Venue", category: "venue", isRequired: true, position: 11 },
+  { name: "rehearsal_dinner_venue", displayName: "Rehearsal Dinner Venue", category: "venue", isRequired: false, position: 12 },
   
   // Core Vendors
   { name: "photographer", displayName: "Photographer", category: "vendors", isRequired: false, position: 20 },
