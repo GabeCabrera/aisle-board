@@ -324,7 +324,7 @@ export async function POST(request: NextRequest) {
 
         await db.update(scribeConversations)
           .set({
-            messages: newHistory,
+            messages: newMessages,
             updatedAt: new Date(),
           })
           .where(eq(scribeConversations.id, conversation.id));
