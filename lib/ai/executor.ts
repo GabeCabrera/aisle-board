@@ -1518,11 +1518,16 @@ async function getVendorList(
 
   // Self-healing: Filter out corrupted entries (undefined ID, undefined Name, or Name "0")
   vendors = vendors.filter(v => {
+    const name = (v.name as string || "").trim();
+    const id = (v.id as string || "").trim();
+    
     const isCorrupt = 
-      !v.id || 
-      v.id === "undefined" || 
-      v.name === "undefined" ||
-      (v.name === "0" && v.category === "Other"); // Be specific about "0" to avoid accidental deletes
+      !id || 
+      id === "undefined" || 
+      !name || 
+      name.toLowerCase() === "undefined" ||
+      name === "0";
+      
     return !isCorrupt;
   });
 
