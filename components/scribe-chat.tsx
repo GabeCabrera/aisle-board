@@ -5,6 +5,7 @@ import { Send, Sparkles, RotateCcw, X, Minimize2, Crown, ClipboardList, MessageC
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Typewriter } from "@/components/ui/typewriter";
+import { AnimatedInput } from "@/components/ui/animated-input";
 
 import { broadcastPlannerDataChanged } from "@/lib/hooks/usePlannerData";
 
@@ -118,7 +119,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
       role: "user",
       content: userMessage,
       timestamp: new Date().toISOString(),
-      animate: false,
+      animate: true, // Animate user message too as requested
     };
     setMessages((prev) => [...prev, tempUserMessage]);
 
@@ -354,7 +355,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                           : "bg-warm-100 text-warm-800 rounded-2xl rounded-bl-lg"
                       }`}
                     >
-                      {msg.role === "assistant" && msg.animate ? (
+                      {msg.animate ? (
                         <Typewriter text={msg.content} onComplete={() => {
                           // Optional: update message to stop animating once complete
                           // setMessages(...)
@@ -387,15 +388,13 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
           <div className={`flex-shrink-0 p-4 border-t border-warm-100 bg-white ${variant === "overlay" ? "rounded-b-2xl" : ""}`}>
             <div className="flex items-end gap-3">
               <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
+                <AnimatedInput
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={setInput}
                   onKeyDown={handleKeyDown}
-                                     placeholder={`Message ${aiName}...`}                  className="w-full resize-none px-4 py-3 bg-warm-50 border border-warm-200 rounded-2xl text-sm leading-relaxed placeholder:text-warm-400 transition-shadow duration-200 focus:outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
-                  rows={1}
+                  placeholder={`Message ${aiName}...`}
                   disabled={isLoading}
-                  style={{ minHeight: "48px" }}
+                  className="bg-warm-50 rounded-2xl border border-warm-200 focus-within:border-rose-300 focus-within:ring-4 focus-within:ring-rose-100 transition-shadow duration-200"
                 />
               </div>
               <Button
