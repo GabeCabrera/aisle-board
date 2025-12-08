@@ -68,7 +68,7 @@ export function Typewriter({
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [text, onComplete]);
+  }, [text]); // Intentionally excluding onComplete to avoid reset on re-render
 
   // Auto-scroll logic integration hook could be here, 
   // but usually handled by parent observing the content size change.
