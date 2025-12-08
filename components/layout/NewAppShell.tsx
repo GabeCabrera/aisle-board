@@ -70,7 +70,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
     .slice(0, 2) || "U";
 
   // Determine if we should show the floating chat (active when NOT on chat or settings)
-  const showFloatingChat = browser.activeTabId !== 'chat' && browser.activeTabId !== 'settings';
+  const showFloatingChat = browser.activeTabId !== 'scribe' && browser.activeTabId !== 'settings';
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-canvas/50 border-r border-border backdrop-blur-xl">
