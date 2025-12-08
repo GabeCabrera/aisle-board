@@ -666,7 +666,7 @@ export const tools: ToolDefinition[] = [
   },
   {
     name: "delete_vendor",
-    description: "Remove a vendor from tracking. Use when user decides not to consider a vendor anymore.",
+    description: "Remove a vendor from tracking. Use when user decides not to consider a vendor anymore. Can delete by ID, name (partial match), or delete all vendors in a specific category.",
     parameters: {
       type: "object",
       properties: {
@@ -676,7 +676,28 @@ export const tools: ToolDefinition[] = [
         },
         vendorName: {
           type: "string",
-          description: "If no vendorId, find and remove by name"
+          description: "Find and remove by name (partial match supported)"
+        },
+        category: {
+          type: "string",
+          description: "Delete ALL vendors in this category (use with caution!) or use to narrow down name search",
+          enum: [
+            "venue",
+            "photographer",
+            "videographer",
+            "caterer",
+            "florist",
+            "dj",
+            "band",
+            "officiant",
+            "planner",
+            "hair",
+            "makeup",
+            "cake",
+            "rentals",
+            "transportation",
+            "other"
+          ]
         }
       },
       required: []

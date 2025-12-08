@@ -1563,35 +1563,94 @@ async function deleteVendor(
   const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
   
   const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-  let vendorIndex = -1;
-  let deletedVendor: Record<string, unknown> | null = null;
-
-  // Find by ID first
+  
+  // 1. Delete by ID
   if (params.vendorId) {
-    vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
+    const vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
+    if (vendorIndex === -1) {
+      return { success: false, message: "Vendor not found by ID" };
+    }
+    const deletedVendor = vendors[vendorIndex];
+    vendors.splice(vendorIndex, 1);
+
+    await db.update(pages)
+      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    return {
+      success: true,
+      message: `Removed ${deletedVendor.name} from vendor list`,
+      data: deletedVendor
+    };
   }
-  // Fall back to name match (case insensitive)
-  else if (params.vendorName) {
-    vendorIndex = vendors.findIndex(v => 
-      (v.name as string)?.toLowerCase() === (params.vendorName as string).toLowerCase()
-    );
+
+  // 2. Delete by Category (Bulk) - Only if name is NOT provided
+  if (params.category && !params.vendorName) {
+    const category = (params.category as string).toLowerCase();
+    const initialCount = vendors.length;
+    
+    // Filter out vendors that match the category
+    const newVendors = vendors.filter(v => (v.category as string)?.toLowerCase() !== category);
+    
+    if (newVendors.length === initialCount) {
+      return { success: false, message: `No vendors found in category: ${params.category}` };
+    }
+
+    const deletedCount = initialCount - newVendors.length;
+
+    await db.update(pages)
+      .set({ fields: { ...fields, vendors: newVendors }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    return {
+      success: true,
+      message: `Removed ${deletedCount} vendor(s) from category: ${params.category}`,
+      data: { deletedCount }
+    };
   }
 
-  if (vendorIndex === -1) {
-    return { success: false, message: "Vendor not found" };
+  // 3. Delete by Name (with optional category filter)
+  if (params.vendorName) {
+    const searchName = (params.vendorName as string).toLowerCase();
+    const searchCategory = params.category ? (params.category as string).toLowerCase() : null;
+
+    // Filter candidates first
+    let candidates = vendors.map((v, i) => ({ ...v, originalIndex: i }));
+    
+    if (searchCategory) {
+      candidates = candidates.filter(v => (v.category as string)?.toLowerCase() === searchCategory);
+    }
+
+    // Try exact match first
+    let match = candidates.find(v => (v.name as string)?.toLowerCase() === searchName);
+    
+    // If no exact match, try partial match
+    if (!match) {
+      match = candidates.find(v => (v.name as string)?.toLowerCase().includes(searchName));
+    }
+
+    if (!match) {
+       return { success: false, message: `Vendor "${params.vendorName}" not found` };
+    }
+
+    // We found a match, delete it using the original index or ID
+    const deletedVendor = vendors[match.originalIndex];
+    vendors.splice(match.originalIndex, 1);
+
+    await db.update(pages)
+      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    return {
+      success: true,
+      message: `Removed ${deletedVendor.name} from vendor list`,
+      data: deletedVendor
+    };
   }
 
-  deletedVendor = vendors[vendorIndex];
-  vendors.splice(vendorIndex, 1);
-
-  await db.update(pages)
-    .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
-
-  return {
-    success: true,
-    message: `Removed ${deletedVendor.name} from vendor list`,
-    data: deletedVendor
+  return { 
+    success: false, 
+    message: "Please provide a vendorId, vendorName, or category to delete." 
   };
 }
 
