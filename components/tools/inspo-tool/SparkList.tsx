@@ -138,6 +138,7 @@ export function SparkList({ palette, isOwner, myPalettes }: SparkListProps) {
                 </div>
             ) : sparks.length > 0 ? (
                 <div className="w-full min-h-[200px]">
+                    {/* @ts-ignore */}
                     <Masonry columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }} gutter="16px">
                         {sparks.map((spark) => (
                             <SparkCard 

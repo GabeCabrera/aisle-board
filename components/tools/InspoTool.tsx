@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -15,54 +14,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { 
   Plus, 
-  MoreVertical, 
-  Trash, 
-  Edit, 
-  Share2, 
-  ExternalLink, 
-  TagIcon, 
-  Public, 
+  Search, 
+  Globe, 
   Lock, 
   ArrowLeft, 
   Loader2, 
-  PushPin, 
-  RefreshCw, 
-  Search, 
-  LayoutDashboard, 
-  CheckCircle2, 
-  Hourglass, 
-  Circle, 
-  Menu 
-} from 'lucide-react';import Image from 'next/image';
-import Masonry from 'react-responsive-masonry'; // Using a non-MUI masonry
+} from 'lucide-react';
+import Masonry from 'react-responsive-masonry';
 import type { Palette, Spark } from '@/lib/db/schema';
 
 // Import refactored dialogs
 import { AddSparkDialog } from './inspo-tool/AddSparkDialog';
-import { SaveSparkDialog } from './inspo-tool/SaveSparkDialog';
-
-// --- Types ---
-
-
-import { SparkDetailDialog } from './inspo-tool/SparkDetailDialog';
-import { EditSparkDialog } from './inspo-tool/EditSparkDialog';
-import { SparkCard } from './inspo-tool/SparkCard';
 import { PublicPaletteCard } from './inspo-tool/PublicPaletteCard';
 import { SparkList } from './inspo-tool/SparkList';
 
-// Main InspoTool Component
+// --- Types ---
+interface PaletteWithMeta extends Palette {
+  tenantName?: string;
+  coverImage?: string;
+}
 
+interface SparkWithTags extends Spark {
+  tags: string[];
+}
 
 // Main InspoTool Component
 export default function InspoTool() {
@@ -234,8 +212,8 @@ export default function InspoTool() {
       {/* View: Explore - Detailed Public Palette */}
       {selectedPublicPalette ? (
           <div>
-              <Button startIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => setSelectedPublicPalette(null)} variant="ghost" className="rounded-full mb-4">
-                  Back to Explore
+              <Button onClick={() => setSelectedPublicPalette(null)} variant="ghost" className="rounded-full mb-4">
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Explore
               </Button>
               <Card className="p-6 mb-8 rounded-3xl border border-border shadow-soft bg-canvas">
                   <CardTitle className="font-serif text-3xl mb-1">{selectedPublicPalette.name}</CardTitle>
@@ -254,6 +232,7 @@ export default function InspoTool() {
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" data-testid="loading-spinner" />
                     </div>
                 ) : explorePalettes.length > 0 ? (
+                  // @ts-ignore
                   <Masonry columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }} gutter="16px">
                       {explorePalettes.map(palette => (
                           <PublicPaletteCard palette={palette} onClick={setSelectedPublicPalette} key={palette.id} />
@@ -296,7 +275,7 @@ export default function InspoTool() {
                         <div className="flex items-center space-x-2">
                             <Label htmlFor="toggle-public">
                                 <span className="flex items-center text-sm font-medium text-muted-foreground">
-                                    {currentPalette.isPublic ? <Public className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />}
+                                    {currentPalette.isPublic ? <Globe className="h-4 w-4 mr-1" /> : <Lock className="h-4 w-4 mr-1" />}
                                     {currentPalette.isPublic ? "Public" : "Private"}
                                 </span>
                             </Label>

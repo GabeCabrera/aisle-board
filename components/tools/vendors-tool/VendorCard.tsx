@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, Vendor } from "@/lib/hooks/usePlannerData"; // Assuming Vendor type is also exported or defined globally
 import {
   Home,
-  Restaurant,
+  Utensils,
   Camera,
   Video, // Changed from Videocam to Video
   Flower, // Changed from LocalFlorist to Flower
@@ -15,7 +15,7 @@ import {
   Heart, // Changed from Favorite to Heart
   Scissors, // Changed from ContentCut to Scissors
   Sparkles, // Changed from AutoAwesome to Sparkles
-  Chair,
+  Armchair,
   Car, // Changed from DirectionsCar to Car
   FileText, // Changed from Assignment to FileText
   Mail, // Changed from Email to Mail
@@ -27,7 +27,7 @@ import {
 // Helper function and config for category icons (extracted from original VendorsTool)
 const categoryConfig: Record<string, { Icon: React.ElementType; colorClass: string }> = {
     venue: { Icon: Home, colorClass: "text-primary" },
-    catering: { Icon: Restaurant, colorClass: "text-secondary" },
+    catering: { Icon: Utensils, colorClass: "text-secondary" },
     photographer: { Icon: Camera, colorClass: "text-info" }, // info is not defined, will use blue
     photography: { Icon: Camera, colorClass: "text-blue-500" },
     videographer: { Icon: Video, colorClass: "text-destructive" },
@@ -43,7 +43,7 @@ const categoryConfig: Record<string, { Icon: React.ElementType; colorClass: stri
     hair: { Icon: Scissors, colorClass: "text-secondary-foreground" }, // will use a lighter secondary
     makeup: { Icon: Sparkles, colorClass: "text-secondary-foreground" },
     beauty: { Icon: Sparkles, colorClass: "text-secondary-foreground" },
-    rentals: { Icon: Chair, colorClass: "text-blue-500" },
+    rentals: { Icon: Armchair, colorClass: "text-blue-500" },
     transportation: { Icon: Car, colorClass: "text-blue-600" },
     planner: { Icon: FileText, colorClass: "text-green-600" },
     coordinator: { Icon: FileText, colorClass: "text-green-600" },

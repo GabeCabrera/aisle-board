@@ -12,6 +12,7 @@ import {
   Clock,
   Store, // Main icon for VendorsTool
   Search, // Used for filter/search input
+  Loader2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useBrowser } from "../layout/browser-context";
@@ -79,8 +80,7 @@ export default function VendorsTool() {
     const q = search.toLowerCase();
     filteredVendors = filteredVendors.filter(v =>
       v.name.toLowerCase().includes(q) ||
-      v.category.toLowerCase().includes(q) ||
-      v.contactName?.toLowerCase().includes(q)
+      v.category.toLowerCase().includes(q)
     );
   }
 

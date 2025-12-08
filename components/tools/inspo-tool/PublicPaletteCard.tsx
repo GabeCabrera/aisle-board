@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import { Public } from 'lucide-react';
+import { Globe } from 'lucide-react';
 
 import type { Palette } from '@/lib/db/schema';
 
@@ -27,7 +27,7 @@ export function PublicPaletteCard({ palette, onClick }: PublicPaletteCardProps) 
                 {palette.coverImage ? (
                     <Image src={`${palette.coverImage}?w=400&auto=format`} alt={palette.name} width={400} height={200} className="w-full h-full object-cover" unoptimized />
                 ) : (
-                    <Public className="h-16 w-16 text-muted-foreground/50" />
+                    <Globe className="h-16 w-16 text-muted-foreground/50" />
                 )}
             </div>
             <CardContent className="p-4">

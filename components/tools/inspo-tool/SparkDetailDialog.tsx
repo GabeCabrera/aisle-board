@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trash, Edit, ExternalLink, PushPin } from "lucide-react";
+import { Trash, Edit, ExternalLink, Pin } from "lucide-react";
 import Image from 'next/image';
 
 import type { Palette, Spark } from '@/lib/db/schema';
@@ -69,7 +69,7 @@ export function SparkDetailDialog({ spark, open, onClose, onDelete, onEdit, isOw
                                     className="rounded-full"
                                     size="sm"
                                 >
-                                    <PushPin className="mr-2 h-4 w-4" /> Save
+                                    <Pin className="mr-2 h-4 w-4" /> Save
                                 </Button>
                             )}
                         </div>

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PushPin } from "lucide-react";
+import { Pin } from "lucide-react";
 
 import type { Spark } from '@/lib/db/schema';
 
@@ -54,7 +54,7 @@ export function SparkCard({ spark, onClick, isOwner, onSave }: SparkCardProps) {
                                 onSave(spark);
                             }}
                         >
-                            <PushPin className="h-4 w-4 mr-1" /> Save
+                            <Pin className="h-4 w-4 mr-1" /> Save
                         </Button>
                     )}
                 </div>

@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, PushPin } from "lucide-react";
+import { Loader2, Pin } from "lucide-react";
 
 import type { Palette, Spark } from '@/lib/db/schema';
 
@@ -96,7 +96,7 @@ export function SaveSparkDialog({ open, onClose, spark, myPalettes, onSaved }: S
                     <Button variant="outline" onClick={onClose} disabled={isLoading} className="rounded-lg">Cancel</Button>
                     <Button onClick={handleSave} disabled={isLoading} className="rounded-lg">
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        <PushPin className="mr-2 h-4 w-4" /> Save
+                        <Pin className="mr-2 h-4 w-4" /> Save
                     </Button>
                 </DialogFooter>
             </DialogContent>
