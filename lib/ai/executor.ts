@@ -2264,15 +2264,12 @@ async function analyzePlanningGaps(
   const decisions = await getAllDecisions(context.tenantId);
   const progress = await getDecisionProgress(context.tenantId);
 
-  return {
-    success: true,
-    message: "Analyzed planning status",
-}
+
 
   // Calculate days until wedding
   const weddingDate = kernel?.weddingDate;
   const daysUntil = weddingDate 
-    ? Math.ceil((weddingDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(weddingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
   // Analyze gaps
