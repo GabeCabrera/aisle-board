@@ -54,10 +54,10 @@ export default function WelcomePage() {
 
   // Focus chat input
   useEffect(() => {
-    if (step === "chat" && messages.length > 0) {
+    if (messages.length > 0) {
       inputRef.current?.focus();
     }
-  }, [step, messages.length]);
+  }, [messages.length]);
 
   // Show continue button after names are captured and a couple exchanges
   useEffect(() => {
