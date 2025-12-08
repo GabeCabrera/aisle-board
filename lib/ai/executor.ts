@@ -14,9 +14,13 @@ import {
   tenants,
   rsvpForms,
   rsvpResponses,
-  users // Added users for adminUpgradeUser
+  users,
+  palettes,
+  sparks,
+  knowledgeBase,
+  weddingDecisions
 } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm"; // Added sql for adminUpgradeUser
+import { eq, and, sql, desc, like, or } from "drizzle-orm";
 
 // ============================================================================ 
 // TYPES
@@ -133,6 +137,22 @@ export async function executeToolCall(
       // Analysis tools
       case "analyze_planning_gaps":
         return await analyzePlanningGaps(parameters, context);
+
+      // Inspiration tools
+      case "create_palette":
+        return await createPalette(parameters, context);
+      case "save_spark":
+        return await saveSpark(parameters, context);
+      case "get_palettes":
+        return await getPalettes(parameters, context);
+
+      // Knowledge tools
+      case "query_knowledge_base":
+        return await queryKnowledgeBase(parameters, context);
+
+      // Logic tools
+      case "calculate_budget_breakdown":
+        return await calculateBudgetBreakdown(parameters, context);
 
       // External tools
       case "web_search":
@@ -1975,6 +1995,251 @@ async function handleAddCustomDecision(
   );
 
   return { success: result.success, message: result.message };
+}
+
+// ============================================================================ 
+// INSPIRATION TOOLS
+// ============================================================================ 
+
+async function createPalette(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const name = params.name as string;
+  
+  // Check if palette exists
+  const existing = await db.query.palettes.findFirst({
+    where: and(
+      eq(palettes.tenantId, context.tenantId),
+      eq(palettes.name, name)
+    )
+  });
+
+  if (existing) {
+    return {
+      success: true,
+      message: `Palette '${name}' already exists.`,
+      data: existing
+    };
+  }
+
+  const [palette] = await db.insert(palettes).values({
+    tenantId: context.tenantId,
+    name,
+    description: (params.description as string) || "",
+    position: 0 // Default position, could query max position + 1
+  }).returning();
+
+  return {
+    success: true,
+    message: `Created new inspiration board: ${name}`,
+    data: palette
+  };
+}
+
+async function saveSpark(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  let paletteId = params.paletteId as string;
+  
+  // If no ID, find or create by name
+  if (!paletteId && params.paletteName) {
+    const name = params.paletteName as string;
+    let palette = await db.query.palettes.findFirst({
+      where: and(
+        eq(palettes.tenantId, context.tenantId),
+        eq(palettes.name, name)
+      )
+    });
+    
+    if (!palette) {
+      // Create default palette if it doesn't exist
+      const [newPalette] = await db.insert(palettes).values({
+        tenantId: context.tenantId,
+        name,
+        description: "Created by Scribe"
+      }).returning();
+      palette = newPalette;
+    }
+    paletteId = palette.id;
+  }
+
+  // If still no palette ID, use a default "General" board
+  if (!paletteId) {
+    let generalPalette = await db.query.palettes.findFirst({
+      where: and(
+        eq(palettes.tenantId, context.tenantId),
+        eq(palettes.name, "General Inspiration")
+      )
+    });
+    
+    if (!generalPalette) {
+      const [newPalette] = await db.insert(palettes).values({
+        tenantId: context.tenantId,
+        name: "General Inspiration",
+        description: "General wedding ideas"
+      }).returning();
+      generalPalette = newPalette;
+    }
+    paletteId = generalPalette.id;
+  }
+
+  const [spark] = await db.insert(sparks).values({
+    paletteId,
+    imageUrl: params.imageUrl as string,
+    title: params.title as string,
+    description: params.description as string,
+    tags: (params.tags as string[]) || [],
+  }).returning();
+
+  return {
+    success: true,
+    message: "Saved idea to your board.",
+    data: spark
+  };
+}
+
+async function getPalettes(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const userPalettes = await db.query.palettes.findMany({
+    where: eq(palettes.tenantId, context.tenantId),
+    with: {
+      sparks: {
+        limit: 5,
+        orderBy: (sparks, { desc }) => [desc(sparks.createdAt)]
+      }
+    },
+    orderBy: (palettes, { desc }) => [desc(palettes.createdAt)]
+  });
+
+  if (userPalettes.length === 0) {
+    return {
+      success: true,
+      message: "You don't have any inspiration boards yet.",
+      data: []
+    };
+  }
+
+  const summary = userPalettes.map(p => 
+    `${p.name} (${p.sparks.length} items)`
+  ).join("\n");
+
+  return {
+    success: true,
+    message: `Here are your inspiration boards:\n${summary}`,
+    data: userPalettes
+  };
+}
+
+// ============================================================================ 
+// KNOWLEDGE BASE TOOLS
+// ============================================================================ 
+
+async function queryKnowledgeBase(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const query = (params.query as string).toLowerCase();
+  const category = params.category as string;
+
+  // Simple keyword search using ILIKE
+  // In production, you'd want vector search here (pgvector)
+  const results = await db.query.knowledgeBase.findMany({
+    where: and(
+      category ? eq(knowledgeBase.category, category) : undefined,
+      or(
+        like(knowledgeBase.title, `%${query}%`),
+        like(knowledgeBase.content, `%${query}%`),
+        sql`jsonb_path_exists(${knowledgeBase.keywords}, ${`$[*] ? (@ like_regex "${query}" flag "i")`})`
+      )
+    ),
+    limit: 3
+  });
+
+  if (results.length === 0) {
+    // Fallback to searching just title if content search fails or returns nothing
+    // This is a simplified fallback
+    return {
+      success: true,
+      message: "I couldn't find specific advice on that in my library, but I can try to answer based on general wedding knowledge."
+    };
+  }
+
+  const knowledge = results.map(r => `**${r.title}**\n${r.content}`).join("\n\n");
+
+  return {
+    success: true,
+    message: `Here is some advice from our wedding experts:\n\n${knowledge}`,
+    data: results
+  };
+}
+
+// ============================================================================ 
+// LOGIC TOOLS
+// ============================================================================ 
+
+async function calculateBudgetBreakdown(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const totalBudget = params.totalBudget as number;
+  const priorities = (params.priorities as string[]) || [];
+
+  // Standard industry ratios (simplified)
+  const standardRatios: Record<string, number> = {
+    "venue": 0.40,       // Reception & Ceremony
+    "catering": 0.0,     // Often included in venue, separating for clarity if needed, but venue usually covers major cost
+    "photography": 0.12,
+    "videography": 0.08,
+    "attire": 0.08,
+    "flowers": 0.08,
+    "music_dj": 0.08,
+    "planner": 0.10,
+    "cake": 0.02,
+    "stationary": 0.02,
+    "transport": 0.02
+  };
+
+  // Adjust for priorities (simplified logic: boost priority cats by 20%, reduce others proportionally)
+  // This is a placeholder logic - real logic would be more complex
+  const adjustedRatios = { ...standardRatios };
+  if (priorities.length > 0) {
+    // Boost priorities
+    priorities.forEach(p => {
+      // Map user input to keys (fuzzy matching would be better)
+      const key = Object.keys(standardRatios).find(k => k.includes(p.toLowerCase()));
+      if (key) {
+        adjustedRatios[key] = Math.min(adjustedRatios[key] * 1.5, 0.6); // Cap at 60%
+      }
+    });
+    
+    // Re-normalize
+    const currentTotal = Object.values(adjustedRatios).reduce((a, b) => a + b, 0);
+    Object.keys(adjustedRatios).forEach(k => {
+      adjustedRatios[k] = adjustedRatios[k] / currentTotal;
+    });
+  }
+
+  const breakdown = Object.entries(adjustedRatios).map(([category, ratio]) => ({
+    category: category.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
+    amount: Math.round(totalBudget * ratio),
+    percentage: Math.round(ratio * 100)
+  })).filter(item => item.amount > 0);
+
+  // Ask to save?
+  // For now, just return the calculation. 
+  // The user can then say "save this to my budget" which would trigger multiple add_budget_item calls 
+  // or we could add a "apply_budget_breakdown" tool later.
+
+  return {
+    success: true,
+    message: `Here is a recommended breakdown for a $${totalBudget.toLocaleString()} budget${priorities.length ? ` prioritizing ${priorities.join(", ")}` : ""}:\n\n` +
+      breakdown.map(i => `• **${i.category}**: $${i.amount.toLocaleString()} (${i.percentage}%)`).join("\n"),
+    data: { breakdown, totalBudget }
+  };
 }
 
 // ============================================================================ 

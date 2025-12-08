@@ -976,6 +976,118 @@ export const tools: ToolDefinition[] = [
   },
 
   // ----------------------------------------
+  // INSPIRATION TOOLS
+  // ----------------------------------------
+  {
+    name: "create_palette",
+    description: "Create a new inspiration palette (board).",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Name of the palette (e.g., 'Floral Ideas', 'Dress Inspo')"
+        },
+        description: {
+          type: "string",
+          description: "Optional description of what this board is for"
+        }
+      },
+      required: ["name"]
+    }
+  },
+  {
+    name: "save_spark",
+    description: "Save an inspiration item (spark) to a palette.",
+    parameters: {
+      type: "object",
+      properties: {
+        paletteId: {
+          type: "string",
+          description: "ID of the palette to save to (if known)"
+        },
+        paletteName: {
+          type: "string",
+          description: "Name of the palette to save to (will find or create)"
+        },
+        imageUrl: {
+          type: "string",
+          description: "URL of the image to save"
+        },
+        title: {
+          type: "string",
+          description: "Title of the spark"
+        },
+        description: {
+          type: "string",
+          description: "Description or note about why this is being saved"
+        },
+        tags: {
+          type: "array",
+          description: "Tags for categorization",
+          items: { type: "string", description: "Tag" }
+        }
+      },
+      required: ["imageUrl"]
+    }
+  },
+  {
+    name: "get_palettes",
+    description: "Get a list of all inspiration palettes and their recent sparks.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+
+  // ----------------------------------------
+  // KNOWLEDGE BASE TOOLS
+  // ----------------------------------------
+  {
+    name: "query_knowledge_base",
+    description: "Search the wedding knowledge base for advice on etiquette, traditions, timelines, and best practices.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query or question"
+        },
+        category: {
+          type: "string",
+          description: "Optional category filter",
+          enum: ["budget", "timeline", "etiquette", "vendors", "tips"]
+        }
+      },
+      required: ["query"]
+    }
+  },
+
+  // ----------------------------------------
+  // LOGIC TOOLS
+  // ----------------------------------------
+  {
+    name: "calculate_budget_breakdown",
+    description: "Calculate a recommended budget breakdown based on a total amount and standard industry ratios.",
+    parameters: {
+      type: "object",
+      properties: {
+        totalBudget: {
+          type: "number",
+          description: "Total budget amount in dollars"
+        },
+        priorities: {
+          type: "array",
+          description: "List of priority categories to allocate more budget to",
+          items: { type: "string", description: "Category" }
+        }
+      },
+      required: ["totalBudget"]
+    }
+  },
+
+  // ----------------------------------------
   // EXTERNAL TOOLS
   // ----------------------------------------
   {
