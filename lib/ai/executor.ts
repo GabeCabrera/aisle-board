@@ -1511,9 +1511,29 @@ async function getVendorList(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
+  const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
   
   let vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
+  const initialCount = vendors.length;
+
+  // Self-healing: Filter out corrupted entries (undefined ID, undefined Name, or Name "0")
+  vendors = vendors.filter(v => {
+    const isCorrupt = 
+      !v.id || 
+      v.id === "undefined" || 
+      v.name === "undefined" ||
+      (v.name === "0" && v.category === "Other"); // Be specific about "0" to avoid accidental deletes
+    return !isCorrupt;
+  });
+
+  // If we found corrupted entries, save the cleaned list immediately
+  if (vendors.length !== initialCount) {
+    console.log(`[Auto-Cleanup] Removed ${initialCount - vendors.length} corrupted vendor entries.`);
+    await db.update(pages)
+      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+  }
+
   const totalCount = vendors.length;
 
   // Apply filters
