@@ -37,14 +37,15 @@ export default function VendorsTool() {
 
   // Refresh when tab becomes visible
   useEffect(() => {
+    refetch(); // Initial fetch on mount to ensure fresh data
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && Date.now() - lastRefresh > 30000) {
+      if (document.visibilityState === "visible") {
         refetch();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [lastRefresh, refetch]);
+  }, [refetch]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
