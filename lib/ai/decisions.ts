@@ -107,11 +107,24 @@ export async function initializeDecisionsForTenant(tenantId: string): Promise<vo
 export type DecisionStatus = "not_started" | "researching" | "decided" | "locked";
 export type LockReason = "deposit_paid" | "contract_signed" | "full_payment" | "date_passed" | "user_confirmed";
 
+function normalizeDecisionName(name: string): string {
+  const n = name.toLowerCase().trim();
+  if (n === "wedding_budget") return "budget";
+  if (n === "dj") return "dj_band";
+  if (n === "band") return "dj_band";
+  if (n === "music") return "dj_band"; // Context dependent, but usually means DJ/Band in vendor context
+  if (n === "cake") return "cake_baker";
+  if (n === "dessert") return "cake_baker";
+  if (n === "dress") return "wedding_dress";
+  if (n === "rings") return "wedding_rings";
+  return n;
+}
+
 export async function getDecision(tenantId: string, name: string) {
   return db.query.weddingDecisions.findFirst({
     where: and(
       eq(weddingDecisions.tenantId, tenantId),
-      eq(weddingDecisions.name, name)
+      eq(weddingDecisions.name, normalizeDecisionName(name))
     ),
   });
 }
@@ -167,7 +180,7 @@ export async function updateDecision(
   updates: UpdateDecisionParams
 ): Promise<{ success: boolean; message: string; wasLocked?: boolean }> {
   // Handle aliases
-  if (name === "wedding_budget") name = "budget";
+  name = normalizeDecisionName(name);
 
   let decision = await getDecision(tenantId, name);
 
@@ -271,6 +284,7 @@ export async function lockDecision(
   reason: LockReason,
   details?: string
 ): Promise<{ success: boolean; message: string }> {
+  name = normalizeDecisionName(name);
   const decision = await getDecision(tenantId, name);
 
   if (!decision) {
@@ -298,6 +312,7 @@ export async function unlockDecision(
   tenantId: string,
   name: string
 ): Promise<{ success: boolean; message: string; warning?: string }> {
+  name = normalizeDecisionName(name);
   const decision = await getDecision(tenantId, name);
 
   if (!decision) {
@@ -342,6 +357,7 @@ export async function skipDecision(
   tenantId: string,
   name: string
 ): Promise<{ success: boolean; message: string }> {
+  name = normalizeDecisionName(name);
   const decision = await getDecision(tenantId, name);
 
   if (!decision) {
