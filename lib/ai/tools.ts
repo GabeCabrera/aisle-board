@@ -625,6 +625,46 @@ export const tools: ToolDefinition[] = [
     }
   },
   {
+    name: "get_vendor_list",
+    description: "Get the current list of vendors with optional filtering. Use to see who has been booked, check status, or find specific vendors.",
+    parameters: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description: "Filter by category",
+          enum: [
+            "venue",
+            "photographer",
+            "videographer",
+            "caterer",
+            "florist",
+            "dj",
+            "band",
+            "officiant",
+            "planner",
+            "hair",
+            "makeup",
+            "cake",
+            "rentals",
+            "transportation",
+            "other"
+          ]
+        },
+        status: {
+          type: "string",
+          description: "Filter by status",
+          enum: ["researching", "contacted", "meeting_scheduled", "booked", "passed"]
+        },
+        search: {
+          type: "string",
+          description: "Search by vendor name or contact name"
+        }
+      },
+      required: []
+    }
+  },
+  {
     name: "delete_vendor",
     description: "Remove a vendor from tracking. Use when user decides not to consider a vendor anymore.",
     parameters: {

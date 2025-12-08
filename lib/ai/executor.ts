@@ -99,6 +99,8 @@ export async function executeToolCall(
         return await addVendor(parameters, context);
       case "update_vendor_status":
         return await updateVendorStatus(parameters, context);
+      case "get_vendor_list":
+        return await getVendorList(parameters, context);
       case "delete_vendor":
         return await deleteVendor(parameters, context);
 
@@ -1502,6 +1504,55 @@ async function updateVendorStatus(
     success: true,
     message: `Updated ${vendor.name} status to ${params.status}`,
     data: vendors[vendorIndex]
+  };
+}
+
+async function getVendorList(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
+  
+  let vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
+  const totalCount = vendors.length;
+
+  // Apply filters
+  if (params.category) {
+    const searchCategory = (params.category as string).toLowerCase();
+    vendors = vendors.filter(v => (v.category as string)?.toLowerCase() === searchCategory);
+  }
+
+  if (params.status) {
+    const searchStatus = (params.status as string).toLowerCase();
+    vendors = vendors.filter(v => (v.status as string)?.toLowerCase() === searchStatus);
+  }
+
+  if (params.search) {
+    const search = (params.search as string).toLowerCase();
+    vendors = vendors.filter(v => 
+      (v.name as string)?.toLowerCase().includes(search) ||
+      (v.contactName as string)?.toLowerCase().includes(search)
+    );
+  }
+
+  // Format response
+  const vendorList = vendors.map(v => {
+    const price = v.price ? ` ($${((v.price as number) / 100).toLocaleString()})` : "";
+    return `• ${v.name} (ID: ${v.id}) [${v.category}] - ${v.status}${price}`;
+  });
+
+  let message = `**Vendor List** (${vendors.length}${totalCount !== vendors.length ? ` of ${totalCount}` : ""}):\n`;
+  
+  if (vendors.length === 0) {
+    message += "\nNo vendors match your criteria.";
+  } else {
+    message += vendorList.join("\n");
+  }
+
+  return {
+    success: true,
+    message,
+    data: { vendors, count: vendors.length, totalCount }
   };
 }
 
