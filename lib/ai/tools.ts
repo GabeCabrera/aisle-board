@@ -712,43 +712,6 @@ export const tools: ToolDefinition[] = [
   },
 
   // ----------------------------------------
-  // ARTIFACT / DISPLAY TOOLS
-  // ----------------------------------------
-  {
-    name: "show_artifact",
-    description: "Display data visually as an interactive artifact. Use this to show the user their data in a visual format.",
-    parameters: {
-      type: "object",
-      properties: {
-        type: {
-          type: "string",
-          description: "Type of artifact to display",
-          enum: [
-            "budget_overview",      // Full budget breakdown
-            "budget_category",      // Single category detail
-            "guest_list",           // Full guest list table
-            "guest_stats",          // RSVP stats summary
-            "timeline",             // Day-of timeline
-            "calendar",             // Upcoming events
-            "vendor_list",          // All vendors
-            "vendor_comparison",    // Compare vendors side by side
-            "checklist",            // Task checklist
-            "countdown",            // Days until wedding
-            "seating_chart",        // Table assignments
-            "wedding_summary",      // Overview of everything
-            "planning_gaps"         // What's missing / needs attention
-          ]
-        },
-        filter: {
-          type: "string",
-          description: "Optional filter (e.g., category name, date range)"
-        }
-      },
-      required: ["type"]
-    }
-  },
-
-  // ----------------------------------------
   // KERNEL / PROFILE TOOLS
   // ----------------------------------------
   {

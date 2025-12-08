@@ -30,10 +30,6 @@ function getAnthropicClient() {
 interface Message {
   role: "user" | "assistant";
   content: string;
-  artifact?: {
-    type: string;
-    data: unknown;
-  };
 }
 
 interface WeddingKernel {
@@ -238,7 +234,7 @@ export async function POST(request: NextRequest) {
 
     // Process tool calls
     const toolResults: ToolResult[] = [];
-    let artifact: { type: string; data: unknown } | undefined;
+    let shouldRefreshPlannerData = false;
 
     while (response.stop_reason === "tool_use") {
       const toolUseBlocks = response.content.filter(
@@ -255,9 +251,8 @@ export async function POST(request: NextRequest) {
         );
         toolResults.push(result);
 
-        // Capture artifact from show_artifact or analyze_planning_gaps
-        if ((toolUse.name === "show_artifact" || toolUse.name === "analyze_planning_gaps") && result.artifact) {
-          artifact = result.artifact;
+        if (result.success) {
+          shouldRefreshPlannerData = true;
         }
 
         toolResultContents.push({
@@ -319,8 +314,8 @@ export async function POST(request: NextRequest) {
 
     // Save messages
     const newMessages: Message[] = message
-      ? [...existingMessages, { role: "user", content: message }, { role: "assistant", content: cleanMessage, artifact }]
-      : [...existingMessages, { role: "assistant", content: cleanMessage, artifact }];
+      ? [...existingMessages, { role: "user", content: message }, { role: "assistant", content: cleanMessage }]
+      : [...existingMessages, { role: "assistant", content: cleanMessage }];
 
         await db.update(scribeConversations)
           .set({
@@ -331,8 +326,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       message: cleanMessage,
       conversationId: conversation.id,
-      artifact,
       toolResults: toolResults.length > 0 ? toolResults : undefined,
+      shouldRefreshPlannerData
     });
 
   } catch (error) {
