@@ -1566,7 +1566,17 @@ async function deleteVendor(
   
   // 1. Delete by ID
   if (params.vendorId) {
-    const vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
+    // Special handling for "undefined" ID string which comes from LLM when ID is missing
+    const targetId = params.vendorId as string;
+    const isTargetingUndefined = targetId === "undefined";
+
+    const vendorIndex = vendors.findIndex(v => {
+      if (isTargetingUndefined) {
+        return !v.id || v.id === "undefined";
+      }
+      return v.id === targetId;
+    });
+
     if (vendorIndex === -1) {
       return { success: false, message: "Vendor not found by ID" };
     }
