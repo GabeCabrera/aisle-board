@@ -13,6 +13,7 @@ import { eq, and, desc } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { getTenantAccess, incrementAIUsage, FREE_AI_MESSAGE_LIMIT } from "@/lib/subscription";
 import { executeToolCall } from "@/lib/ai/executor"; // Import executeToolCall
+import { getAnthropicTools } from "@/lib/ai/tools"; // Import tool definitions
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -389,48 +390,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 1024,
       system: systemPrompt,
       messages: claudeMessages,
-      tools: [ // Define tools available to Claude
-        {
-          name: "update_decision",
-          description: "Update the status or details of a specific wedding decision on the checklist.",
-          input_schema: {
-            type: "object",
-            properties: {
-              decisionName: { type: "string", description: "The internal name of the decision (e.g., 'ceremony_venue', 'photographer', 'guest_count')." },
-              status: { type: "string", enum: ["not_started", "researching", "decided", "locked"], description: "The new status of the decision." },
-              choiceName: { type: "string", description: "The name of the chosen option (e.g., 'Alpine Arts Center', 'John Smith Photography')." },
-              choiceAmount: { type: "number", description: "The monetary amount associated with the choice, in USD." },
-              choiceNotes: { type: "string", description: "Any specific notes about the choice." },
-              estimatedCost: { type: "number", description: "The estimated cost for this decision, in USD." },
-              depositAmount: { type: "number", description: "The amount of deposit paid, in USD." },
-              depositPaidAt: { type: "string", format: "date-time", description: "Timestamp when deposit was paid." },
-              contractSigned: { type: "boolean", description: "Whether a contract has been signed." },
-              contractSignedAt: { type: "string", format: "date-time", description: "Timestamp when contract was signed." },
-              isSkipped: { type: "boolean", description: "Whether this required decision is being skipped." },
-              force: { type: "boolean", description: "Set to true to force update a locked decision after user confirmation." },
-            },
-            required: ["decisionName"],
-          },
-        },
-        {
-          name: "web_search",
-          description: "Search the web for information about wedding vendors, venues, etiquette, or inspiration. Use this when the user asks a question that requires current or specific external knowledge.",
-          input_schema: {
-            type: "object",
-            properties: {
-              query: { type: "string", description: "The search query" }
-            },
-            required: ["query"]
-          }
-        },
-        /* Temporarily disabled for debugging
-        {
-          name: "lock_decision",
-          // ...
-        },
-        // ... other tools ...
-        */
-      ],
+      tools: getAnthropicTools(),
     });
 
     let assistantMessage = "";
