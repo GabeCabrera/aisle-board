@@ -456,23 +456,23 @@ export async function GET() {
     const allConversations = testTenantIds.length > 0
       ? await db
           .select({
-            id: conciergeConversations.id,
-            tenantId: conciergeConversations.tenantId,
-            messages: conciergeConversations.messages,
-            isActive: conciergeConversations.isActive,
-            createdAt: conciergeConversations.createdAt,
+            id: scribeConversations.id,
+            tenantId: scribeConversations.tenantId,
+            messages: scribeConversations.messages,
+            isActive: scribeConversations.isActive,
+            createdAt: scribeConversations.createdAt,
           })
-          .from(conciergeConversations)
-          .where(notInArray(conciergeConversations.tenantId, testTenantIds))
+          .from(scribeConversations)
+          .where(notInArray(scribeConversations.tenantId, testTenantIds))
       : await db
           .select({
-            id: conciergeConversations.id,
-            tenantId: conciergeConversations.tenantId,
-            messages: conciergeConversations.messages,
-            isActive: conciergeConversations.isActive,
-            createdAt: conciergeConversations.createdAt,
+            id: scribeConversations.id,
+            tenantId: scribeConversations.tenantId,
+            messages: scribeConversations.messages,
+            isActive: scribeConversations.isActive,
+            createdAt: scribeConversations.createdAt,
           })
-          .from(conciergeConversations);
+          .from(scribeConversations);
 
     // Count conversations and messages
     const totalConversations = allConversations.length;
