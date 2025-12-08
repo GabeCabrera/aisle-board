@@ -299,7 +299,7 @@ export async function GET() {
 
     return NextResponse.json({
       conversationId: conversation.id,
-      messages: conversation.messages || [],
+      messages: [], // Return empty messages for UI, context is still loaded for AI
       context: {
         coupleNames: context?.coupleNames,
         hasVibeProfile: !!context?.vibeProfile?.aestheticStyle,
