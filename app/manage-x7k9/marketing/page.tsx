@@ -389,15 +389,14 @@ function Story2Pricing() {
       <Logo size="sm" showText={true} href={undefined} variant="white" />
       
       <div className="flex-1 flex flex-col items-center justify-center">
-        <p className="text-warm-400 text-xs uppercase tracking-wider mb-2">One-time payment</p>
-        <span className="text-5xl font-serif">$29</span>
+        <p className="text-warm-400 text-xs uppercase tracking-wider mb-2">Monthly or yearly</p>
+        <span className="text-5xl font-serif">$12/mo</span>
         
         <div className="w-10 h-px bg-warm-600 my-6" />
         
         <h2 className="text-xl font-serif font-light mb-6">
-          No Monthly
-          <br />
-          Fees. Ever.
+          Cancel Anytime.<br />
+          No Hidden Fees.
         </h2>
         
         <div className="space-y-2 text-left">
@@ -616,14 +615,14 @@ function Ad2Pricing() {
   return (
     <div className="h-full flex flex-col items-center justify-center p-8 text-center">
       <div className="mb-6">
-        <span className="text-6xl font-serif text-warm-700">$29</span>
-        <p className="text-warm-500 text-sm mt-1">one-time payment</p>
+        <span className="text-6xl font-serif text-warm-700">$12/mo</span>
+        <p className="text-warm-500 text-sm mt-1">cancel anytime</p>
       </div>
       
       <div className="w-16 h-px bg-warm-300 mb-6" />
       
       <h2 className="text-2xl font-serif text-warm-800 mb-4">
-        No Monthly Fees.<br />Ever.
+        No Hidden Fees.<br />Ever.
       </h2>
       
       <div className="space-y-2 text-left mb-6">
@@ -709,7 +708,7 @@ function Ad4Comparison() {
           </div>
           <div className="flex items-center justify-center gap-1 py-2 border-t border-warm-100 bg-green-50">
             <Check className="w-4 h-4 text-green-500" />
-            <span className="text-warm-700 font-medium">$29 once</span>
+            <span className="text-warm-700 font-medium">$12/mo</span>
           </div>
           
           <div className="flex items-center justify-center gap-1 py-2 border-t border-warm-100">
@@ -1086,7 +1085,7 @@ function Ad7LandscapeHero() {
           <div className="inline-flex items-center gap-2 px-5 py-2 bg-warm-600 text-white text-sm tracking-wider uppercase">
             Start Free
           </div>
-          <span className="text-warm-500 text-sm">$29 one-time</span>
+          <span className="text-warm-500 text-sm">Plans start at $12/mo</span>
         </div>
       </div>
       

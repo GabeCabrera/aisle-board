@@ -82,7 +82,8 @@ export default function TermsPage() {
               Scribe offers both free and paid plans. For paid plans:
             </p>
             <ul className="list-disc list-inside text-warm-600 space-y-2">
-              <li>The Complete plan is a one-time payment of $29</li>
+              <li>Paid plans are available on monthly or annual subscriptions</li>
+              <li>You can cancel your subscription at any time</li>
               <li>All payments are processed securely through Stripe</li>
               <li>Prices are subject to change with notice</li>
               <li>Refunds may be provided at our discretion within 30 days of purchase</li>

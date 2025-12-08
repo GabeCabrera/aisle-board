@@ -296,7 +296,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                   </Button>
                 </Link>
                 <p className="text-xs text-warm-400 mt-4">
-                  One-time payment, no subscription
+                  Monthly and annual plans available
                 </p>
               </div>
             ) : messages.length === 0 ? (
