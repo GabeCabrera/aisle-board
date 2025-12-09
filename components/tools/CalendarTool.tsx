@@ -7,7 +7,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,13 +24,8 @@ import {
   Loader2, 
   RefreshCw, 
   Calendar as CalendarIcon, 
-  CheckCircle, 
-  AlertCircle,
   Plus,
-  ChevronLeft,
-  ChevronRight,
   Monitor,
-  Smartphone,
   Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +40,7 @@ interface CalendarEvent {
   allDay?: boolean;
   backgroundColor?: string;
   borderColor?: string;
+  textColor?: string;
   extendedProps?: {
     description?: string;
     location?: string;
@@ -98,8 +94,10 @@ export default function CalendarTool() {
         start: e.startTime,
         end: e.endTime,
         allDay: e.allDay,
-        backgroundColor: getCategoryColor(e.category),
-        borderColor: getCategoryColor(e.category),
+        backgroundColor: "white",
+        borderColor: "#e5e5e5",
+        textColor: "#1c1917",
+        classNames: ["border", "shadow-sm", "rounded-md", "px-1", "py-0.5", "text-xs", "font-medium", "hover:shadow-md", "transition-shadow"],
         extendedProps: {
           description: e.description,
           location: e.location,
@@ -216,33 +214,6 @@ export default function CalendarTool() {
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "vendor": return "#3B82F6"; // Blue
-      case "deadline": return "#EF4444"; // Red
-      case "appointment": return "#8B5CF6"; // Purple
-      case "milestone": return "#F59E0B"; // Amber
-      case "personal": return "#10B981"; // Emerald
-      default: return "#6B7280"; // Gray
-    }
-  };
-
-  // Custom Header Actions
-  const handlePrev = () => {
-    const api = calendarRef.current?.getApi();
-    api?.prev();
-  };
-
-  const handleNext = () => {
-    const api = calendarRef.current?.getApi();
-    api?.next();
-  };
-
-  const handleToday = () => {
-    const api = calendarRef.current?.getApi();
-    api?.today();
-  };
-
   const changeView = (newView: string) => {
     const api = calendarRef.current?.getApi();
     api?.changeView(newView);
@@ -258,34 +229,95 @@ export default function CalendarTool() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col animate-fade-up bg-white">
-      {/* Header Toolbar */}
-      <div className="flex flex-col md:flex-row items-center justify-between p-4 border-b gap-4">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-            <CalendarIcon className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="font-serif text-xl font-medium text-stone-800">Wedding Calendar</h1>
-            <p className="text-xs text-stone-500">
-              {syncStatus.connected 
+    <div className="w-full max-w-[1400px] mx-auto py-8 px-6 space-y-8 animate-fade-up">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div>
+          <h1 className="font-serif text-5xl md:text-6xl text-foreground tracking-tight">
+            Calendar
+          </h1>
+          <p className="text-xl text-muted-foreground mt-2 font-light">
+            {syncStatus.connected 
                 ? `Synced with ${syncStatus.email}` 
-                : "Manage your wedding schedule"}
-            </p>
-          </div>
+                : "Manage your wedding schedule and deadlines."}
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex bg-muted rounded-full p-1">
+            <button 
+              onClick={() => changeView("dayGridMonth")}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-full transition-all",
+                view === "dayGridMonth" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Month
+            </button>
+            <button 
+              onClick={() => changeView("timeGridWeek")}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-full transition-all",
+                view === "timeGridWeek" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Week
+            </button>
+            <button 
+              onClick={() => changeView("listWeek")}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-full transition-all",
+                view === "listWeek" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              List
+            </button>
+          </div>
+
+          <div className="h-8 w-px bg-border mx-2 hidden md:block" />
+
+          {syncStatus.connected ? (
+            <Button 
+              variant="outline" 
+              onClick={handleSyncNow} 
+              disabled={isSyncing}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+              {isSyncing ? "Syncing..." : "Sync"}
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={handleConnectGoogle}
+              className="gap-2"
+            >
+              <Monitor className="h-4 w-4" />
+              Connect Google
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            onClick={handleImportTasks}
+            disabled={isImporting}
+            className="gap-2"
+            title="Import tasks with due dates"
+          >
+            <Download className={cn("h-4 w-4", isImporting && "animate-spin")} />
+            Import Tasks
+          </Button>
+
           <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="h-8 gap-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full px-4">
-                <Plus className="h-3.5 w-3.5" />
+              <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft hover:shadow-lifted hover:-translate-y-0.5">
+                <Plus className="h-4 w-4" />
                 Add Event
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Add Calendar Event</DialogTitle>
+                <DialogTitle className="font-serif text-2xl">Add Event</DialogTitle>
                 <DialogDescription>Add a new event to your wedding timeline.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleAddEvent} className="space-y-4 mt-4">
@@ -339,116 +371,61 @@ export default function CalendarTool() {
               </form>
             </DialogContent>
           </Dialog>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleImportTasks}
-            disabled={isImporting}
-            className="text-xs h-8 gap-1.5 text-stone-600 hover:text-stone-900"
-            title="Import tasks with due dates"
-          >
-            <Download className={cn("h-3.5 w-3.5", isImporting && "animate-spin")} />
-            {isImporting ? "Importing..." : "Import Tasks"}
-          </Button>
-
-          {syncStatus.connected ? (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSyncNow} 
-              disabled={isSyncing}
-              className="text-xs h-8 gap-1.5"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} />
-              {isSyncing ? "Syncing..." : "Sync Now"}
-            </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleConnectGoogle}
-              className="text-xs h-8 gap-1.5 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-            >
-              <Monitor className="h-3.5 w-3.5" />
-              Connect Google
-            </Button>
-          )}
-          
-          <div className="h-4 w-px bg-stone-200 mx-1" />
-          
-          <div className="flex items-center bg-stone-100 rounded-lg p-0.5">
-            <button 
-              onClick={() => changeView("dayGridMonth")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                view === "dayGridMonth" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-              )}
-            >
-              Month
-            </button>
-            <button 
-              onClick={() => changeView("timeGridWeek")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                view === "timeGridWeek" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-              )}
-            >
-              Week
-            </button>
-            <button 
-              onClick={() => changeView("listWeek")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                view === "listWeek" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-              )}
-            >
-              List
-            </button>
-          </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 relative overflow-hidden flex flex-col">
+      <Card className="flex-1 relative overflow-hidden flex flex-col min-h-[600px] border border-border shadow-soft rounded-3xl">
         {/* Calendar Styles Override */}
         <style jsx global>{`
           .fc {
-            --fc-border-color: #e7e5e4;
-            --fc-button-text-color: #57534e;
-            --fc-button-bg-color: white;
-            --fc-button-border-color: #d6d3d1;
+            --fc-border-color: #f5f5f4; /* warm-100 */
+            --fc-button-text-color: #44403c; /* warm-700 */
+            --fc-button-bg-color: transparent;
+            --fc-button-border-color: transparent;
             --fc-button-hover-bg-color: #f5f5f4;
-            --fc-button-hover-border-color: #a8a29e;
+            --fc-button-hover-border-color: transparent;
             --fc-button-active-bg-color: #e7e5e4;
-            --fc-button-active-border-color: #78716c;
-            --fc-event-bg-color: #3b82f6;
-            --fc-event-border-color: #3b82f6;
-            --fc-today-bg-color: #fff1f2;
+            --fc-button-active-border-color: transparent;
+            --fc-event-bg-color: white;
+            --fc-event-border-color: #e5e5e5;
+            --fc-today-bg-color: #fafaf9;
             --fc-neutral-bg-color: #fafaf9;
             --fc-list-event-hover-bg-color: #f5f5f4;
             font-family: inherit;
           }
           .fc .fc-toolbar-title {
-            font-size: 1.25rem;
-            font-family: serif;
+            font-size: 1.5rem;
+            font-family: "Bodoni Moda", serif;
             font-weight: 500;
-            color: #292524;
+            color: #1c1917; /* warm-900 */
           }
           .fc .fc-col-header-cell-cushion {
-            padding: 8px 0;
+            padding: 12px 0;
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #78716c;
+            letter-spacing: 0.1em;
+            color: #78716c; /* warm-500 */
+          }
+          .fc .fc-daygrid-day-number {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #44403c; /* warm-700 */
+            padding: 8px;
+          }
+          .fc .fc-button {
+            border-radius: 9999px;
+            text-transform: capitalize;
+            font-weight: 500;
+            font-size: 0.875rem;
           }
           .fc-theme-standard td, .fc-theme-standard th {
             border-color: #f5f5f4;
           }
         `}</style>
         
-        <div className="flex-1 p-4 bg-white overflow-y-auto">
+        <CardContent className="flex-1 p-6 bg-white overflow-y-auto">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
@@ -464,31 +441,36 @@ export default function CalendarTool() {
             selectable={true}
             selectMirror={true}
             dayMaxEvents={true}
-            eventClassNames="cursor-pointer shadow-sm border-0 rounded px-1 text-xs font-medium"
             eventContent={(eventInfo) => (
-              <div className="flex items-center gap-1 overflow-hidden">
-                <span className="truncate">{eventInfo.event.title}</span>
+              <div className="flex items-center gap-2 overflow-hidden px-1 w-full">
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                   eventInfo.event.extendedProps.category === 'vendor' ? 'bg-blue-500' :
+                   eventInfo.event.extendedProps.category === 'deadline' ? 'bg-red-500' :
+                   eventInfo.event.extendedProps.category === 'milestone' ? 'bg-amber-500' :
+                   'bg-stone-500'
+                }`} />
+                <span className="truncate text-stone-700">{eventInfo.event.title}</span>
                 {eventInfo.event.extendedProps.googleEventId && (
-                  <Monitor className="h-2 w-2 flex-shrink-0 opacity-50" />
+                  <Monitor className="h-2 w-2 flex-shrink-0 opacity-40 ml-auto" />
                 )}
               </div>
             )}
             noEventsContent={() => (
-              <div className="flex flex-col items-center justify-center p-8 text-stone-400">
+              <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
                 <CalendarIcon className="h-12 w-12 mb-2 opacity-20" />
                 <p>No events scheduled</p>
                 <Button 
                   variant="link" 
                   onClick={() => setIsAddEventOpen(true)}
-                  className="mt-2 text-rose-500"
+                  className="mt-2 text-primary"
                 >
                   Add an event
                 </Button>
               </div>
             )}
           />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
