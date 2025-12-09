@@ -16,7 +16,9 @@ import {
   Store,
   Sparkles,
   Calendar,
-  User
+  User,
+  CalendarRange,
+  Armchair
 } from 'lucide-react';
 
 import {
@@ -47,6 +49,8 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   "vendors": Store,
   "inspo": Sparkles,
   "timeline": Calendar,
+  "calendar": CalendarRange,
+  "seating": Armchair,
   "settings": Settings,
   "chat": MessageSquare,
 };
@@ -100,8 +104,8 @@ function MainContent({ children }: { children: React.ReactNode }) {
         </div>
 
         {tools.map((tool) => {
-          const Icon = TOOL_ICONS[tool.id] || LayoutDashboard;
-          const isActive = browser.activeTabId === tool.id;
+          const Icon = tool.icon || TOOL_ICONS[tool.id] || LayoutDashboard;
+          const isActive = browser.activeTabId === tool.id || browser.tabs.find(t => t.id === browser.activeTabId)?.toolId === tool.id;
           
           return (
             <Button

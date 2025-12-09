@@ -21,6 +21,8 @@ const InspoTool = dynamic(() => import("@/components/tools/InspoTool"), { loadin
 const TimelineTool = dynamic(() => import("@/components/tools/TimelineTool"), { loading: () => <ToolLoading /> });
 const SettingsTool = dynamic(() => import("@/components/tools/SettingsTool"), { loading: () => <ToolLoading /> });
 const ScribeChatTool = dynamic(() => import("@/components/tools/ScribeChatTool"), { loading: () => <ToolLoading /> });
+const CalendarTool = dynamic(() => import("@/components/tools/CalendarTool"), { loading: () => <ToolLoading /> });
+const SeatingTool = dynamic(() => import("@/components/tools/SeatingTool"), { loading: () => <ToolLoading /> });
 
 export default function ChatPage() {
   const { tabs, activeTabId } = useBrowser();
@@ -39,6 +41,8 @@ export default function ChatPage() {
     Inspo: InspoTool,
     Inspiration: InspoTool, // Handle both potential names
     Timeline: TimelineTool,
+    Calendar: CalendarTool,
+    Seating: SeatingTool,
     Settings: SettingsTool,
     Chat: ScribeChatTool,
     Scribe: ScribeChatTool,
