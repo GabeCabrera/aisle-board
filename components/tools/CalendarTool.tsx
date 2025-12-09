@@ -8,6 +8,17 @@ import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useBrowser } from "@/components/layout/browser-context";
 import { 
   Loader2, 
@@ -61,6 +72,14 @@ export default function CalendarTool() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [view, setView] = useState("dayGridMonth");
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    title: "",
+    date: new Date().toISOString().split('T')[0],
+    time: "12:00",
+    description: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch Data
   const fetchData = useCallback(async () => {
@@ -159,6 +178,44 @@ export default function CalendarTool() {
     }
   };
 
+  const handleAddEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEvent.title || !newEvent.date) {
+      toast.error("Please fill in title and date");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/calendar/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newEvent.title,
+          startTime: `${newEvent.date}T${newEvent.time}`,
+          description: newEvent.description,
+          category: "other" // Default category
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to create event");
+
+      toast.success("Event created successfully");
+      setIsAddEventOpen(false);
+      setNewEvent({
+        title: "",
+        date: new Date().toISOString().split('T')[0],
+        time: "12:00",
+        description: ""
+      });
+      await fetchData();
+    } catch (error) {
+      toast.error("Failed to create event");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case "vendor": return "#3B82F6"; // Blue
@@ -219,6 +276,70 @@ export default function CalendarTool() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8 gap-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full px-4">
+                <Plus className="h-3.5 w-3.5" />
+                Add Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Calendar Event</DialogTitle>
+                <DialogDescription>Add a new event to your wedding timeline.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddEvent} className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Event Title</Label>
+                  <Input 
+                    id="title" 
+                    value={newEvent.title} 
+                    onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                    placeholder="e.g. Venue Walkthrough"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input 
+                      id="date" 
+                      type="date"
+                      value={newEvent.date} 
+                      onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="time">Time</Label>
+                    <Input 
+                      id="time" 
+                      type="time"
+                      value={newEvent.time} 
+                      onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Input 
+                    id="description" 
+                    value={newEvent.description} 
+                    onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
+                    placeholder="Add notes..."
+                  />
+                </div>
+                <DialogFooter className="mt-6">
+                  <Button type="button" variant="outline" onClick={() => setIsAddEventOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Event"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
           <Button
             variant="ghost"
             size="sm"
@@ -358,10 +479,10 @@ export default function CalendarTool() {
                 <p>No events scheduled</p>
                 <Button 
                   variant="link" 
-                  onClick={() => browser.goHome()}
+                  onClick={() => setIsAddEventOpen(true)}
                   className="mt-2 text-rose-500"
                 >
-                  Ask Scribe to add an event
+                  Add an event
                 </Button>
               </div>
             )}
