@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 const container = {
   hidden: { opacity: 0 },
@@ -56,7 +57,7 @@ export default function LandingPage() {
             </Button>
           </Link>
           <Link href="/register">
-            <Button className="rounded-full px-6 bg-foreground text-background hover:bg-primary hover:text-white transition-all duration-300">
+            <Button className="px-6 bg-foreground text-background hover:bg-primary hover:text-white transition-all duration-300">
               Get Started
             </Button>
           </Link>
@@ -88,12 +89,12 @@ export default function LandingPage() {
 
           <motion.div variants={item} className="flex flex-col sm:flex-row gap-4">
             <Link href="/register">
-              <Button size="lg" className="rounded-full px-8 h-14 text-lg bg-foreground text-background hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 shadow-lifted">
+              <Button size="lg" className="text-lg bg-foreground text-background hover:bg-primary hover:text-white transition-all duration-300 hover:scale-105 shadow-lifted">
                 Start Planning Free <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
             <Link href="/login">
-              <Button variant="outline" size="lg" className="rounded-full px-8 h-14 text-lg border-stone-300 hover:border-stone-800 hover:bg-stone-50 transition-all duration-300">
+              <Button variant="outline" size="lg" className="text-lg border-stone-300 hover:border-stone-800 hover:bg-stone-50 transition-all duration-300">
                 View Demo
               </Button>
             </Link>
@@ -108,15 +109,17 @@ export default function LandingPage() {
           className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-6"
         >
           {features.map((feature, i) => (
-            <div key={i} className="group p-8 rounded-2xl bg-white border border-stone-100 shadow-soft hover:shadow-lifted transition-all duration-500 hover:-translate-y-2">
-              <div className="w-12 h-12 rounded-full bg-stone-50 flex items-center justify-center mb-6 group-hover:bg-primary/10 transition-colors duration-500">
-                {i === 0 ? <Sparkles className="w-6 h-6 text-primary" /> : 
-                 i === 1 ? <CheckCircle2 className="w-6 h-6 text-secondary" /> :
-                           <ArrowRight className="w-6 h-6 text-accent-foreground" />}
-              </div>
-              <h3 className="font-serif text-2xl mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground">{feature.description}</p>
-            </div>
+            <Card key={i} className="group hover:shadow-lifted transition-all duration-500 hover:-translate-y-2 cursor-pointer">
+              <CardContent className="p-8">
+                <div className="w-12 h-12 rounded-full bg-stone-50 flex items-center justify-center mb-6 group-hover:bg-primary/10 transition-colors duration-500">
+                  {i === 0 ? <Sparkles className="w-6 h-6 text-primary" /> : 
+                   i === 1 ? <CheckCircle2 className="w-6 h-6 text-secondary" /> :
+                             <ArrowRight className="w-6 h-6 text-accent-foreground" />}
+                </div>
+                <h3 className="font-serif text-2xl mb-3">{feature.title}</h3>
+                <p className="text-muted-foreground">{feature.description}</p>
+              </CardContent>
+            </Card>
           ))}
         </motion.div>
       </main>

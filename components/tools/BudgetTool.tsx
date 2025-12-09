@@ -113,8 +113,8 @@ export default function BudgetTool() {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            <Card className="bg-white rounded-3xl p-6 border border-border shadow-soft hover:shadow-lifted transition-all duration-300">
-              <CardContent className="p-0">
+            <Card className="hover:shadow-lifted transition-all duration-300">
+              <CardContent className="p-6">
                 <p className="text-muted-foreground text-sm mb-1">Total Budget</p>
                 <h3 className="font-sans text-2xl font-medium text-foreground">
                   {budget.total > 0 ? formatCurrency(budget.total) : "Not set"}
@@ -122,10 +122,10 @@ export default function BudgetTool() {
               </CardContent>
             </Card>
             <Card className={cn(
-              "bg-white rounded-3xl p-6 border border-border shadow-soft hover:shadow-lifted transition-all duration-300",
+              "hover:shadow-lifted transition-all duration-300",
               isOverBudget && "bg-destructive/10 border-destructive/20"
             )}>
-              <CardContent className="p-0">
+              <CardContent className="p-6">
                 <p className={cn("text-sm mb-1", isOverBudget ? "text-destructive" : "text-muted-foreground")}>Allocated</p>
                 <h3 className="font-sans text-2xl font-medium text-foreground">
                   {formatCurrency(budget.spent)}
@@ -137,16 +137,16 @@ export default function BudgetTool() {
                 )}
               </CardContent>
             </Card>
-            <Card className="bg-white rounded-3xl p-6 border border-border shadow-soft hover:shadow-lifted transition-all duration-300">
-              <CardContent className="p-0">
+            <Card className="hover:shadow-lifted transition-all duration-300">
+              <CardContent className="p-6">
                 <p className="text-muted-foreground text-sm mb-1">Paid So Far</p>
                 <h3 className="font-sans text-2xl font-medium text-foreground">
                   {formatCurrency(budget.paid)}
                 </h3>
               </CardContent>
             </Card>
-            <Card className="bg-white rounded-3xl p-6 border border-border shadow-soft hover:shadow-lifted transition-all duration-300">
-              <CardContent className="p-0">
+            <Card className="hover:shadow-lifted transition-all duration-300">
+              <CardContent className="p-6">
                 <p className="text-muted-foreground text-sm mb-1">Still Owed</p>
                 <h3 className="font-sans text-2xl font-medium text-foreground">
                   {formatCurrency(budget.remaining)}
@@ -157,8 +157,8 @@ export default function BudgetTool() {
 
           {/* Progress Bar */}
           {budget.total > 0 && (
-            <Card className="bg-white rounded-3xl p-6 border border-border shadow-soft">
-              <CardContent className="p-0">
+            <Card>
+              <CardContent className="p-6">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-muted-foreground text-sm">Budget used</p>
                   <p className={cn("font-medium", isOverBudget ? "text-destructive" : "text-foreground")}>
@@ -186,7 +186,7 @@ export default function BudgetTool() {
           )}
 
           {/* Category Breakdown */}
-          <Card className="bg-white rounded-3xl border border-border shadow-soft">
+          <Card>
             <CardHeader className="p-6 border-b border-border/70">
               <CardTitle className="font-serif text-xl text-foreground">By Category</CardTitle>
             </CardHeader>
@@ -217,7 +217,7 @@ export default function BudgetTool() {
           </Card>
 
           {/* All Items */}
-          <Card className="bg-white rounded-3xl border border-border shadow-soft">
+          <Card>
             <CardHeader className="p-6 border-b border-border/70">
               <CardTitle className="font-serif text-xl text-foreground">All Items</CardTitle>
             </CardHeader>

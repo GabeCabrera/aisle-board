@@ -7,7 +7,7 @@ function Card({
   return (
     <div
       className={cn(
-        'bg-card text-card-foreground',
+        'bg-card text-card-foreground rounded-3xl border border-border shadow-soft',
         className
       )}
       {...props}

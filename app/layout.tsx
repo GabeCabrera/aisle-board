@@ -1,9 +1,20 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
+import { Bodoni_Moda, Manrope } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { RedditPixelTracker } from "@/components/reddit-pixel-tracker";
 import "./globals.css";
+
+const bodoni = Bodoni_Moda({
+  subsets: ["latin"],
+  variable: "--font-bodoni",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+});
 
 const REDDIT_PIXEL_ID = process.env.NEXT_PUBLIC_REDDIT_PIXEL_ID;
 
@@ -249,20 +260,12 @@ export default function RootLayout({
           </>
         )}
       </head>
-      <body className="min-h-screen antialiased">
+      <body className={`min-h-screen antialiased ${bodoni.variable} ${manrope.variable} font-sans`}>
         <Providers>
           <RedditPixelTracker />
           {children}
         </Providers>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              fontFamily: "Manrope, sans-serif",
-              fontWeight: 300,
-            },
-          }}
-        />
+        <Toaster position="bottom-right" />
         <Analytics />
       </body>
     </html>

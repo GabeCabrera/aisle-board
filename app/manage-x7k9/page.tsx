@@ -26,6 +26,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AdminStats {
   users: {
@@ -205,25 +206,27 @@ function StatCard({
   };
 
   return (
-    <div className="bg-white border border-warm-200 p-5 rounded-lg hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`p-2.5 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        {trend && trendValue && (
-          <div className={`flex items-center gap-1 text-sm ${
-            trend === "up" ? "text-green-600" : trend === "down" ? "text-red-500" : "text-warm-500"
-          }`}>
-            {trend === "up" ? <ArrowUpRight className="w-4 h-4" /> : 
-             trend === "down" ? <ArrowDownRight className="w-4 h-4" /> : null}
-            <span>{trendValue}%</span>
+    <Card className="hover:shadow-medium transition-shadow duration-300">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-3">
+          <div className={`p-2.5 rounded-lg ${colorClasses[color]}`}>
+            <Icon className="w-5 h-5" />
           </div>
-        )}
-      </div>
-      <p className="text-2xl font-light text-warm-800 mb-1">{value}</p>
-      <p className="text-sm text-warm-500">{title}</p>
-      {subtitle && <p className="text-xs text-warm-400 mt-1">{subtitle}</p>}
-    </div>
+          {trend && trendValue && (
+            <div className={`flex items-center gap-1 text-sm ${
+              trend === "up" ? "text-green-600" : trend === "down" ? "text-red-500" : "text-warm-500"
+            }`}>
+              {trend === "up" ? <ArrowUpRight className="w-4 h-4" /> : 
+               trend === "down" ? <ArrowDownRight className="w-4 h-4" /> : null}
+              <span>{trendValue}%</span>
+            </div>
+          )}
+        </div>
+        <p className="text-3xl font-light text-foreground mb-1">{value}</p>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        {subtitle && <p className="text-xs text-muted-foreground/80 mt-1">{subtitle}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -422,215 +425,227 @@ export default function AdminDashboard() {
           {/* Charts & Activity Section */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
             {/* Revenue Chart */}
-            <div className="lg:col-span-2 bg-white border border-warm-200 p-6 rounded-lg">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-medium text-warm-800 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-warm-400" />
-                  Revenue Trend
-                </h2>
-                <span className="text-xs text-warm-400">Last 6 months</span>
-              </div>
-              <div className="h-40 flex items-end gap-3">
-                {stats.trends.monthly.map((month, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full flex flex-col gap-1">
-                      <div 
-                        className="w-full bg-green-500 rounded-t transition-all hover:bg-green-600"
-                        style={{ height: `${(month.revenue / maxRevenue) * 100}px` }}
-                        title={`Revenue: ${formatCurrency(month.revenue)}`}
-                      />
-                      <div 
-                        className="w-full bg-blue-300 rounded-b transition-all hover:bg-blue-400"
-                        style={{ height: `${(month.signups / maxSignups) * 30}px` }}
-                        title={`Signups: ${month.signups}`}
-                      />
+            <Card className="lg:col-span-2">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-medium text-warm-800 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-warm-400" />
+                    Revenue Trend
+                  </h2>
+                  <span className="text-xs text-warm-400">Last 6 months</span>
+                </div>
+                <div className="h-40 flex items-end gap-3">
+                  {stats.trends.monthly.map((month, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                      <div className="w-full flex flex-col gap-1">
+                        <div 
+                          className="w-full bg-green-500 rounded-t transition-all hover:bg-green-600"
+                          style={{ height: `${(month.revenue / maxRevenue) * 100}px` }}
+                          title={`Revenue: ${formatCurrency(month.revenue)}`}
+                        />
+                        <div 
+                          className="w-full bg-blue-300 rounded-b transition-all hover:bg-blue-400"
+                          style={{ height: `${(month.signups / maxSignups) * 30}px` }}
+                          title={`Signups: ${month.signups}`}
+                        />
+                      </div>
+                      <span className="text-xs text-warm-500">{month.month}</span>
                     </div>
-                    <span className="text-xs text-warm-500">{month.month}</span>
+                  ))}
+                </div>
+                <div className="flex items-center justify-center gap-6 mt-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded" />
+                    <span className="text-warm-500">Revenue</span>
                   </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-center gap-6 mt-4 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded" />
-                  <span className="text-warm-500">Revenue</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-300 rounded" />
+                    <span className="text-warm-500">Signups</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-300 rounded" />
-                  <span className="text-warm-500">Signups</span>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Plan Distribution */}
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <PieChart className="w-5 h-5 text-warm-400" />
-                Plan Distribution
-              </h2>
-              <div className="space-y-4">
-                <div className="relative w-28 h-28 mx-auto">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e1dc" strokeWidth="3" />
-                    <circle
-                      cx="18" cy="18" r="16" fill="none" stroke="#7c3aed" strokeWidth="3"
-                      strokeDasharray={`${parseFloat(stats.plans.conversionRate)} ${100 - parseFloat(stats.plans.conversionRate)}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xl font-light text-warm-700">{stats.plans.conversionRate}%</span>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <PieChart className="w-5 h-5 text-warm-400" />
+                  Plan Distribution
+                </h2>
+                <div className="space-y-4">
+                  <div className="relative w-28 h-28 mx-auto">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e1dc" strokeWidth="3" />
+                      <circle
+                        cx="18" cy="18" r="16" fill="none" stroke="#7c3aed" strokeWidth="3"
+                        strokeDasharray={`${parseFloat(stats.plans.conversionRate)} ${100 - parseFloat(stats.plans.conversionRate)}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xl font-light text-warm-700">{stats.plans.conversionRate}%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-purple-500 rounded" />
+                        <span className="text-sm text-warm-600">Complete</span>
+                      </div>
+                      <span className="font-medium text-warm-800">{stats.plans.complete}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-warm-200 rounded" />
+                        <span className="text-sm text-warm-600">Free</span>
+                      </div>
+                      <span className="font-medium text-warm-800">{stats.plans.free}</span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-purple-500 rounded" />
-                      <span className="text-sm text-warm-600">Complete</span>
-                    </div>
-                    <span className="font-medium text-warm-800">{stats.plans.complete}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-warm-200 rounded" />
-                      <span className="text-sm text-warm-600">Free</span>
-                    </div>
-                    <span className="font-medium text-warm-800">{stats.plans.free}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Engagement & Financial Section */}
           <div className="grid lg:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <Activity className="w-5 h-5 text-warm-400" />
-                Engagement Metrics
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-warm-50 rounded-lg">
-                  <p className="text-xl font-light text-warm-800">{stats.engagement.totalPlanners}</p>
-                  <p className="text-sm text-warm-500">Active Planners</p>
-                </div>
-                <div className="p-3 bg-warm-50 rounded-lg">
-                  <p className="text-xl font-light text-warm-800">{stats.engagement.totalPages}</p>
-                  <p className="text-sm text-warm-500">Total Pages</p>
-                </div>
-                <div className="p-3 bg-warm-50 rounded-lg">
-                  <p className="text-xl font-light text-warm-800">{stats.engagement.avgPagesPerPlanner}</p>
-                  <p className="text-sm text-warm-500">Avg Pages/Planner</p>
-                </div>
-                <div className="p-3 bg-warm-50 rounded-lg">
-                  <p className="text-xl font-light text-warm-800">{stats.engagement.totalRsvpForms}</p>
-                  <p className="text-sm text-warm-500">RSVP Forms</p>
-                </div>
-                <div className="p-3 bg-blue-50 rounded-lg col-span-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl font-light text-blue-700">{stats.engagement.totalRsvpResponses}</p>
-                      <p className="text-sm text-blue-600">RSVP Responses</p>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <Activity className="w-5 h-5 text-warm-400" />
+                  Engagement Metrics
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-warm-50 rounded-lg">
+                    <p className="text-xl font-light text-warm-800">{stats.engagement.totalPlanners}</p>
+                    <p className="text-sm text-warm-500">Active Planners</p>
+                  </div>
+                  <div className="p-3 bg-warm-50 rounded-lg">
+                    <p className="text-xl font-light text-warm-800">{stats.engagement.totalPages}</p>
+                    <p className="text-sm text-warm-500">Total Pages</p>
+                  </div>
+                  <div className="p-3 bg-warm-50 rounded-lg">
+                    <p className="text-xl font-light text-warm-800">{stats.engagement.avgPagesPerPlanner}</p>
+                    <p className="text-sm text-warm-500">Avg Pages/Planner</p>
+                  </div>
+                  <div className="p-3 bg-warm-50 rounded-lg">
+                    <p className="text-xl font-light text-warm-800">{stats.engagement.totalRsvpForms}</p>
+                    <p className="text-sm text-warm-500">RSVP Forms</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-lg col-span-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xl font-light text-blue-700">{stats.engagement.totalRsvpResponses}</p>
+                        <p className="text-sm text-blue-600">RSVP Responses</p>
+                      </div>
+                      <Send className="w-6 h-6 text-blue-300" />
                     </div>
-                    <Send className="w-6 h-6 text-blue-300" />
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <Calculator className="w-5 h-5 text-warm-400" />
-                Financial Summary
-              </h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between py-2 border-b border-warm-100">
-                  <span className="text-warm-600">Gross Revenue (YTD)</span>
-                  <span className="font-medium text-warm-800">{formatCurrency(stats.revenue.thisYear)}</span>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <Calculator className="w-5 h-5 text-warm-400" />
+                  Financial Summary
+                </h2>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between py-2 border-b border-warm-100">
+                    <span className="text-warm-600">Gross Revenue (YTD)</span>
+                    <span className="font-medium text-warm-800">{formatCurrency(stats.revenue.thisYear)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-warm-100">
+                    <span className="text-warm-600">Stripe Fees (~2.9% + $0.30)</span>
+                    <span className="font-medium text-red-500">
+                      -{formatCurrency(stats.revenue.thisYear * 0.029 + (stats.plans.complete * 0.30))}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-warm-100">
+                    <span className="text-warm-600">Est. Tax ({(stats.taxes.rate * 100).toFixed(0)}%)</span>
+                    <span className="font-medium text-amber-600">
+                      -{formatCurrency(stats.taxes.estimatedThisYear)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 bg-green-50 -mx-6 px-6 rounded-lg">
+                    <span className="font-medium text-green-800">Net Revenue (YTD)</span>
+                    <span className="text-lg font-medium text-green-700">
+                      {formatCurrency(stats.taxes.netRevenueThisYear - (stats.revenue.thisYear * 0.029 + (stats.plans.complete * 0.30)))}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-warm-100">
-                  <span className="text-warm-600">Stripe Fees (~2.9% + $0.30)</span>
-                  <span className="font-medium text-red-500">
-                    -{formatCurrency(stats.revenue.thisYear * 0.029 + (stats.plans.complete * 0.30))}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-warm-100">
-                  <span className="text-warm-600">Est. Tax ({(stats.taxes.rate * 100).toFixed(0)}%)</span>
-                  <span className="font-medium text-amber-600">
-                    -{formatCurrency(stats.taxes.estimatedThisYear)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-3 bg-green-50 -mx-6 px-6 rounded-lg">
-                  <span className="font-medium text-green-800">Net Revenue (YTD)</span>
-                  <span className="text-lg font-medium text-green-700">
-                    {formatCurrency(stats.taxes.netRevenueThisYear - (stats.revenue.thisYear * 0.029 + (stats.plans.complete * 0.30)))}
-                  </span>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Activity Feeds */}
           <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <UserPlus className="w-5 h-5 text-warm-400" />
-                Recent Signups
-              </h2>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {stats.activity.recentSignups.length > 0 ? (
-                  stats.activity.recentSignups.map((signup) => (
-                    <div key={signup.id} className="flex items-center justify-between py-2 border-b border-warm-100 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-warm-100 rounded-full flex items-center justify-center">
-                          <Users className="w-4 h-4 text-warm-500" />
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <UserPlus className="w-5 h-5 text-warm-400" />
+                  Recent Signups
+                </h2>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {stats.activity.recentSignups.length > 0 ? (
+                    stats.activity.recentSignups.map((signup) => (
+                      <div key={signup.id} className="flex items-center justify-between py-2 border-b border-warm-100 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-warm-100 rounded-full flex items-center justify-center">
+                            <Users className="w-4 h-4 text-warm-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-warm-800">{signup.displayName}</p>
+                            <p className="text-xs text-warm-400">{timeAgo(signup.createdAt)}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-warm-800">{signup.displayName}</p>
-                          <p className="text-xs text-warm-400">{timeAgo(signup.createdAt)}</p>
-                        </div>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          signup.plan === "complete" ? "bg-purple-100 text-purple-700" : "bg-warm-100 text-warm-600"
+                        }`}>
+                          {signup.plan}
+                        </span>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        signup.plan === "complete" ? "bg-purple-100 text-purple-700" : "bg-warm-100 text-warm-600"
-                      }`}>
-                        {signup.plan}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-warm-400 text-center py-8">No recent signups</p>
-                )}
-              </div>
-            </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-warm-400 text-center py-8">No recent signups</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <Crown className="w-5 h-5 text-purple-500" />
-                Recent Upgrades
-              </h2>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {stats.activity.recentUpgrades.length > 0 ? (
-                  stats.activity.recentUpgrades.map((upgrade) => (
-                    <div key={upgrade.id} className="flex items-center justify-between py-2 border-b border-warm-100 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 text-purple-500" />
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <Crown className="w-5 h-5 text-purple-500" />
+                  Recent Upgrades
+                </h2>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {stats.activity.recentUpgrades.length > 0 ? (
+                    stats.activity.recentUpgrades.map((upgrade) => (
+                      <div key={upgrade.id} className="flex items-center justify-between py-2 border-b border-warm-100 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-purple-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-warm-800">{upgrade.displayName}</p>
+                            <p className="text-xs text-warm-400">{timeAgo(upgrade.updatedAt)}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-warm-800">{upgrade.displayName}</p>
-                          <p className="text-xs text-warm-400">{timeAgo(upgrade.updatedAt)}</p>
-                        </div>
+                        <span className="text-sm font-medium text-green-600">
+                          +{formatCurrency(stats.revenue.pricePerUnit)}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-green-600">
-                        +{formatCurrency(stats.revenue.pricePerUnit)}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-warm-400 text-center py-8">No recent upgrades</p>
-                )}
-              </div>
-            </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-warm-400 text-center py-8">No recent upgrades</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </>
       ) : (
@@ -685,229 +700,245 @@ export default function AdminDashboard() {
           </div>
 
           {/* Popular Planner Names */}
-          <div className="bg-white border border-warm-200 p-6 mb-6 rounded-lg">
-            <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-              <Sparkles className="w-5 h-5 text-purple-500" />
-              Popular Planner Names
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {stats.productInsights.aiPlanner.topPlannerNames.length > 0 ? (
-                stats.productInsights.aiPlanner.topPlannerNames.map((item, i) => (
-                  <div
-                    key={item.name}
-                    className={`px-3 py-1.5 rounded-full text-sm ${
-                      i === 0 ? "bg-purple-100 text-purple-700 font-medium" :
-                      i < 3 ? "bg-rose-50 text-rose-600" :
-                      "bg-warm-100 text-warm-600"
-                    }`}
-                  >
-                    {item.name} <span className="text-xs opacity-60">({item.count})</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-warm-400">No data yet</p>
-              )}
-            </div>
-          </div>
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                <Sparkles className="w-5 h-5 text-purple-500" />
+                Popular Planner Names
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {stats.productInsights.aiPlanner.topPlannerNames.length > 0 ? (
+                  stats.productInsights.aiPlanner.topPlannerNames.map((item, i) => (
+                    <div
+                      key={item.name}
+                      className={`px-3 py-1.5 rounded-full text-sm ${
+                        i === 0 ? "bg-purple-100 text-purple-700 font-medium" :
+                        i < 3 ? "bg-rose-50 text-rose-600" :
+                        "bg-warm-100 text-warm-600"
+                      }`}
+                    >
+                      {item.name} <span className="text-xs opacity-60">({item.count})</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-warm-400">No data yet</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Feature Adoption Rates */}
-          <div className="bg-white border border-warm-200 p-6 mb-6 rounded-lg">
-            <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-              <Target className="w-5 h-5 text-warm-400" />
-              Feature Adoption Rates
-            </h2>
-            <div className="grid md:grid-cols-5 gap-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-warm-600">AI Planner</span>
-                  <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.ai}%</span>
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                <Target className="w-5 h-5 text-warm-400" />
+                Feature Adoption Rates
+              </h2>
+              <div className="grid md:grid-cols-5 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-warm-600">AI Planner</span>
+                    <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.ai}%</span>
+                  </div>
+                  <ProgressBar value={stats.productInsights.featureAdoption.ai} color="purple" />
                 </div>
-                <ProgressBar value={stats.productInsights.featureAdoption.ai} color="purple" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-warm-600">RSVP Forms</span>
-                  <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.rsvp}%</span>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-warm-600">RSVP Forms</span>
+                    <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.rsvp}%</span>
+                  </div>
+                  <ProgressBar value={stats.productInsights.featureAdoption.rsvp} color="blue" />
                 </div>
-                <ProgressBar value={stats.productInsights.featureAdoption.rsvp} color="blue" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-warm-600">Budget Tracker</span>
-                  <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.budget}%</span>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-warm-600">Budget Tracker</span>
+                    <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.budget}%</span>
+                  </div>
+                  <ProgressBar value={stats.productInsights.featureAdoption.budget} color="green" />
                 </div>
-                <ProgressBar value={stats.productInsights.featureAdoption.budget} color="green" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-warm-600">Vendor Contacts</span>
-                  <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.vendors}%</span>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-warm-600">Vendor Contacts</span>
+                    <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.vendors}%</span>
+                  </div>
+                  <ProgressBar value={stats.productInsights.featureAdoption.vendors} color="amber" />
                 </div>
-                <ProgressBar value={stats.productInsights.featureAdoption.vendors} color="amber" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-warm-600">Seating Chart</span>
-                  <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.seating}%</span>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-warm-600">Seating Chart</span>
+                    <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.seating}%</span>
+                  </div>
+                  <ProgressBar value={stats.productInsights.featureAdoption.seating} color="rose" />
                 </div>
-                <ProgressBar value={stats.productInsights.featureAdoption.seating} color="rose" />
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Template Usage & Engagement */}
           <div className="grid lg:grid-cols-2 gap-6 mb-6">
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <FileText className="w-5 h-5 text-warm-400" />
-                Most Used Templates
-              </h2>
-              <div className="space-y-3">
-                {stats.productInsights.templateUsage.rankings.length > 0 ? (
-                  stats.productInsights.templateUsage.rankings.slice(0, 6).map((template, i) => (
-                    <div key={template.templateId} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 bg-warm-100 rounded text-xs flex items-center justify-center text-warm-500 font-medium">
-                          {i + 1}
-                        </span>
-                        <span className="text-sm text-warm-700">{formatTemplateId(template.templateId)}</span>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <FileText className="w-5 h-5 text-warm-400" />
+                  Most Used Templates
+                </h2>
+                <div className="space-y-3">
+                  {stats.productInsights.templateUsage.rankings.length > 0 ? (
+                    stats.productInsights.templateUsage.rankings.slice(0, 6).map((template, i) => (
+                      <div key={template.templateId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 bg-warm-100 rounded text-xs flex items-center justify-center text-warm-500 font-medium">
+                            {i + 1}
+                          </span>
+                          <span className="text-sm text-warm-700">{formatTemplateId(template.templateId)}</span>
+                        </div>
+                        <span className="text-sm font-medium text-warm-600">{template.count}</span>
                       </div>
-                      <span className="text-sm font-medium text-warm-600">{template.count}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-warm-400 text-center py-8">No data yet</p>
-                )}
-              </div>
-            </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-warm-400 text-center py-8">No data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <CheckCircle className="w-5 h-5 text-warm-400" />
-                Template Completion Rates
-              </h2>
-              <div className="space-y-3">
-                {stats.productInsights.templateUsage.engagement.length > 0 ? (
-                  stats.productInsights.templateUsage.engagement.slice(0, 6).map((template) => (
-                    <div key={template.templateId}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-warm-700">{formatTemplateId(template.templateId)}</span>
-                        <span className="text-sm font-medium text-warm-600">{template.avgCompletion}%</span>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                  <CheckCircle className="w-5 h-5 text-warm-400" />
+                  Template Completion Rates
+                </h2>
+                <div className="space-y-3">
+                  {stats.productInsights.templateUsage.engagement.length > 0 ? (
+                    stats.productInsights.templateUsage.engagement.slice(0, 6).map((template) => (
+                      <div key={template.templateId}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm text-warm-700">{formatTemplateId(template.templateId)}</span>
+                          <span className="text-sm font-medium text-warm-600">{template.avgCompletion}%</span>
+                        </div>
+                        <ProgressBar 
+                          value={template.avgCompletion} 
+                          color={template.avgCompletion > 60 ? "green" : template.avgCompletion > 30 ? "amber" : "rose"} 
+                        />
                       </div>
-                      <ProgressBar 
-                        value={template.avgCompletion} 
-                        color={template.avgCompletion > 60 ? "green" : template.avgCompletion > 30 ? "amber" : "rose"} 
-                      />
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-warm-400 text-center py-8">No data yet</p>
-                )}
-              </div>
-            </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-warm-400 text-center py-8">No data yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Wedding Data Insights */}
           <div className="grid lg:grid-cols-3 gap-6 mb-6">
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-blue-500" />
-                Guest List Insights
-              </h2>
-              <div className="space-y-3">
-                <div className="p-3 bg-blue-50 rounded-lg text-center">
-                  <p className="text-2xl font-light text-blue-700">{stats.productInsights.guestList.avgGuestsPerWedding}</p>
-                  <p className="text-sm text-blue-600">Avg Guests</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 bg-warm-50 rounded-lg text-center">
-                    <p className="text-lg font-light text-warm-800">{stats.productInsights.guestList.avgRsvpRate}%</p>
-                    <p className="text-xs text-warm-500">RSVP Rate</p>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-4">
+                  <Users className="w-5 h-5 text-blue-500" />
+                  Guest List Insights
+                </h2>
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 rounded-lg text-center">
+                    <p className="text-2xl font-light text-blue-700">{stats.productInsights.guestList.avgGuestsPerWedding}</p>
+                    <p className="text-sm text-blue-600">Avg Guests</p>
                   </div>
-                  <div className="p-2 bg-warm-50 rounded-lg text-center">
-                    <p className="text-lg font-light text-warm-800">{stats.productInsights.guestList.totalGuests}</p>
-                    <p className="text-xs text-warm-500">Total Guests</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2 bg-warm-50 rounded-lg text-center">
+                      <p className="text-lg font-light text-warm-800">{stats.productInsights.guestList.avgRsvpRate}%</p>
+                      <p className="text-xs text-warm-500">RSVP Rate</p>
+                    </div>
+                    <div className="p-2 bg-warm-50 rounded-lg text-center">
+                      <p className="text-lg font-light text-warm-800">{stats.productInsights.guestList.totalGuests}</p>
+                      <p className="text-xs text-warm-500">Total Guests</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-4">
-                <DollarSign className="w-5 h-5 text-green-500" />
-                Budget Insights
-              </h2>
-              <div className="space-y-3">
-                <div className="p-3 bg-green-50 rounded-lg text-center">
-                  <p className="text-2xl font-light text-green-700">{formatCurrency(stats.productInsights.budget.avgBudget)}</p>
-                  <p className="text-sm text-green-600">Avg Budget</p>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-4">
+                  <DollarSign className="w-5 h-5 text-green-500" />
+                  Budget Insights
+                </h2>
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50 rounded-lg text-center">
+                    <p className="text-2xl font-light text-green-700">{formatCurrency(stats.productInsights.budget.avgBudget)}</p>
+                    <p className="text-sm text-green-600">Avg Budget</p>
+                  </div>
+                  <div className="p-2 bg-warm-50 rounded-lg text-center">
+                    <p className="text-lg font-light text-warm-800">{formatCurrency(stats.productInsights.budget.avgAllocated)}</p>
+                    <p className="text-xs text-warm-500">Avg Allocated</p>
+                  </div>
                 </div>
-                <div className="p-2 bg-warm-50 rounded-lg text-center">
-                  <p className="text-lg font-light text-warm-800">{formatCurrency(stats.productInsights.budget.avgAllocated)}</p>
-                  <p className="text-xs text-warm-500">Avg Allocated</p>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white border border-warm-200 p-6 rounded-lg">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-4">
-                <MapPin className="w-5 h-5 text-purple-500" />
-                Vendor Insights
-              </h2>
-              <div className="space-y-3">
-                <div className="p-3 bg-purple-50 rounded-lg text-center">
-                  <p className="text-2xl font-light text-purple-700">{stats.productInsights.vendors.totalTracked}</p>
-                  <p className="text-sm text-purple-600">Vendors Tracked</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 bg-warm-50 rounded-lg text-center">
-                    <p className="text-lg font-light text-warm-800">{stats.productInsights.vendors.bookedRate}%</p>
-                    <p className="text-xs text-warm-500">Booked</p>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-4">
+                  <MapPin className="w-5 h-5 text-purple-500" />
+                  Vendor Insights
+                </h2>
+                <div className="space-y-3">
+                  <div className="p-3 bg-purple-50 rounded-lg text-center">
+                    <p className="text-2xl font-light text-purple-700">{stats.productInsights.vendors.totalTracked}</p>
+                    <p className="text-sm text-purple-600">Vendors Tracked</p>
                   </div>
-                  <div className="p-2 bg-warm-50 rounded-lg text-center">
-                    <p className="text-lg font-light text-warm-800">{stats.productInsights.vendors.contractRate}%</p>
-                    <p className="text-xs text-warm-500">Contracted</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2 bg-warm-50 rounded-lg text-center">
+                      <p className="text-lg font-light text-warm-800">{stats.productInsights.vendors.bookedRate}%</p>
+                      <p className="text-xs text-warm-500">Booked</p>
+                    </div>
+                    <div className="p-2 bg-warm-50 rounded-lg text-center">
+                      <p className="text-lg font-light text-warm-800">{stats.productInsights.vendors.contractRate}%</p>
+                      <p className="text-xs text-warm-500">Contracted</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* RSVP Form Preferences */}
-          <div className="bg-white border border-warm-200 p-6 mb-6 rounded-lg">
-            <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-              <ClipboardList className="w-5 h-5 text-warm-400" />
-              RSVP Form Field Preferences
-            </h2>
-            <div className="grid md:grid-cols-3 gap-3">
-              {stats.productInsights.rsvpForms.fieldPreferences.length > 0 ? (
-                stats.productInsights.rsvpForms.fieldPreferences.map(field => (
-                  <div key={field.field} className="flex items-center justify-between p-3 bg-warm-50 rounded-lg">
-                    <span className="text-sm text-warm-700">{formatFieldName(field.field)}</span>
-                    <span className={`text-sm font-medium px-2 py-0.5 rounded ${
-                      field.percentage > 70 ? "bg-green-100 text-green-700" :
-                      field.percentage > 40 ? "bg-amber-100 text-amber-700" :
-                      "bg-warm-200 text-warm-600"
-                    }`}>
-                      {field.percentage}%
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-warm-400 col-span-full text-center py-8">No data yet</p>
-              )}
-            </div>
-          </div>
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
+                <ClipboardList className="w-5 h-5 text-warm-400" />
+                RSVP Form Field Preferences
+              </h2>
+              <div className="grid md:grid-cols-3 gap-3">
+                {stats.productInsights.rsvpForms.fieldPreferences.length > 0 ? (
+                  stats.productInsights.rsvpForms.fieldPreferences.map(field => (
+                    <div key={field.field} className="flex items-center justify-between p-3 bg-warm-50 rounded-lg">
+                      <span className="text-sm text-warm-700">{formatFieldName(field.field)}</span>
+                      <span className={`text-sm font-medium px-2 py-0.5 rounded ${
+                        field.percentage > 70 ? "bg-green-100 text-green-700" :
+                        field.percentage > 40 ? "bg-amber-100 text-amber-700" :
+                        "bg-warm-200 text-warm-600"
+                      }`}>
+                        {field.percentage}%
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-warm-400 col-span-full text-center py-8">No data yet</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Actionable Insights */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-6 rounded-lg">
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-6 rounded-3xl shadow-soft">
             <h2 className="font-medium text-amber-800 flex items-center gap-2 mb-4">
               <Lightbulb className="w-5 h-5" />
               Actionable Insights
             </h2>
             <div className="grid md:grid-cols-2 gap-3">
               {stats.productInsights.featureAdoption.seating < 30 && (
-                <div className="p-3 bg-white rounded-lg border border-amber-100">
+                <div className="p-3 bg-white rounded-xl border border-amber-100">
                   <p className="text-sm font-medium text-amber-800 mb-1">Low Seating Chart Adoption</p>
                   <p className="text-xs text-amber-600">
                     Only {stats.productInsights.featureAdoption.seating}% use seating charts.
@@ -915,7 +946,7 @@ export default function AdminDashboard() {
                 </div>
               )}
               {stats.productInsights.featureAdoption.rsvp < 40 && (
-                <div className="p-3 bg-white rounded-lg border border-amber-100">
+                <div className="p-3 bg-white rounded-xl border border-amber-100">
                   <p className="text-sm font-medium text-amber-800 mb-1">RSVP Feature Underused</p>
                   <p className="text-xs text-amber-600">
                     Only {stats.productInsights.featureAdoption.rsvp}% create RSVP forms.
@@ -923,14 +954,14 @@ export default function AdminDashboard() {
                 </div>
               )}
               {stats.plans.free > stats.plans.complete && (
-                <div className="p-3 bg-white rounded-lg border border-amber-100">
+                <div className="p-3 bg-white rounded-xl border border-amber-100">
                   <p className="text-sm font-medium text-amber-800 mb-1">Conversion Opportunity</p>
                   <p className="text-xs text-amber-600">
                     {stats.plans.free} free users vs {stats.plans.complete} paid.
                   </p>
                 </div>
               )}
-              <div className="p-3 bg-white rounded-lg border border-amber-100">
+              <div className="p-3 bg-white rounded-xl border border-amber-100">
                 <p className="text-sm font-medium text-amber-800 mb-1">Keep Monitoring</p>
                 <p className="text-xs text-amber-600">
                   Patterns become more reliable with more data points.

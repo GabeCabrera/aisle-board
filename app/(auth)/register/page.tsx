@@ -8,6 +8,9 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import * as redditPixel from "@/lib/reddit-pixel";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
 function RegisterForm() {
   const [formData, setFormData] = useState({
     name: "",
@@ -95,7 +98,7 @@ function RegisterForm() {
           <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="name">
             Your Names
           </label>
-          <input
+          <Input
             id="name"
             name="name"
             type="text"
@@ -104,7 +107,6 @@ function RegisterForm() {
             onChange={handleChange}
             required
             disabled={isLoading || isGoogleLoading}
-            className="flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           />
         </div>
         
@@ -112,7 +114,7 @@ function RegisterForm() {
           <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">
             Email
           </label>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
@@ -121,7 +123,6 @@ function RegisterForm() {
             onChange={handleChange}
             required
             disabled={isLoading || isGoogleLoading}
-            className="flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           />
         </div>
 
@@ -129,7 +130,7 @@ function RegisterForm() {
           <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
             Password
           </label>
-          <input
+          <Input
             id="password"
             name="password"
             type="password"
@@ -137,7 +138,6 @@ function RegisterForm() {
             onChange={handleChange}
             required
             disabled={isLoading || isGoogleLoading}
-            className="flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           />
           <p className="text-xs text-muted-foreground">At least 8 characters</p>
         </div>
@@ -146,7 +146,7 @@ function RegisterForm() {
           <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="confirmPassword">
             Confirm Password
           </label>
-          <input
+          <Input
             id="confirmPassword"
             name="confirmPassword"
             type="password"
@@ -154,7 +154,6 @@ function RegisterForm() {
             onChange={handleChange}
             required
             disabled={isLoading || isGoogleLoading}
-            className="flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           />
         </div>
 
@@ -173,13 +172,13 @@ function RegisterForm() {
           </label>
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={isLoading || isGoogleLoading}
-          className="inline-flex items-center justify-center rounded-xl text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-4 py-2 w-full shadow-soft hover:shadow-lifted hover:-translate-y-0.5 transition-all duration-300"
+          className="w-full h-12 shadow-soft hover:shadow-lifted hover:-translate-y-0.5"
         >
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Account"}
-        </button>
+        </Button>
       </form>
 
       <div className="relative">
@@ -191,11 +190,12 @@ function RegisterForm() {
         </div>
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={handleGoogleSignUp}
         disabled={isLoading || isGoogleLoading}
-        className="inline-flex items-center justify-center rounded-xl text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-12 px-4 py-2 w-full"
+        className="w-full h-12"
       >
         {isGoogleLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -205,7 +205,7 @@ function RegisterForm() {
           </svg>
         )}
         Google
-      </button>
+      </Button>
 
       <div className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}

@@ -15,4 +15,9 @@ module.exports = {
 
   // The setup files to run before each test file
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+
+  transformIgnorePatterns: [
+    // Allow Jest to transform these ESM-only modules
+    '/node_modules/(?!(react-markdown|remark-gfm|vfile|unist-.*|unified|bail|is-plain-obj|trough|remark-.*|micromark-.*|decode-named-character-reference|character-entities|property-information|hast-util-whitespace|space-separated-tokens|comma-separated-tokens|pretty-bytes|ccount|mdast-util-.*|micromark|parse-entities|character-entities-legacy|markdown-table|longest-streak|estree-util-.*|devlop|@radix-ui|lucide-react)/)'
+  ],
 };

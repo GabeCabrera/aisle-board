@@ -23,9 +23,9 @@ const config: Config = {
     extend: {
       fontFamily: {
         // The "Editorial" voice - sharp, high-contrast serif
-        serif: ["Bodoni Moda", "serif"],
+        serif: ["var(--font-bodoni)", "serif"],
         // The "Enterprise" voice - clean, geometric, tabular numbers
-        sans: ["Manrope", "sans-serif"],
+        sans: ["var(--font-manrope)", "sans-serif"],
       },
       colors: {
         // Warm palette (aliased to Stone) for the chat interface
