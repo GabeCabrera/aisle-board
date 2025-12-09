@@ -143,6 +143,25 @@ export interface PlannerData {
       both: number;
     };
   };
+
+  seating: {
+    tables: Array<{
+      id: string;
+      name: string;
+      capacity: number;
+      tableNumber: number;
+      guests: any[];
+      count: number;
+      isFull: boolean;
+    }>;
+    unseated: any[];
+    stats: {
+      totalGuests: number;
+      seatedCount: number;
+      unseatedCount: number;
+      tableCount: number;
+    };
+  };
   
   vendors: {
     list: Vendor[];

@@ -38,6 +38,7 @@ export async function GET() {
     let vendorData: { vendors: unknown[] } = { vendors: [] };
     let timelineData: { events: unknown[] } = { events: [] };
     let taskData: { tasks: unknown[] } = { tasks: [] };
+    let seatingData: { tables: unknown[] } = { tables: [] };
 
     if (planner) {
       const allPages = await db.query.pages.findMany({
@@ -74,6 +75,11 @@ export async function GET() {
           case "task-board":
             taskData = {
               tasks: Array.isArray(fields.tasks) ? fields.tasks : [],
+            };
+            break;
+          case "seating-chart":
+            seatingData = {
+              tables: Array.isArray(fields.tables) ? fields.tables : [],
             };
             break;
         }
@@ -128,6 +134,7 @@ export async function GET() {
       plusOne?: boolean;
       rsvp?: string;
       dietaryRestrictions?: string;
+      tableNumber?: number;
     }>;
 
     const guestStats = {
@@ -139,6 +146,31 @@ export async function GET() {
       brideSide: guests.filter(g => g.side === "bride").length,
       groomSide: guests.filter(g => g.side === "groom").length,
       both: guests.filter(g => g.side === "both" || !g.side).length,
+    };
+
+    // Calculate Seating Chart
+    const tables = (seatingData.tables as Array<{
+      id: string;
+      name: string;
+      capacity: number;
+      tableNumber: number;
+    }>).map(table => {
+      const seatedGuests = guests.filter(g => g.tableNumber === table.tableNumber);
+      return {
+        ...table,
+        guests: seatedGuests,
+        count: seatedGuests.length,
+        isFull: seatedGuests.length >= table.capacity
+      };
+    });
+
+    const unseatedGuests = guests.filter(g => g.tableNumber === undefined || g.tableNumber === null);
+    
+    const seatingStats = {
+      totalGuests: guests.length,
+      seatedCount: guests.length - unseatedGuests.length,
+      unseatedCount: unseatedGuests.length,
+      tableCount: tables.length
     };
 
     // Calculate vendor stats
@@ -207,6 +239,12 @@ export async function GET() {
       guests: {
         list: guests,
         stats: guestStats,
+      },
+
+      seating: {
+        tables,
+        unseated: unseatedGuests,
+        stats: seatingStats
       },
       
       vendors: {

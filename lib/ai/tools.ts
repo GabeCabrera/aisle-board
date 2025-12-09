@@ -982,6 +982,20 @@ export const tools: ToolDefinition[] = [
     }
   },
   {
+    name: "mark_decision_complete",
+    description: "Mark a decision as done/decided without needing details. Use when user says 'I finished X' or 'Check off X'.",
+    parameters: {
+      type: "object",
+      properties: {
+        decisionName: {
+          type: "string",
+          description: "The decision to mark as complete"
+        }
+      },
+      required: ["decisionName"]
+    }
+  },
+  {
     name: "show_checklist",
     description: "Show the wedding planning checklist with all decisions and their status.",
     parameters: {
@@ -1148,6 +1162,59 @@ export const tools: ToolDefinition[] = [
         }
       },
       required: ["totalBudget"]
+    }
+  },
+
+  // ----------------------------------------
+  // SEATING CHART TOOLS
+  // ----------------------------------------
+  {
+    name: "create_seating_table",
+    description: "Create a table for the seating chart.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Name of the table (e.g., 'Head Table', 'Table 1')"
+        },
+        capacity: {
+          type: "number",
+          description: "Number of seats at this table"
+        },
+        tableNumber: {
+          type: "number",
+          description: "Numeric identifier for the table (optional, helpful for sorting)"
+        }
+      },
+      required: ["name", "capacity"]
+    }
+  },
+  {
+    name: "assign_guest_seat",
+    description: "Assign a guest to a specific table.",
+    parameters: {
+      type: "object",
+      properties: {
+        guestName: {
+          type: "string",
+          description: "Name of the guest to assign"
+        },
+        tableName: {
+          type: "string",
+          description: "Name or number of the table to assign them to"
+        }
+      },
+      required: ["guestName", "tableName"]
+    }
+  },
+  {
+    name: "get_seating_chart",
+    description: "Get the current seating chart with tables and assigned guests.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
     }
   },
 

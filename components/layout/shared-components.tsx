@@ -42,6 +42,9 @@ export function ToolContent({ toolId }: { toolId: string }) {
           case "vendors":
             mod = await import("@/components/tools/VendorsTool");
             break;
+          case "seating":
+            mod = await import("@/components/tools/SeatingTool");
+            break;
           case "timeline":
             mod = await import("@/components/tools/TimelineTool");
             break;

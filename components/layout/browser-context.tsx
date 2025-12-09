@@ -67,6 +67,7 @@ import {
   CheckCircle,
   Sparkles,
   Settings,
+  Armchair,
 } from "lucide-react";
 
 export interface ToolDefinition {
@@ -134,6 +135,13 @@ export const tools: ToolDefinition[] = [
     icon: Store,
     gradient: "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
     shadow: "rgba(139, 92, 246, 0.4)",
+  },
+  {
+    id: "seating",
+    label: "Seating",
+    icon: Armchair,
+    gradient: "linear-gradient(135deg, #A855F7 0%, #9333EA 100%)",
+    shadow: "rgba(168, 85, 247, 0.4)",
   },
   {
     id: "settings",

@@ -115,6 +115,8 @@ export async function executeToolCall(
       // Decision tools
       case "update_decision":
         return await handleUpdateDecision(parameters, context);
+      case "mark_decision_complete":
+        return await handleMarkDecisionComplete(parameters, context);
       case "lock_decision":
         return await handleLockDecision(parameters, context);
       case "skip_decision":
@@ -151,6 +153,14 @@ export async function executeToolCall(
       // Logic tools
       case "calculate_budget_breakdown":
         return await calculateBudgetBreakdown(parameters, context);
+
+      // Seating tools
+      case "create_seating_table":
+        return await createSeatingTable(parameters, context);
+      case "assign_guest_seat":
+        return await assignGuestSeat(parameters, context);
+      case "get_seating_chart":
+        return await getSeatingChart(parameters, context);
 
       // External tools
       case "web_search":
@@ -365,11 +375,18 @@ async function deleteBudgetItem(
   // Filter out items that match the criteria
   // We keep items that DO NOT match
   const newItems = items.filter(i => {
-    // If ID is provided and matches, delete it (return false)
-    if (params.itemId && i.id === params.itemId) return false;
-
-    // If ID was provided, we only care about ID match
-    if (params.itemId) return true;
+    // 1. ID Check
+    if (params.itemId) {
+      if (params.itemId === "undefined") {
+        // If target is "undefined", delete items with missing/null/"undefined" IDs
+        if (!i.id || i.id === "undefined") return false; // Delete this
+      } else {
+        // Standard ID match
+        if (i.id === params.itemId) return false; // Delete this
+      }
+      // If ID was provided and didn't match above, keep it (unless we want to support mixed criteria, but ID is usually specific)
+      return true;
+    }
 
     let matches = false;
     let criteriaCount = 0;
@@ -2050,6 +2067,23 @@ async function handleUpdateDecision(
   return { success: result.success, message: result.message };
 }
 
+async function handleMarkDecisionComplete(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  await initializeDecisionsForTenant(context.tenantId);
+
+  const result = await updateDecisionFn(
+    context.tenantId,
+    params.decisionName as string,
+    {
+      status: "decided"
+    }
+  );
+
+  return { success: result.success, message: result.message };
+}
+
 async function handleLockDecision(
   params: Record<string, unknown>,
   context: ToolContext
@@ -2452,11 +2486,21 @@ async function analyzePlanningGaps(
 
   // Check vendors
   const vendors = (vendorFields.vendors as Array<Record<string, unknown>>) || [];
-  const bookedVendors = vendors.filter(v => v.status === "booked");
+  const bookedVendors = vendors.filter(v => {
+    const status = (v.status as string)?.toLowerCase();
+    return status === "booked" || status === "confirmed" || status === "paid";
+  });
+  
   const essentialVendorCategories = ["venue", "photographer", "caterer", "officiant"];
   
   for (const category of essentialVendorCategories) {
-    const hasVendor = bookedVendors.some(v => v.category === category);
+    const hasVendor = bookedVendors.some(v => {
+      const vCat = (v.category as string)?.toLowerCase() || "";
+      const vName = (v.name as string)?.toLowerCase() || "";
+      const target = category.toLowerCase();
+      return vCat.includes(target) || vName.includes(target);
+    });
+
     if (!hasVendor) {
       const urgency = daysUntil && daysUntil < 180 ? "high" : daysUntil && daysUntil < 365 ? "medium" : "low";
       gaps.push({
@@ -2600,6 +2644,163 @@ async function updateKernelDecision(
       updatedAt: new Date() 
     })
     .where(eq(weddingKernels.tenantId, tenantId));
+}
+
+// ============================================================================ 
+// SEATING CHART TOOLS
+// ============================================================================ 
+
+interface SeatingTable {
+  id: string;
+  name: string;
+  capacity: number;
+  tableNumber: number;
+}
+
+async function createSeatingTable(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const { pageId, fields } = await getOrCreatePage(context.tenantId, "seating-chart");
+  
+  const tables = (fields.tables as SeatingTable[]) || [];
+  
+  // Determine table number if not provided
+  let tableNumber = params.tableNumber as number;
+  if (!tableNumber) {
+    // Auto-increment based on existing numeric tables
+    const existingNumbers = tables.map(t => t.tableNumber).filter(n => typeof n === 'number');
+    tableNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+  }
+
+  const newTable: SeatingTable = {
+    id: crypto.randomUUID(),
+    name: params.name as string,
+    capacity: params.capacity as number,
+    tableNumber
+  };
+
+  tables.push(newTable);
+  
+  // Sort by table number
+  tables.sort((a, b) => a.tableNumber - b.tableNumber);
+
+  await db.update(pages)
+    .set({ fields: { ...fields, tables }, updatedAt: new Date() })
+    .where(eq(pages.id, pageId));
+
+  return {
+    success: true,
+    message: `Created table "${newTable.name}" (Table ${newTable.tableNumber}) with ${newTable.capacity} seats`,
+    data: newTable
+  };
+}
+
+async function assignGuestSeat(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  // 1. Find Guest
+  const { pageId: guestPageId, fields: guestFields } = await getOrCreatePage(context.tenantId, "guest-list");
+  const guests = (guestFields.guests as GuestData[]) || [];
+  
+  const guestName = (params.guestName as string).toLowerCase();
+  const guestIndex = guests.findIndex(g => g.name?.toLowerCase() === guestName || g.name?.toLowerCase().includes(guestName));
+
+  if (guestIndex === -1) {
+    return { success: false, message: `Guest "${params.guestName}" not found` };
+  }
+
+  // 2. Find Table
+  const { fields: seatingFields } = await getOrCreatePage(context.tenantId, "seating-chart");
+  const tables = (seatingFields.tables as SeatingTable[]) || [];
+  
+  const tableNameInput = String(params.tableName).toLowerCase();
+  let targetTable: SeatingTable | undefined;
+
+  // Try matching by table name
+  targetTable = tables.find(t => t.name.toLowerCase() === tableNameInput || t.name.toLowerCase().includes(tableNameInput));
+
+  // Try matching by table number (if input looks like a number)
+  if (!targetTable) {
+    const tableNum = parseInt(tableNameInput.replace(/\D/g, ''));
+    if (!isNaN(tableNum)) {
+      targetTable = tables.find(t => t.tableNumber === tableNum);
+    }
+  }
+
+  if (!targetTable) {
+    return { 
+      success: false, 
+      message: `Table "${params.tableName}" not found. Please create it first.` 
+    };
+  }
+
+  // 3. Check Capacity (Optional - just warn for now, don't block)
+  const currentSeated = guests.filter(g => g.tableNumber === targetTable!.tableNumber).length;
+  let warning = "";
+  if (currentSeated >= targetTable.capacity) {
+    warning = ` (Note: Table capacity of ${targetTable.capacity} reached)`;
+  }
+
+  // 4. Assign
+  guests[guestIndex].tableNumber = targetTable.tableNumber;
+
+  await db.update(pages)
+    .set({ fields: { ...guestFields, guests }, updatedAt: new Date() })
+    .where(eq(pages.id, guestPageId));
+
+  return {
+    success: true,
+    message: `Assigned ${guests[guestIndex].name} to ${targetTable.name}${warning}`,
+    data: { guest: guests[guestIndex].name, table: targetTable.name }
+  };
+}
+
+async function getSeatingChart(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  // Get tables
+  const { fields: seatingFields } = await getOrCreatePage(context.tenantId, "seating-chart");
+  const tables = (seatingFields.tables as SeatingTable[]) || [];
+
+  // Get guests
+  const { fields: guestFields } = await getOrCreatePage(context.tenantId, "guest-list");
+  const guests = (guestFields.guests as GuestData[]) || [];
+
+  // Map guests to tables
+  const chart = tables.map(table => {
+    const seatedGuests = guests.filter(g => g.tableNumber === table.tableNumber);
+    return {
+      ...table,
+      guests: seatedGuests.map(g => g.name),
+      count: seatedGuests.length,
+      isFull: seatedGuests.length >= table.capacity
+    };
+  });
+
+  const unseated = guests.filter(g => g.tableNumber === undefined || g.tableNumber === null).map(g => g.name);
+
+  let message = `**Seating Chart**\n\n`;
+  
+  if (tables.length === 0) {
+    message += "No tables created yet.";
+  } else {
+    message += chart.map(t => 
+      `**${t.name}** (${t.count}/${t.capacity}): ${t.guests.join(", ") || "Empty"}`
+    ).join("\n\n");
+  }
+
+  if (unseated.length > 0) {
+    message += `\n\n**Unseated Guests (${unseated.length}):** ${unseated.slice(0, 10).join(", ")}${unseated.length > 10 ? "..." : ""}`;
+  }
+
+  return {
+    success: true,
+    message,
+    data: { chart, unseated }
+  };
 }
 
 // ============================================================================
