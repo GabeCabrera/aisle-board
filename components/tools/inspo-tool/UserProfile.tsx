@@ -27,6 +27,7 @@ interface ProfileData {
     website?: string;
     tiktok?: string;
   } | null;
+  profileImage?: string | null; // Added profileImage
   boards: PublicBoard[];
   stats: {
     followersCount: number;
@@ -101,9 +102,17 @@ export function UserProfile({ profile }: UserProfileProps) {
       {/* Hero Section */}
       <div className="flex flex-col items-center text-center space-y-6 py-12 border-b border-border/50">
         <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center text-4xl font-serif text-primary border-4 border-white shadow-lifted mb-2 overflow-hidden relative">
-           {/* Profile Image Support (Future) */}
-           {/* <Image ... /> */}
-           {profile.displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+           {profile.profileImage ? (
+            <Image 
+              src={profile.profileImage} 
+              alt={`${profile.displayName}'s profile image`} 
+              fill 
+              className="object-cover" 
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Add sizes prop for better performance
+            />
+           ) : (
+            profile.displayName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+           )}
         </div>
         
         <h1 className="font-serif text-5xl md:text-7xl text-foreground tracking-tight">

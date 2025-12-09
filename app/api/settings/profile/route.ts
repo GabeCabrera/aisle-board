@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { displayName, weddingDate, onboardingComplete, plannerName } = body;
+    const { displayName, weddingDate, onboardingComplete, plannerName, bio, socialLinks, profileImage } = body;
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -34,6 +34,18 @@ export async function POST(request: NextRequest) {
 
     if (plannerName !== undefined) {
       updateData.plannerName = plannerName;
+    }
+
+    if (bio !== undefined) {
+      updateData.bio = bio;
+    }
+
+    if (socialLinks !== undefined) {
+      updateData.socialLinks = socialLinks; // Assuming socialLinks is already a valid JSON object
+    }
+    
+    if (profileImage !== undefined) {
+      updateData.profileImage = profileImage;
     }
 
     await db

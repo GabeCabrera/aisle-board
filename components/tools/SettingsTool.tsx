@@ -1,19 +1,57 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
-  User, // Lucide icon for user
-  ShieldQuestion, // Lucide icon for plan/upgrade
-  AlertTriangle, // Lucide icon for danger zone
+  User,
+  ShieldQuestion,
+  AlertTriangle,
+  Loader2,
+  Save,
+  Instagram,
+  Globe,
+  Link as LinkIcon // Using Link as a generic link icon
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export default function SettingsTool() {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [displayName, setDisplayName] = useState(session?.user?.name || "");
+  const [bio, setBio] = useState((session?.user as any)?.bio || "");
+  const [instagram, setInstagram] = useState((session?.user as any)?.socialLinks?.instagram || "");
+  const [tiktok, setTiktok] = useState((session?.user as any)?.socialLinks?.tiktok || "");
+  const [website, setWebsite] = useState((session?.user as any)?.socialLinks?.website || "");
+  const [profileImage, setProfileImage] = useState((session?.user as any)?.profileImage || "");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Sync state with session changes
+  useEffect(() => {
+    if (session?.user) {
+      setDisplayName(session.user.name || "");
+      setBio((session.user as any).bio || "");
+      setInstagram((session.user as any).socialLinks?.instagram || "");
+      setTiktok((session.user as any).socialLinks?.tiktok || "");
+      setWebsite((session.user as any).socialLinks?.website || "");
+      setProfileImage((session.user as any).profileImage || "");
+    }
+  }, [session]);
 
   const userInitial = session?.user?.name
     ?.split(" ")
@@ -21,6 +59,52 @@ export default function SettingsTool() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  const handleProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const socialLinks = {
+        instagram: instagram || undefined,
+        tiktok: tiktok || undefined,
+        website: website || undefined,
+      };
+
+      const response = await fetch('/api/settings/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName,
+          bio,
+          socialLinks,
+          profileImage,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success("Profile updated successfully!");
+        // Manually update the session to reflect changes immediately in UI
+        await update({ 
+                      user: { 
+                      name: displayName, 
+                      bio: bio, 
+                      socialLinks: socialLinks,
+                      profileImage: profileImage 
+                    } 
+                  });        setIsEditProfileOpen(false);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to update profile.");
+      }
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+      toast.error("An unexpected error occurred.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   return (
     <div className="w-full max-w-3xl mx-auto py-8 px-6 space-y-8 animate-fade-up">
@@ -51,9 +135,97 @@ export default function SettingsTool() {
               </p>
             </div>
           </div>
-          <Button variant="outline" className="rounded-full">
-            Edit Profile
-          </Button>
+          <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="rounded-full">
+                Edit Profile
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] rounded-xl">
+              <DialogHeader>
+                <DialogTitle className="font-serif text-2xl">Edit Your Profile</DialogTitle>
+                <DialogDescription>
+                  Update your display name, bio, and social links.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleProfileSave} className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  <Input
+                    id="displayName"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="rounded-lg h-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="bio">Bio (short description)</Label>
+                  <Textarea
+                    id="bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell us a little about your wedding style or story..."
+                    className="rounded-lg min-h-[80px]"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="profileImage">Profile Image URL</Label>
+                  <Input
+                    id="profileImage"
+                    value={profileImage}
+                    onChange={(e) => setProfileImage(e.target.value)}
+                    placeholder="https://yourimage.com/profile.jpg"
+                    className="rounded-lg h-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="instagram">Instagram Username</Label>
+                  <Input
+                    id="instagram"
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="@yourhandle"
+                    className="rounded-lg h-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="tiktok">TikTok Username</Label>
+                  <Input
+                    id="tiktok"
+                    value={tiktok}
+                    onChange={(e) => setTiktok(e.target.value)}
+                    placeholder="@yourhandle"
+                    className="rounded-lg h-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="website">Personal Website/Blog</Label>
+                  <Input
+                    id="website"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://yourwebsite.com"
+                    className="rounded-lg h-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                <DialogFooter className="mt-4">
+                  <Button variant="outline" onClick={() => setIsEditProfileOpen(false)} disabled={isLoading} className="rounded-full">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading} className="rounded-full shadow-soft">
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
 

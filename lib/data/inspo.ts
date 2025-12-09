@@ -71,6 +71,7 @@ export async function getPublicProfile(tenantId: string, viewerTenantId?: string
       slug: true,
       bio: true,
       socialLinks: true,
+      profileImage: true,
     }
   });
 
