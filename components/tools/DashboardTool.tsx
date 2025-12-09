@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { usePlannerData, formatCurrency } from "@/lib/hooks/usePlannerData";
 import { useBrowser } from "@/components/layout/browser-context";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { calculateSanityScore } from "@/lib/algorithms/sanity-engine";
 import { 
   RefreshCw, 
-  Clock, 
   AlertTriangle, 
   Info, 
   CheckCircle, 
@@ -21,46 +19,17 @@ import {
   BrainCircuit,
   Activity
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-
-// Helper to format time ago
-function formatTimeAgo(timestamp: number): string {
-  if (timestamp === 0) return "never"; // Handle initial state
-  return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
-}
 
 export default function DashboardTool() {
-  const { data, loading, refetch, lastRefresh } = usePlannerData();
+  // Request specific sections for the dashboard
+  const { data, loading, refetch, isFetching } = usePlannerData([
+    "summary", "budget", "guests", "vendors", "decisions", "kernel"
+  ]);
   const browser = useBrowser();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeAgo, setTimeAgo] = useState("just now");
   const [familyFriction, setFamilyFriction] = useState(1);
 
-  useEffect(() => {
-    const updateTimeAgo = () => setTimeAgo(formatTimeAgo(lastRefresh));
-    updateTimeAgo();
-    const interval = setInterval(updateTimeAgo, 10000);
-    return () => clearInterval(interval);
-  }, [lastRefresh]);
-
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (
-        document.visibilityState === "visible" &&
-        Date.now() - lastRefresh > 30000
-      ) {
-        refetch();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibility);
-  }, [lastRefresh, refetch]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
+  const handleRefresh = () => {
+    refetch();
   };
 
   const handleToolClick = (toolId: string) => {
@@ -68,7 +37,9 @@ export default function DashboardTool() {
   };
 
   const sanityData = useMemo(() => {
-    if (!data) return { score: 100, alerts: [] };
+    if (!data || !data.budget || !data.guests || !data.vendors || !data.summary) {
+        return { score: 100, alerts: [] };
+    }
     
     const { budget, guests, vendors, summary } = data;
     
@@ -214,19 +185,15 @@ export default function DashboardTool() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border">
-            <Clock className="h-3 w-3" />
-            Updated {timeAgo}
-          </span>
           <Button
             variant="outline"
             size="sm"
             className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isFetching}
           >
-            <RefreshCw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
+            {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

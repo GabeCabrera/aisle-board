@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Import useQuery and useQueryClient
+import { useSession } from "next-auth/react"; // Assuming useSession is available for tenantId
 
 // Channel name for real-time sync between chat and tools
 export const PLANNER_SYNC_CHANNEL = "planner-data-changed";
@@ -109,7 +111,7 @@ export interface Decision {
 }
 
 export interface PlannerData {
-  kernel: {
+  kernel?: { // Changed to optional as not always fetched
     names?: string[];
     weddingDate?: string;
     guestCount?: number;
@@ -119,9 +121,9 @@ export interface PlannerData {
     location?: string;
     formality?: string;
     colorPalette?: string[];
-  } | null;
+  };
   
-  budget: {
+  budget?: { // Changed to optional as not always fetched
     total: number;
     spent: number;
     paid: number;
@@ -130,7 +132,7 @@ export interface PlannerData {
     percentUsed: number;
   };
   
-  guests: {
+  guests?: { // Changed to optional as not always fetched
     list: Guest[];
     stats: {
       total: number;
@@ -144,7 +146,7 @@ export interface PlannerData {
     };
   };
 
-  seating: {
+  seating?: { // Changed to optional as not always fetched
     tables: Array<{
       id: string;
       name: string;
@@ -163,7 +165,7 @@ export interface PlannerData {
     };
   };
   
-  vendors: {
+  vendors?: { // Changed to optional as not always fetched
     list: Vendor[];
     stats: {
       total: number;
@@ -174,17 +176,17 @@ export interface PlannerData {
     };
   };
   
-  timeline: {
+  timeline?: { // Changed to optional as not always fetched
     events: TimelineEvent[];
   };
   
-  tasks: {
+  tasks?: { // Changed to optional as not always fetched
     list: Task[];
     completed: number;
     pending: number;
   };
   
-  decisions: {
+  decisions?: { // Changed to optional as not always fetched
     list: Decision[];
     progress: {
       total: number;
@@ -196,7 +198,7 @@ export interface PlannerData {
     };
   };
   
-  summary: {
+  summary?: { // Changed to optional as not always fetched
     daysUntil: number | null;
     coupleNames: string | null;
     weddingDate: string | null;
@@ -206,51 +208,50 @@ export interface PlannerData {
 }
 
 // ============================================================================
+// QUERY FUNCTION
+// ============================================================================
+
+const fetchPlannerData = async (tenantId: string, sections: string[]): Promise<PlannerData> => {
+  if (!tenantId) {
+    throw new Error("Tenant ID is required to fetch planner data.");
+  }
+  const sectionsParam = sections.join(',');
+  const res = await fetch(`/api/planner/data?sections=${sectionsParam}`);
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to load planner data");
+  }
+  return res.json();
+};
+
+// ============================================================================
 // HOOK
 // ============================================================================
 
-export function usePlannerData() {
-  const [data, setData] = useState<PlannerData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<number>(Date.now());
+export function usePlannerData(sections: string[] = ["kernel", "budget", "guests", "seating", "vendors", "timeline", "tasks", "decisions", "summary"]) {
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const tenantId = session?.user?.tenantId;
   const channelRef = useRef<BroadcastChannel | null>(null);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Add cache: 'no-store' to prevent browser caching of old data
-      // Append timestamp to force fresh data from server
-      const res = await fetch(`/api/planner/data?t=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error("Failed to load data");
-      const json = await res.json();
-      setData(json);
-      setError(null);
-      setLastRefresh(Date.now());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const queryKey = ['plannerData', tenantId, sections.sort().join('-')];
 
-  // Initial fetch
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: queryKey,
+    queryFn: () => fetchPlannerData(tenantId!, sections),
+    enabled: !!tenantId, // Only run query if tenantId is available
+    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
+    refetchOnWindowFocus: true, // Re-fetch when window regains focus
+  });
 
   // Listen for real-time updates via CustomEvent (same-tab) and BroadcastChannel (cross-tab)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !tenantId) return;
 
     // Handler for data change events
     const handleDataChange = () => {
-      // Debounce: only refetch if it's been at least 500ms since last refresh
-      const now = Date.now();
-      if (now - lastRefresh > 500) {
-        console.log("[PlannerData] Received sync signal, refreshing...");
-        fetchData();
-      }
+      console.log("[PlannerData] Received sync signal, invalidating queries...");
+      queryClient.invalidateQueries({ queryKey: ['plannerData', tenantId] }); // Invalidate all plannerData queries for this tenant
     };
 
     // Same-tab: Listen for CustomEvent
@@ -272,14 +273,14 @@ export function usePlannerData() {
       channelRef.current?.close();
       channelRef.current = null;
     };
-  }, [fetchData, lastRefresh]);
+  }, [queryClient, tenantId]);
 
   return { 
     data, 
-    loading, 
+    loading: isLoading, 
     error, 
-    refetch: fetchData,
-    lastRefresh 
+    refetch,
+    isFetching // isFetching indicates background refreshes
   };
 }
 

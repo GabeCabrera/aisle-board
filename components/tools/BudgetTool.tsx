@@ -1,48 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { usePlannerData, formatCurrency, BudgetItem } from "@/lib/hooks/usePlannerData";
+import React from "react"; // Removed useState, useEffect
+import { usePlannerData, formatCurrency, BudgetItem } from "@/lib/hooks/usePlannerData"; // Removed lastRefresh from usePlannerData return
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, History, Wallet, AlertTriangle, Info, CheckCircle, ArrowRight } from "lucide-react";
-import { formatDistanceToNow } from 'date-fns';
+import { RefreshCw, Wallet, AlertTriangle } from "lucide-react"; // Removed History, Info, CheckCircle, ArrowRight
 import { useBrowser } from "../layout/browser-context";
 import Link from "next/link"; // Assuming Link is used for goHome
 
 export default function BudgetTool() {
   const browser = useBrowser();
-  const { data, loading, refetch, lastRefresh } = usePlannerData();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeAgo, setTimeAgo] = useState("just now");
+  // Request only the sections needed by the BudgetTool
+  const { data, loading, refetch, isFetching } = usePlannerData(["budget", "kernel", "summary"]); // use `loading` for initial fetch, `isFetching` for background re-fetches
 
-  useEffect(() => {
-    const updateTimeAgo = () => setTimeAgo(formatDistanceToNow(new Date(lastRefresh), { addSuffix: true }));
-    updateTimeAgo();
-    const interval = setInterval(updateTimeAgo, 10000);
-    return () => clearInterval(interval);
-  }, [lastRefresh]);
+  // No need for lastRefresh, setTimeAgo, isRefreshing, or the associated useEffects; react-query handles this
+  // We can use `isFetching` to show a spinner on refresh.
 
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        if (Date.now() - lastRefresh > 30000) {
-          console.log("[BudgetTool] Tab visible, refreshing stale data...");
-          refetch();
-        }
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [lastRefresh, refetch]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
-  };
-
-  if (loading) {
+  if (loading) { // isLoading for initial fetch
     return (
       <div className="flex h-full items-center justify-center p-6">
         <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" data-testid="loading-spinner" />
@@ -51,7 +26,7 @@ export default function BudgetTool() {
   }
 
   const budget = data?.budget;
-  const hasData = budget && budget.items.length > 0;
+  const hasData = budget && budget.items && budget.items.length > 0;
   const isOverBudget = budget && budget.total > 0 && budget.spent > budget.total;
 
   const byCategory = (budget?.items || []).reduce((acc, item) => {
@@ -78,19 +53,16 @@ export default function BudgetTool() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border">
-            <History className="h-3 w-3" />
-            Updated {timeAgo}
-          </span>
+          {/* Replaced 'Updated timeAgo' with a dynamic refresh indicator */}
           <Button
             variant="outline"
             size="sm"
             className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
+            onClick={() => refetch()} // refetch directly from useQuery
+            disabled={isFetching} // Disable button while fetching in background
           >
-            <RefreshCw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
+            {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

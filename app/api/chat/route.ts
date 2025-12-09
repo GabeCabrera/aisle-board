@@ -8,6 +8,8 @@ import { eq, and } from "drizzle-orm";
 import { getAnthropicTools } from "@/lib/ai/tools";
 import { executeToolCall, ToolResult } from "@/lib/ai/executor";
 import { buildSystemPrompt, getFirstMessagePrompt, getReturningUserPrompt } from "@/lib/ai/prompt";
+import { updateKernelFromExtraction, WeddingKernel } from "@/lib/ai/kernel-updates";
+import { analyzeUserMessage, buildUserProfileFromKernel, UserProfile } from "@/lib/ai/user-profiling"; // Import from new file
 
 /**
  * Aisle Chat API
@@ -30,92 +32,6 @@ function getAnthropicClient() {
 interface Message {
   role: "user" | "assistant";
   content: string;
-}
-
-interface WeddingKernel {
-  id: string;
-  names?: string[];
-  location?: string;
-  occupations?: string[];
-  howTheyMet?: string;
-  howLongTogether?: string;
-  engagementStory?: string;
-  weddingDate?: Date;
-  guestCount?: number;
-  budgetTotal?: number;
-  vibe?: string[];
-  formality?: string;
-  colorPalette?: string[];
-  priorities?: string[];
-  stressors?: string[];
-  biggestConcern?: string;
-  decisions?: Record<string, unknown>;
-  vendorsBooked?: string[];
-  planningPhase?: string;
-  communicationStyle?: string;
-  // User profile fields stored in kernel
-  usesEmojis?: boolean;
-  usesSwearing?: boolean;
-  messageLength?: "short" | "medium" | "long";
-  knowledgeLevel?: "beginner" | "intermediate" | "experienced";
-}
-
-interface UserProfile {
-  usesEmojis: boolean;
-  usesSwearing: boolean;
-  messageLength: "short" | "medium" | "long";
-  knowledgeLevel: "beginner" | "intermediate" | "experienced";
-  communicationStyle: "casual" | "balanced" | "formal";
-}
-
-// ============================================================================
-// ANALYZE USER MESSAGE
-// ============================================================================
-
-function analyzeUserMessage(message: string, existingProfile: Partial<UserProfile> | null): Partial<UserProfile> {
-  const updates: Partial<UserProfile> = {};
-  
-  // Check for emojis
-  const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
-  if (emojiRegex.test(message)) {
-    updates.usesEmojis = true;
-  }
-  
-  // Check for swearing (common mild swears)
-  const swearRegex = /\b(damn|hell|shit|fuck|crap|ass|bullshit|dammit)\b/i;
-  if (swearRegex.test(message)) {
-    updates.usesSwearing = true;
-  }
-  
-  // Analyze message length
-  const wordCount = message.split(/\s+/).length;
-  if (wordCount < 10) {
-    updates.messageLength = "short";
-  } else if (wordCount > 50) {
-    updates.messageLength = "long";
-  } else {
-    updates.messageLength = "medium";
-  }
-  
-  // If we already have a profile, only update if we're seeing new signals
-  // (e.g., first emoji usage should flip the flag, but don't flip it back)
-  if (existingProfile) {
-    if (existingProfile.usesEmojis) delete updates.usesEmojis;
-    if (existingProfile.usesSwearing) delete updates.usesSwearing;
-    // Message length can update based on recent behavior
-  }
-  
-  return updates;
-}
-
-function buildUserProfileFromKernel(kernel: WeddingKernel): UserProfile {
-  return {
-    usesEmojis: kernel.usesEmojis || false,
-    usesSwearing: kernel.usesSwearing || false,
-    messageLength: kernel.messageLength || "medium",
-    knowledgeLevel: kernel.knowledgeLevel || "intermediate",
-    communicationStyle: (kernel.communicationStyle as "casual" | "balanced" | "formal") || "balanced",
-  };
 }
 
 // ============================================================================
@@ -336,65 +252,5 @@ export async function POST(request: NextRequest) {
       { error: "Failed to get response", details: error instanceof Error ? error.message : "Unknown" },
       { status: 500 }
     );
-  }
-}
-
-// ============================================================================
-// KERNEL UPDATE
-// ============================================================================
-
-async function updateKernelFromExtraction(
-  kernelId: string,
-  tenantId: string,
-  extracted: Record<string, unknown>,
-  profileUpdates: Record<string, unknown>
-): Promise<void> {
-  const kernel = await db.query.weddingKernels.findFirst({
-    where: eq(weddingKernels.id, kernelId)
-  });
-  if (!kernel) return;
-
-  const updates: Record<string, unknown> = { ...profileUpdates, updatedAt: new Date() };
-
-  if (extracted.names && Array.isArray(extracted.names)) {
-    const current = (kernel.names as string[]) || [];
-    updates.names = [...new Set([...current, ...extracted.names])];
-    const names = updates.names as string[];
-    if (names.length >= 2) {
-      await db.update(tenants)
-        .set({ displayName: `${names[0]} & ${names[1]}` })
-        .where(eq(tenants.id, tenantId));
-    }
-  }
-
-  if (extracted.location) updates.location = extracted.location;
-  if (extracted.howTheyMet) updates.howTheyMet = extracted.howTheyMet;
-  if (extracted.engagementStory) updates.engagementStory = extracted.engagementStory;
-  if (extracted.biggestConcern) updates.biggestConcern = extracted.biggestConcern;
-
-  if (extracted.weddingDate) {
-    // Add T12:00:00 to parse as noon, avoiding timezone shift to previous day
-    const dateStr = extracted.weddingDate as string;
-    const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00');
-    if (!isNaN(date.getTime())) {
-      updates.weddingDate = date;
-      await db.update(tenants).set({ weddingDate: date }).where(eq(tenants.id, tenantId));
-    }
-  }
-
-  if (extracted.guestCount) updates.guestCount = extracted.guestCount;
-  if (extracted.budgetTotal) updates.budgetTotal = extracted.budgetTotal;
-
-  // Merge arrays
-  const arrayFields = ['occupations', 'vibe', 'priorities', 'stressors'] as const;
-  for (const field of arrayFields) {
-    if (extracted[field] && Array.isArray(extracted[field])) {
-      const current = (kernel[field] as string[]) || [];
-      updates[field] = [...new Set([...current, ...(extracted[field] as string[])])];
-    }
-  }
-
-  if (Object.keys(updates).length > 1) {
-    await db.update(weddingKernels).set(updates).where(eq(weddingKernels.id, kernelId));
   }
 }

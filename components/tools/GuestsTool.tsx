@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { usePlannerData, Guest } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -8,19 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input"; // Assuming there's an Input component
 import {
   RefreshCw,
-  History,
   Users, // Main icon for Guests
-  CheckCircle, // Confirmed
-  Hourglass, // Pending
-  XCircle, // Declined
-  Search,
   PersonStanding, // Plus one
-  Filter, // Filter icon
   ListCollapse // Group by icon
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useBrowser } from "../layout/browser-context";
 import Link from "next/link"; // Assuming Link is used for goHome
+import { Search } from "lucide-react"; // Re-added Search icon
 
 function GuestRow({ guest }: { guest: Guest }) {
   const rsvpLabel = () => {
@@ -88,34 +82,14 @@ function GuestRow({ guest }: { guest: Guest }) {
 
 export default function GuestsTool() {
   const browser = useBrowser();
-  const { data, loading, refetch, lastRefresh } = usePlannerData();
+  // Request only relevant sections
+  const { data, loading, refetch, isFetching } = usePlannerData(["guests", "kernel"]);
   const [filter, setFilter] = useState<"all" | "confirmed" | "pending" | "declined">("all");
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState<"none" | "side" | "group">("none");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeAgo, setTimeAgo] = useState("just now");
-
-  useEffect(() => {
-    const updateTimeAgo = () => setTimeAgo(formatDistanceToNow(new Date(lastRefresh), { addSuffix: true }));
-    updateTimeAgo();
-    const interval = setInterval(updateTimeAgo, 10000);
-    return () => clearInterval(interval);
-  }, [lastRefresh]);
-
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible" && Date.now() - lastRefresh > 30000) {
-        refetch();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [lastRefresh, refetch]);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
+    refetch();
   };
 
   if (loading) {
@@ -183,19 +157,15 @@ export default function GuestsTool() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border">
-            <History className="h-3 w-3" />
-            Updated {timeAgo}
-          </span>
           <Button
             variant="outline"
             size="sm"
             className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isFetching}
           >
-            <RefreshCw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
+            {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

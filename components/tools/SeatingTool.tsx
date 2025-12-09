@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { usePlannerData } from "@/lib/hooks/usePlannerData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,11 +9,8 @@ import {
   Loader2,
   Users,
   Armchair,
-  Plus,
   RefreshCw,
-  Clock
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useBrowser } from "../layout/browser-context";
 
 interface SeatingTable {
@@ -34,22 +31,12 @@ interface UnseatedGuest {
 }
 
 export default function SeatingTool() {
-  const { data, loading, refetch, lastRefresh } = usePlannerData();
+  // Request specific sections
+  const { data, loading, refetch, isFetching } = usePlannerData(["seating", "guests", "kernel"]);
   const browser = useBrowser();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeAgo, setTimeAgo] = useState("just now");
-
-  useEffect(() => {
-    const updateTimeAgo = () => setTimeAgo(formatDistanceToNow(new Date(lastRefresh), { addSuffix: true }));
-    updateTimeAgo();
-    const interval = setInterval(updateTimeAgo, 10000);
-    return () => clearInterval(interval);
-  }, [lastRefresh]);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
+    refetch();
   };
 
   if (loading) {
@@ -80,19 +67,15 @@ export default function SeatingTool() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border">
-            <Clock className="h-3 w-3" />
-            Updated {timeAgo}
-          </span>
           <Button
             variant="outline"
             size="sm"
             className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isFetching}
           >
-            <RefreshCw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
+            {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { usePlannerData, formatCurrency, Vendor } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -9,48 +9,23 @@ import { Input } from "@/components/ui/input"; // Assuming you have a reusable I
 import Link from "next/link";
 import {
   RefreshCw,
-  Clock,
   Store, // Main icon for VendorsTool
   Search, // Used for filter/search input
   Loader2,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useBrowser } from "../layout/browser-context";
 
-import VendorCard, { getCategoryConfig } from "./vendors-tool/VendorCard";
+import VendorCard from "./vendors-tool/VendorCard";
 
 export default function VendorsTool() {
   const browser = useBrowser();
-  const { data, loading, refetch, lastRefresh } = usePlannerData();
+  // Request only relevant sections
+  const { data, loading, refetch, isFetching } = usePlannerData(["vendors", "kernel"]);
   const [filter, setFilter] = useState<"all" | "booked" | "researching">("all");
-  const [search, setSearch] = useState(""); // Assuming a search input will be added
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [timeAgo, setTimeAgo] = useState("just now");
-
-  // Update "time ago" display every 10 seconds
-  useEffect(() => {
-    const updateTimeAgo = () => setTimeAgo(formatDistanceToNow(new Date(lastRefresh), { addSuffix: true }));
-    updateTimeAgo();
-    const interval = setInterval(updateTimeAgo, 10000);
-    return () => clearInterval(interval);
-  }, [lastRefresh]);
-
-  // Refresh when tab becomes visible
-  useEffect(() => {
-    refetch(); // Initial fetch on mount to ensure fresh data
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refetch();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [refetch]);
+  const [search, setSearch] = useState("");
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
+    refetch();
   };
 
   if (loading) {
@@ -106,19 +81,15 @@ export default function VendorsTool() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border">
-            <Clock className="h-3 w-3" />
-            Updated {timeAgo}
-          </span>
           <Button
             variant="outline"
             size="sm"
             className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isFetching}
           >
-            <RefreshCw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
+            {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

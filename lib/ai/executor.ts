@@ -269,11 +269,8 @@ async function addBudgetItem(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "budget");
-  
-  const items = (fields.items as Array<Record<string, unknown>>) || [];
-  
-  // Store as string in CENTS (matching API expectation)
+  const { pageId } = await getOrCreatePage(context.tenantId, "budget"); // Only get pageId
+
   const newItem = {
     id: crypto.randomUUID(),
     category: params.category,
@@ -284,10 +281,17 @@ async function addBudgetItem(
     createdAt: new Date().toISOString()
   };
 
-  items.push(newItem);
-
+  // Use jsonb_insert to append newItem directly to the 'items' array within 'fields'
   await db.update(pages)
-    .set({ fields: { ...fields, items }, updatedAt: new Date() })
+    .set({
+      fields: sql`jsonb_insert(
+        COALESCE(${pages.fields} -> 'items', '[]'::jsonb), -- Target array, or empty if null
+        '{999999}'::text[], -- Path to append (high index)
+        ${sql`${JSON.stringify(newItem)}::jsonb`}, -- Item to append, cast to jsonb
+        true -- create_if_missing: true (this parameter is for key in object, but for array it's ignored for insert)
+      )`,
+      updatedAt: new Date()
+    })
     .where(eq(pages.id, pageId));
 
   // Also update kernel decisions (already expects cents/dollars? No, usually dollars for decision, let's keep it as is or check decision logic. 
@@ -470,12 +474,22 @@ async function setTotalBudget(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "budget");
+  const { pageId } = await getOrCreatePage(context.tenantId, "budget"); // Only need pageId here
   // Store as string in CENTS
   const amount = params.amount as number;
+  const amountInCents = String(amount * 100);
 
+  // Directly update the totalBudget within the fields JSONB using jsonb_set
   await db.update(pages)
-    .set({ fields: { ...fields, totalBudget: String(amount * 100) }, updatedAt: new Date() })
+    .set({
+      fields: sql`jsonb_set(
+        COALESCE(${pages.fields}, '{}'::jsonb), -- Start with existing fields or an empty object
+        ${['totalBudget']}::text[],
+        ${sql`${amountInCents}::jsonb`}, -- New value for totalBudget
+        true -- create_if_missing
+      )`,
+      updatedAt: new Date()
+    })
     .where(eq(pages.id, pageId));
 
   // Also update kernel (kernel uses cents for historical reasons)
@@ -2114,38 +2128,45 @@ async function updateWeddingDetails(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  const kernelUpdates: Record<string, unknown> = { updatedAt: new Date() };
+  const decisionsUpdates: Record<string, unknown> = {};
 
   if (params.weddingDate) {
-    updates.weddingDate = new Date(params.weddingDate as string);
-    // Also update tenant
+    kernelUpdates.weddingDate = new Date(params.weddingDate as string);
+    // Also update tenant (this is a separate table, so it remains a direct update)
     await db.update(tenants)
-      .set({ weddingDate: updates.weddingDate as Date })
+      .set({ weddingDate: kernelUpdates.weddingDate as Date })
       .where(eq(tenants.id, context.tenantId));
   }
-  if (params.ceremonyTime) updates.ceremonyTime = params.ceremonyTime;
-  if (params.receptionTime) updates.receptionTime = params.receptionTime;
-  if (params.guestCount) updates.guestCount = params.guestCount;
+  if (params.ceremonyTime) kernelUpdates.ceremonyTime = params.ceremonyTime;
+  if (params.receptionTime) kernelUpdates.receptionTime = params.receptionTime;
+  if (params.guestCount) kernelUpdates.guestCount = params.guestCount;
 
-  // Update venue in decisions
+  // Update venue in decisions (now using partial JSONB update)
   if (params.venueName || params.venueAddress) {
     const venueName = params.venueName as string;
-    const venueCost = params.venueCost ? (params.venueCost as number) * 100 : undefined; // Assuming venueCost might be passed
+    const venueCost = params.venueCost ? (params.venueCost as number) * 100 : undefined;
     
-    // Update weddingKernels
-    const kernel = await db.query.weddingKernels.findFirst({
-      where: eq(weddingKernels.tenantId, context.tenantId)
-    });
-    const decisions = (kernel?.decisions as Record<string, unknown>) || {};
-    decisions.venue = {
-      ...(decisions.venue as Record<string, unknown> || {}),
-      name: venueName || (decisions.venue as Record<string, unknown>)?.name,
-      address: params.venueAddress,
-      locked: true
-    };
-    updates.decisions = decisions;
+    // Construct the partial update for the 'venue' decision object
+    const venueUpdatePayload: Record<string, unknown> = { locked: true };
+    if (venueName) venueUpdatePayload.name = venueName;
+    if (params.venueAddress) venueUpdatePayload.address = params.venueAddress;
+    // Note: Cost is handled by updateDecisionFn, not directly in kernel.decisions.venue
 
-    // Synchronize with weddingDecisions table
+    // Apply partial update to weddingKernels.decisions.venue
+    await db.update(weddingKernels)
+      .set({
+        decisions: sql`jsonb_set(
+          ${weddingKernels.decisions},
+          ${['venue']}::text[],
+          (COALESCE(${weddingKernels.decisions} -> 'venue', '{}'::jsonb) || ${JSON.stringify(venueUpdatePayload)}::jsonb),
+          true
+        )::jsonb`,
+        updatedAt: new Date()
+      })
+      .where(eq(weddingKernels.tenantId, context.tenantId));
+
+    // Synchronize with weddingDecisions table (remains as is)
     await updateDecisionFn(
       context.tenantId,
       "ceremony_venue",
@@ -2167,14 +2188,17 @@ async function updateWeddingDetails(
     );
   }
 
-  await db.update(weddingKernels)
-    .set(updates)
-    .where(eq(weddingKernels.tenantId, context.tenantId));
+  // Apply other kernel updates (if any, excluding decisions which are handled above)
+  if (Object.keys(kernelUpdates).length > 1 || (Object.keys(kernelUpdates).length === 1 && !kernelUpdates.updatedAt)) { // Check if there are actual updates beyond just updatedAt
+    await db.update(weddingKernels)
+      .set(kernelUpdates)
+      .where(eq(weddingKernels.tenantId, context.tenantId));
+  }
 
   return {
     success: true,
     message: "Wedding details updated",
-    data: updates
+    data: kernelUpdates // Return kernelUpdates as it reflects the primary updates
   };
 }
 
@@ -2182,37 +2206,55 @@ async function updatePreferences(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const kernel = await db.query.weddingKernels.findFirst({
-    where: eq(weddingKernels.tenantId, context.tenantId)
-  });
+  const kernelUpdates: Record<string, unknown> = { updatedAt: new Date() };
 
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  const buildJsonbArrayUpdate = (
+    field: any,
+    newElements: unknown[] | undefined
+  ) => {
+    if (!newElements || newElements.length === 0) {
+      return undefined; // No new elements to add
+    }
+    const newElementsJsonb = JSON.stringify(newElements);
+    return sql`
+      (SELECT jsonb_agg(DISTINCT elem)::jsonb FROM (
+        SELECT jsonb_array_elements_text(COALESCE(${field}, '[]'::jsonb)) AS elem
+        UNION ALL
+        SELECT jsonb_array_elements_text(${newElementsJsonb}::jsonb) AS elem
+      ) AS combined_elements)
+    `;
+  };
 
   if (params.vibe) {
-    const currentVibe = (kernel?.vibe as string[]) || [];
-    updates.vibe = [...new Set([...currentVibe, ...(params.vibe as string[])])];
+    kernelUpdates.vibe = buildJsonbArrayUpdate(weddingKernels.vibe, params.vibe as string[]);
   }
   if (params.colorPalette) {
-    const current = (kernel?.colorPalette as string[]) || [];
-    updates.colorPalette = [...new Set([...current, ...(params.colorPalette as string[])])];
+    kernelUpdates.colorPalette = buildJsonbArrayUpdate(weddingKernels.colorPalette, params.colorPalette as string[]);
   }
   if (params.mustHaves) {
-    const current = (kernel?.mustHaves as string[]) || [];
-    updates.mustHaves = [...new Set([...current, ...(params.mustHaves as string[])])];
+    kernelUpdates.mustHaves = buildJsonbArrayUpdate(weddingKernels.mustHaves, params.mustHaves as string[]);
   }
   if (params.dealbreakers) {
-    const current = (kernel?.dealbreakers as string[]) || [];
-    updates.dealbreakers = [...new Set([...current, ...(params.dealbreakers as string[])])];
+    kernelUpdates.dealbreakers = buildJsonbArrayUpdate(weddingKernels.dealbreakers, params.dealbreakers as string[]);
   }
 
-  await db.update(weddingKernels)
-    .set(updates)
-    .where(eq(weddingKernels.tenantId, context.tenantId));
+  // Filter out undefined updates before sending to DB
+  const filteredUpdates = Object.fromEntries(
+    Object.entries(kernelUpdates).filter(([, value]) => value !== undefined)
+  );
+
+  if (Object.keys(filteredUpdates).length > 1 || (Object.keys(filteredUpdates).length === 1 && filteredUpdates.updatedAt)) { // Check if there are actual updates beyond just updatedAt
+    await db.update(weddingKernels)
+      .set(filteredUpdates)
+      .where(eq(weddingKernels.tenantId, context.tenantId));
+  } else {
+      return { success: false, message: "No valid preferences provided for update." };
+  }
 
   return {
     success: true,
     message: "Preferences updated",
-    data: updates
+    data: filteredUpdates
   };
 }
 
@@ -2873,31 +2915,37 @@ async function updateKernelDecision(
   category: string,
   update: Record<string, unknown>
 ): Promise<void> {
-  const kernel = await db.query.weddingKernels.findFirst({
-    where: eq(weddingKernels.tenantId, tenantId)
-  });
-
-  const decisions = (kernel?.decisions as Record<string, unknown>) || {};
-  decisions[category] = {
-    ...(decisions[category] as Record<string, unknown> || {}),
-    ...update
-  };
-
-  // Update vendorsBooked array if status is booked
-  let vendorsBooked = (kernel?.vendorsBooked as string[]) || [];
-  if (update.locked || update.status === "booked") {
-    if (!vendorsBooked.includes(category)) {
-      vendorsBooked = [...vendorsBooked, category];
-    }
-  }
-
+  // Update the 'decisions' JSONB field
   await db.update(weddingKernels)
     .set({
-      decisions,
-      vendorsBooked,
+      decisions: sql`jsonb_set(
+        ${weddingKernels.decisions},
+        ${[category]}::text[],
+        (COALESCE(${weddingKernels.decisions} -> ${category}, '{}'::jsonb) || ${JSON.stringify(update)}::jsonb),
+        true
+      )::jsonb`,
       updatedAt: new Date() 
     })
     .where(eq(weddingKernels.tenantId, tenantId));
+
+  // Conditionally update 'vendorsBooked' if status indicates booking and category is not already present
+  if (update.locked || update.status === "booked") {
+    await db.update(weddingKernels)
+      .set({
+        vendorsBooked: sql`
+          CASE
+            WHEN ${weddingKernels.vendorsBooked} @> jsonb_build_array(${category}) THEN ${weddingKernels.vendorsBooked} -- Already exists, do nothing
+            ELSE jsonb_insert(
+              COALESCE(${weddingKernels.vendorsBooked}, '[]'::jsonb),
+              '{999999}'::text[], -- Insert at a high index to append
+              to_jsonb(${category})
+            )
+          END
+        `,
+        updatedAt: new Date() // Ensure updatedAt is also updated for this operation
+      })
+      .where(eq(weddingKernels.tenantId, tenantId));
+  }
 }
 
 // ============================================================================ 
