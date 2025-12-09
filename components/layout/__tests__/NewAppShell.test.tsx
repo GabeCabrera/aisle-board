@@ -4,6 +4,12 @@ import { render, screen } from '@testing-library/react';
 import NewAppShell from '@/components/layout/NewAppShell';
 import { useSession } from 'next-auth/react';
 
+// Mock ESM modules
+jest.mock('react-markdown', () => (props: any) => {
+  return <div className={props.className}>{props.children}</div>;
+});
+jest.mock('remark-gfm', () => () => {});
+
 // Mock next-auth
 jest.mock('next-auth/react');
 const mockedUseSession = useSession as jest.Mock;
@@ -34,7 +40,7 @@ describe('NewAppShell', () => {
     render(<NewAppShell><div>Test Children</div></NewAppShell>);
 
     // Check for the main title (sidebar title, more specific selection)
-    expect(screen.getByText('Scribe', { selector: '.font-serif.text-2xl' })).toBeInTheDocument();
+    expect(screen.getByText('Scribe & Stem', { selector: '.font-serif.text-2xl' })).toBeInTheDocument();
 
     // Check for the child content
     expect(screen.getByText('Test Children')).toBeInTheDocument();
