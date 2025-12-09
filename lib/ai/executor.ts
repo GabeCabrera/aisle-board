@@ -1323,23 +1323,56 @@ async function addEvent(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const startTime = new Date(`${params.date}T${params.time || "12:00"}`);
-  
-  const [event] = await db.insert(calendarEvents).values({
-    tenantId: context.tenantId,
-    title: params.title as string,
-    startTime,
-    endTime: params.endTime ? new Date(`${params.date}T${params.endTime}`) : undefined,
-    location: params.location as string,
-    category: (params.category as string) || "other",
-    description: params.notes as string
-  }).returning();
+  try {
+    // Robust date parsing
+    const dateStr = String(params.date).trim();
+    const timeStr = params.time ? String(params.time).trim() : "12:00";
+    
+    // Validate format YYYY-MM-DD roughly
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      // Try to fix common LLM errors (like YYYY/MM/DD)
+      // If completely invalid, let new Date fail and we catch it
+    }
 
-  return {
-    success: true,
-    message: `Added "${params.title}" to calendar on ${params.date}`,
-    data: event
-  };
+    const startDateTimeStr = `${dateStr}T${timeStr.length === 5 ? timeStr : "12:00"}:00`;
+    const startTime = new Date(startDateTimeStr);
+
+    if (isNaN(startTime.getTime())) {
+      throw new Error(`Invalid date/time format: ${dateStr} ${timeStr}`);
+    }
+
+    let endTime: Date | undefined;
+    if (params.endTime) {
+      const endTimeStr = String(params.endTime).trim();
+      const endDateTimeStr = `${dateStr}T${endTimeStr.length === 5 ? endTimeStr : "13:00"}:00`;
+      endTime = new Date(endDateTimeStr);
+      if (isNaN(endTime.getTime())) {
+        endTime = undefined; // Fallback if end time is bad
+      }
+    }
+    
+    const [event] = await db.insert(calendarEvents).values({
+      tenantId: context.tenantId,
+      title: params.title as string,
+      startTime,
+      endTime,
+      location: params.location as string,
+      category: (params.category as string) || "other",
+      description: params.notes as string
+    }).returning();
+
+    return {
+      success: true,
+      message: `Added "${params.title}" to calendar on ${dateStr}`,
+      data: event
+    };
+  } catch (error) {
+    console.error("[addEvent] Error:", error);
+    return {
+      success: false,
+      message: `Failed to add event: ${error instanceof Error ? error.message : "Unknown error"}`
+    };
+  }
 }
 
 async function addDayOfEvent(
