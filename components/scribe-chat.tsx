@@ -302,8 +302,6 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                 <h3 className="text-2xl font-serif text-stone-900 mb-3">
                   Hello{coupleNames ? `, ${coupleNames.split("&")[0]?.trim()}` : ""}
                 </h3>
-                  Hello{coupleNames ? `, ${coupleNames.split("&")[0]?.trim()}` : ""}
-                </h3>
                 <p className="text-stone-500 text-base leading-relaxed mb-12">
                   I can help you find vendors, manage your budget, or just brainstorm ideas. What's on your mind?
                 </p>
