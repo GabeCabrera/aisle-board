@@ -57,7 +57,7 @@ describe('CalendarTool', () => {
     const fetchPromise = new Promise(resolve => { resolveFetch = resolve; });
     (global.fetch as jest.Mock).mockImplementation(() => fetchPromise);
 
-    render(<CalendarTool />);
+    render(<CalendarTool initialEvents={[]} />); // Added initialEvents={[]}
     
     // Check for loading spinner using the testId we just added
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('CalendarTool', () => {
       });
 
     await act(async () => {
-      render(<CalendarTool />);
+      render(<CalendarTool initialEvents={[]} />); // Added initialEvents={[]}
     });
 
     // Check for title
@@ -121,7 +121,7 @@ describe('CalendarTool', () => {
       });
 
     await act(async () => {
-      render(<CalendarTool />);
+      render(<CalendarTool initialEvents={[]} />); // Added initialEvents={[]}
     });
 
     await waitFor(() => {

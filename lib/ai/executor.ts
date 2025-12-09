@@ -20,8 +20,8 @@ import {
   rsvpForms,
   rsvpResponses,
   users,
-  palettes,
-  sparks,
+  boards, // Renamed from palettes
+  ideas,  // Renamed from sparks
   knowledgeBase,
   weddingDecisions,
   type CalendarEvent
@@ -151,12 +151,12 @@ export async function executeToolCall(
         return await analyzePlanningGaps(parameters, context);
 
       // Inspiration tools
-      case "create_palette":
-        return await createPalette(parameters, context);
-      case "save_spark":
-        return await saveSpark(parameters, context);
-      case "get_palettes":
-        return await getPalettes(parameters, context);
+      case "create_board": // Renamed from create_palette
+        return await createBoard(parameters, context);
+      case "save_idea": // Renamed from save_spark
+        return await saveIdea(parameters, context);
+      case "get_boards": // Renamed from get_palettes
+        return await getBoards(parameters, context);
 
       // Knowledge tools
       case "query_knowledge_base":
@@ -2466,29 +2466,29 @@ async function handleAddCustomDecision(
 // INSPIRATION TOOLS
 // ============================================================================ 
 
-async function createPalette(
+async function createBoard(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
   const name = params.name as string;
   
-  // Check if palette exists
-  const existing = await db.query.palettes.findFirst({
+  // Check if board exists
+  const existing = await db.query.boards.findFirst({
     where: and(
-      eq(palettes.tenantId, context.tenantId),
-      eq(palettes.name, name)
+      eq(boards.tenantId, context.tenantId),
+      eq(boards.name, name)
     )
   });
 
   if (existing) {
     return {
       success: true,
-      message: `Palette '${name}' already exists.`,
+      message: `Board '${name}' already exists.`,
       data: existing
     };
   }
 
-  const [palette] = await db.insert(palettes).values({
+  const [board] = await db.insert(boards).values({
     tenantId: context.tenantId,
     name,
     description: (params.description as string) || "",
@@ -2498,60 +2498,60 @@ async function createPalette(
   return {
     success: true,
     message: `Created new inspiration board: ${name}`,
-    data: palette
+    data: board
   };
 }
 
-async function saveSpark(
+async function saveIdea(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  let paletteId = params.paletteId as string;
+  let boardId = params.boardId as string;
   
   // If no ID, find or create by name
-  if (!paletteId && params.paletteName) {
-    const name = params.paletteName as string;
-    let palette = await db.query.palettes.findFirst({
+  if (!boardId && params.boardName) {
+    const name = params.boardName as string;
+    let board = await db.query.boards.findFirst({
       where: and(
-        eq(palettes.tenantId, context.tenantId),
-        eq(palettes.name, name)
+        eq(boards.tenantId, context.tenantId),
+        eq(boards.name, name)
       )
     });
     
-    if (!palette) {
-      // Create default palette if it doesn't exist
-      const [newPalette] = await db.insert(palettes).values({
+    if (!board) {
+      // Create default board if it doesn't exist
+      const [newBoard] = await db.insert(boards).values({
         tenantId: context.tenantId,
         name,
         description: "Created by Scribe"
       }).returning();
-      palette = newPalette;
+      board = newBoard;
     }
-    paletteId = palette.id;
+    boardId = board.id;
   }
 
-  // If still no palette ID, use a default "General" board
-  if (!paletteId) {
-    let generalPalette = await db.query.palettes.findFirst({
+  // If still no board ID, use a default "General" board
+  if (!boardId) {
+    let generalBoard = await db.query.boards.findFirst({
       where: and(
-        eq(palettes.tenantId, context.tenantId),
-        eq(palettes.name, "General Inspiration")
+        eq(boards.tenantId, context.tenantId),
+        eq(boards.name, "General Inspiration")
       )
     });
     
-    if (!generalPalette) {
-      const [newPalette] = await db.insert(palettes).values({
+    if (!generalBoard) {
+      const [newBoard] = await db.insert(boards).values({
         tenantId: context.tenantId,
         name: "General Inspiration",
         description: "General wedding ideas"
       }).returning();
-      generalPalette = newPalette;
+      generalBoard = newBoard;
     }
-    paletteId = generalPalette.id;
+    boardId = generalBoard.id;
   }
 
-  const [spark] = await db.insert(sparks).values({
-    paletteId,
+  const [idea] = await db.insert(ideas).values({
+    boardId,
     imageUrl: params.imageUrl as string,
     title: params.title as string,
     description: params.description as string,
@@ -2561,26 +2561,26 @@ async function saveSpark(
   return {
     success: true,
     message: "Saved idea to your board.",
-    data: spark
+    data: idea
   };
 }
 
-async function getPalettes(
+async function getBoards(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const userPalettes = await db.query.palettes.findMany({
-    where: eq(palettes.tenantId, context.tenantId),
+  const userBoards = await db.query.boards.findMany({
+    where: eq(boards.tenantId, context.tenantId),
     with: {
-      sparks: {
+      ideas: {
         limit: 5,
-        orderBy: (sparks, { desc }) => [desc(sparks.createdAt)]
+        orderBy: (ideas, { desc }) => [desc(ideas.createdAt)]
       }
     },
-    orderBy: (palettes, { desc }) => [desc(palettes.createdAt)]
+    orderBy: (boards, { desc }) => [desc(boards.createdAt)]
   });
 
-  if (userPalettes.length === 0) {
+  if (userBoards.length === 0) {
     return {
       success: true,
       message: "You don't have any inspiration boards yet.",
@@ -2588,14 +2588,14 @@ async function getPalettes(
     };
   }
 
-  const summary = userPalettes.map(p => 
-    `${p.name} (${p.sparks.length} items)`
+  const summary = userBoards.map(b => 
+    `${b.name} (${b.ideas.length} items)`
   ).join("\n");
 
   return {
     success: true,
     message: `Here are your inspiration boards:\n${summary}`,
-    data: userPalettes
+    data: userBoards
   };
 }
 

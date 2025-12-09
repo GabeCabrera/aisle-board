@@ -33,8 +33,8 @@ export const metadata: Metadata = {
   },
   keywords: [
     'AI wedding planner',
+    'Scribe & Stem',
     'Scribe & Stem AI',
-    'Stem wedding planner',
     'wedding planning AI',
     'AI wedding assistant',
     'wedding planner chatbot',
@@ -239,25 +239,7 @@ export default function RootLayout({
             }),
           }}
         />
-        {/* Reddit Pixel */}
-        {REDDIT_PIXEL_ID && (
-          <>
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `!function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','${REDDIT_PIXEL_ID}',{"optOut":false,"useDecimalCurrencyValues":true});rdt('track','PageVisit');`,
-              }}
-            />
-            <noscript>
-              <img
-                height="1"
-                width="1"
-                style={{ display: 'none' }}
-                src={`https://alb.reddit.com/snoo.gif?q=CAAHAAABAAoACQAAAAA2t-YnAA==&s=${REDDIT_PIXEL_ID}`}
-                alt=""
-              />
-            </noscript>
-          </>
-        )}
+
       </head>
       <body className={`min-h-screen antialiased ${bodoni.variable} ${manrope.variable} font-sans`}>
         <Providers>

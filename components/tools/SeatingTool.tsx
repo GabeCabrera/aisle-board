@@ -11,7 +11,7 @@ import {
   Armchair,
   RefreshCw,
 } from "lucide-react";
-import { useBrowser } from "../layout/browser-context";
+import { useRouter } from "next/navigation";
 
 interface SeatingTable {
   id: string;
@@ -30,10 +30,14 @@ interface UnseatedGuest {
   rsvp?: string;
 }
 
-export default function SeatingTool() {
+interface SeatingToolProps {
+  initialData?: any;
+}
+
+export default function SeatingTool({ initialData }: SeatingToolProps) {
+  const router = useRouter();
   // Request specific sections
-  const { data, loading, refetch, isFetching } = usePlannerData(["seating", "guests", "kernel"]);
-  const browser = useBrowser();
+  const { data, loading, refetch, isFetching } = usePlannerData(["seating", "guests", "kernel"], { initialData });
 
   const handleRefresh = async () => {
     refetch();
@@ -90,7 +94,7 @@ export default function SeatingTool() {
           <p className="text-muted-foreground mb-6">
             Tell me to "Create a table for 8 people" or "Assign guests to tables".
           </p>
-          <Button onClick={() => browser.goHome()} className="rounded-full px-6 shadow-soft">
+          <Button onClick={() => router.push('/planner/chat')} className="rounded-full px-6 shadow-soft">
             Go to chat
           </Button>
         </Card>

@@ -1,12 +1,12 @@
 "use client";
 
-import { useBrowser } from "@/components/layout/browser-context";
 import { ScribeChat } from "@/components/scribe-chat";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function ScribeChatTool() {
   const { data: session } = useSession();
-  const browser = useBrowser();
+  const router = useRouter();
 
   // ScribeChat is designed as an overlay/modal, but when it's the active tool,
   // it means the user has navigated directly to it.
@@ -15,7 +15,7 @@ export default function ScribeChatTool() {
   return (
     <ScribeChat
       isOpen={true} // Always open when ScribeChatTool is the active tab
-      onClose={() => browser.switchTab("dashboard")} // Go to dashboard if user tries to "close" it from within the tool view
+      onClose={() => router.push("/planner")} // Go to dashboard if user tries to "close" it from within the tool view
       coupleNames={session?.user?.name || undefined}
       aiName="Scribe"
       variant="full"

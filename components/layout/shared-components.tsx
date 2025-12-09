@@ -52,7 +52,7 @@ export function ToolContent({ toolId }: { toolId: string }) {
             mod = await import("@/components/tools/ChecklistTool");
             break;
           case "inspo":
-            mod = await import("@/components/tools/InspoTool");
+            mod = await import("@/components/tools/MyBoardsTool");
             break;
           case "settings":
             mod = await import("@/components/tools/SettingsTool");

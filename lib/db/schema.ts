@@ -205,7 +205,7 @@ export const tenantsRelations = relations(tenants, ({ many, one }) => ({
   users: many(users),
   planner: one(planners),
   rsvpForms: many(rsvpForms),
-  palettes: many(palettes),
+  boards: many(boards),
 }));
 
 // ============================================================================
@@ -567,9 +567,9 @@ export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
 export type NewCalendarSyncLog = typeof calendarSyncLog.$inferInsert;
 
 // ============================================================================
-// INSPIRATION PALETTES - "Boards" for collecting "Sparks"
+// INSPIRATION BOARDS - "Boards" for collecting "Ideas"
 // ============================================================================
-export const palettes = pgTable("palettes", {
+export const boards = pgTable("boards", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id")
     .notNull()
@@ -586,25 +586,25 @@ export const palettes = pgTable("palettes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const palettesRelations = relations(palettes, ({ one, many }) => ({
+export const boardsRelations = relations(boards, ({ one, many }) => ({
   tenant: one(tenants, {
-    fields: [palettes.tenantId],
+    fields: [boards.tenantId],
     references: [tenants.id],
   }),
-  sparks: many(sparks),
+  ideas: many(ideas),
 }));
 
-export type Palette = typeof palettes.$inferSelect;
-export type NewPalette = typeof palettes.$inferInsert;
+export type Board = typeof boards.$inferSelect;
+export type NewBoard = typeof boards.$inferInsert;
 
 // ============================================================================
-// INSPIRATION SPARKS - Individual inspiration "pins"
+// INSPIRATION IDEAS - Individual inspiration "pins"
 // ============================================================================
-export const sparks = pgTable("sparks", {
+export const ideas = pgTable("ideas", {
   id: uuid("id").primaryKey().defaultRandom(),
-  paletteId: uuid("palette_id")
+  boardId: uuid("board_id")
     .notNull()
-    .references(() => palettes.id, { onDelete: "cascade" }),
+    .references(() => boards.id, { onDelete: "cascade" }),
   
   title: text("title"),
   description: text("description"),
@@ -618,22 +618,22 @@ export const sparks = pgTable("sparks", {
   tags: jsonb("tags").default([]),
   
   // Social features
-  originalSparkId: uuid("original_spark_id"), // If copied from another spark
+  originalIdeaId: uuid("original_idea_id"), // If copied from another idea
   viewCount: integer("view_count").default(0).notNull(),
   saveCount: integer("save_count").default(0).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const sparksRelations = relations(sparks, ({ one }) => ({
-  palette: one(palettes, {
-    fields: [sparks.paletteId],
-    references: [palettes.id],
+export const ideasRelations = relations(ideas, ({ one }) => ({
+  board: one(boards, {
+    fields: [ideas.boardId],
+    references: [boards.id],
   }),
 }));
 
-export type Spark = typeof sparks.$inferSelect;
-export type NewSpark = typeof sparks.$inferInsert;
+export type Idea = typeof ideas.$inferSelect;
+export type NewIdea = typeof ideas.$inferInsert;
 
 // ============================================================================
 // PROMO CODES - Discount codes and free membership grants

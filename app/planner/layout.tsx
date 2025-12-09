@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth/config";
-import { NewAppShell } from "@/components/layout/NewAppShell";
+import { SidebarShell } from "@/components/layout/SidebarShell";
 
 export default async function ChatLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -15,5 +15,5 @@ export default async function ChatLayout({ children }: { children: ReactNode }) 
     redirect("/welcome");
   }
   
-  return <NewAppShell>{children}</NewAppShell>;
+  return <SidebarShell>{children}</SidebarShell>;
 }

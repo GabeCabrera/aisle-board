@@ -228,7 +228,10 @@ const fetchPlannerData = async (tenantId: string, sections: string[]): Promise<P
 // HOOK
 // ============================================================================
 
-export function usePlannerData(sections: string[] = ["kernel", "budget", "guests", "seating", "vendors", "timeline", "tasks", "decisions", "summary"]) {
+export function usePlannerData(
+  sections: string[] = ["kernel", "budget", "guests", "seating", "vendors", "timeline", "tasks", "decisions", "summary"],
+  options?: { initialData?: PlannerData }
+) {
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
@@ -242,6 +245,7 @@ export function usePlannerData(sections: string[] = ["kernel", "budget", "guests
     enabled: !!tenantId, // Only run query if tenantId is available
     staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
     refetchOnWindowFocus: true, // Re-fetch when window regains focus
+    initialData: options?.initialData,
   });
 
   // Listen for real-time updates via CustomEvent (same-tab) and BroadcastChannel (cross-tab)

@@ -958,7 +958,7 @@ export const tools: ToolDefinition[] = [
         },
         colorPalette: {
           type: "array",
-          description: "Color palette",
+          description: "Color board",
           items: { type: "string", description: "Color" }
         },
         mustHaves: {
@@ -1153,14 +1153,14 @@ export const tools: ToolDefinition[] = [
   // INSPIRATION TOOLS
   // ----------------------------------------
   {
-    name: "create_palette",
-    description: "Create a new inspiration palette (board).",
+    name: "create_board", // Updated name
+    description: "Create a new inspiration board.", // Updated description
     parameters: {
       type: "object",
       properties: {
         name: {
           type: "string",
-          description: "Name of the palette (e.g., 'Floral Ideas', 'Dress Inspo')"
+          description: "Name of the board (e.g., 'Floral Ideas', 'Dress Inspo')" // Updated description
         },
         description: {
           type: "string",
@@ -1171,18 +1171,18 @@ export const tools: ToolDefinition[] = [
     }
   },
   {
-    name: "save_spark",
-    description: "Save an inspiration item (spark) to a palette.",
+    name: "save_idea", // Updated name
+    description: "Save an inspiration item (idea) to a board.", // Updated description
     parameters: {
       type: "object",
       properties: {
-        paletteId: {
+        boardId: { // Updated name
           type: "string",
-          description: "ID of the palette to save to (if known)"
+          description: "ID of the board to save to (if known)" // Updated description
         },
-        paletteName: {
+        boardName: { // Updated name
           type: "string",
-          description: "Name of the palette to save to (will find or create)"
+          description: "Name of the board to save to (will find or create)" // Updated description
         },
         imageUrl: {
           type: "string",
@@ -1190,7 +1190,7 @@ export const tools: ToolDefinition[] = [
         },
         title: {
           type: "string",
-          description: "Title of the spark"
+          description: "Title of the idea" // Updated description
         },
         description: {
           type: "string",
@@ -1206,8 +1206,8 @@ export const tools: ToolDefinition[] = [
     }
   },
   {
-    name: "get_palettes",
-    description: "Get a list of all inspiration palettes and their recent sparks.",
+    name: "get_boards", // Updated name
+    description: "Get a list of all inspiration boards and their recent ideas.", // Updated description
     parameters: {
       type: "object",
       properties: {},

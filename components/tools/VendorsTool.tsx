@@ -5,22 +5,25 @@ import { usePlannerData, formatCurrency, Vendor } from "@/lib/hooks/usePlannerDa
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input"; // Assuming you have a reusable Input component
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   RefreshCw,
-  Store, // Main icon for VendorsTool
-  Search, // Used for filter/search input
+  Store,
+  Search,
   Loader2,
 } from "lucide-react";
-import { useBrowser } from "../layout/browser-context";
 
 import VendorCard from "./vendors-tool/VendorCard";
 
-export default function VendorsTool() {
-  const browser = useBrowser();
-  // Request only relevant sections
-  const { data, loading, refetch, isFetching } = usePlannerData(["vendors", "kernel"]);
+interface VendorsToolProps {
+  initialData?: any;
+}
+
+export default function VendorsTool({ initialData }: VendorsToolProps) {
+  const router = useRouter();
+  const { data, loading, refetch, isFetching } = usePlannerData(["vendors", "kernel"], { initialData });
   const [filter, setFilter] = useState<"all" | "booked" | "researching">("all");
   const [search, setSearch] = useState("");
 
@@ -104,7 +107,7 @@ export default function VendorsTool() {
           <p className="text-muted-foreground mb-6">
             Tell me about your vendors in chat and I'll track them here.
           </p>
-          <Button onClick={() => browser.goHome()} className="rounded-full px-6 shadow-soft">
+          <Button onClick={() => router.push('/planner/chat')} className="rounded-full px-6 shadow-soft">
             Go to chat
           </Button>
         </Card>
@@ -206,7 +209,7 @@ export default function VendorsTool() {
           <div className="text-center mt-4 p-4 bg-muted/30 rounded-2xl">
             <p className="text-muted-foreground text-sm">
               Need to add or update a vendor?{" "}
-              <Link href="#" onClick={() => browser.goHome()} className="text-primary font-medium hover:underline">
+              <Link href="#" onClick={() => router.push('/planner/chat')} className="text-primary font-medium hover:underline">
                 Tell me in chat
               </Link>
             </p>

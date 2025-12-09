@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Loader2,
   Calendar,
@@ -18,7 +19,6 @@ import {
   RefreshCw, // For refresh button
 } from "lucide-react";
 import TimelineEventCard from './TimelineEventCard';
-import { useBrowser } from "@/components/layout/browser-context";
 
 
 const getCategoryIcon = (category: string) => {
@@ -39,10 +39,14 @@ const getCategoryIcon = (category: string) => {
 const categoryOrder = ["Prep", "Ceremony", "Cocktail Hour", "Reception", "Other"];
 
 
-export default function TimelineTool() {
+interface TimelineToolProps {
+  initialData?: any;
+}
+
+export default function TimelineTool({ initialData }: TimelineToolProps) {
+  const router = useRouter();
   // Request specific sections
-  const { data, loading, refetch, isFetching } = usePlannerData(["timeline", "kernel", "summary"]);
-  const browser = useBrowser();
+  const { data, loading, refetch, isFetching } = usePlannerData(["timeline", "kernel", "summary"], { initialData });
 
   const handleRefresh = async () => {
     refetch();
@@ -123,7 +127,7 @@ export default function TimelineTool() {
           <p className="text-muted-foreground mb-6">
             Tell me about your wedding day schedule in chat and I&apos;ll build your timeline.
           </p>
-          <Button onClick={() => browser.goHome()} className="rounded-full px-6 shadow-soft">
+          <Button onClick={() => router.push('/planner/chat')} className="rounded-full px-6 shadow-soft">
             Go to chat
           </Button>
 
@@ -170,7 +174,7 @@ export default function TimelineTool() {
       <div className="text-center mt-4 p-4 bg-muted/30 rounded-2xl">
         <p className="text-muted-foreground text-sm">
           Need to add or adjust your timeline?{" "}
-          <Link href="#" onClick={() => browser.goHome()} className="text-primary font-medium hover:underline">
+          <Link href="#" onClick={() => router.push('/planner/chat')} className="text-primary font-medium hover:underline">
             Tell me in chat
           </Link>
         </p>

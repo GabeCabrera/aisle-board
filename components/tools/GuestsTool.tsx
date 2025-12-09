@@ -5,16 +5,16 @@ import { usePlannerData, Guest } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input"; // Assuming there's an Input component
+import { Input } from "@/components/ui/input";
 import {
   RefreshCw,
-  Users, // Main icon for Guests
-  PersonStanding, // Plus one
-  ListCollapse // Group by icon
+  Users,
+  PersonStanding,
+  ListCollapse,
+  Search
 } from "lucide-react";
-import { useBrowser } from "../layout/browser-context";
-import Link from "next/link"; // Assuming Link is used for goHome
-import { Search } from "lucide-react"; // Re-added Search icon
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function GuestRow({ guest }: { guest: Guest }) {
   const rsvpLabel = () => {
@@ -80,10 +80,14 @@ function GuestRow({ guest }: { guest: Guest }) {
   );
 }
 
-export default function GuestsTool() {
-  const browser = useBrowser();
+interface GuestsToolProps {
+  initialData?: any;
+}
+
+export default function GuestsTool({ initialData }: GuestsToolProps) {
+  const router = useRouter();
   // Request only relevant sections
-  const { data, loading, refetch, isFetching } = usePlannerData(["guests", "kernel"]);
+  const { data, loading, refetch, isFetching } = usePlannerData(["guests", "kernel"], { initialData });
   const [filter, setFilter] = useState<"all" | "confirmed" | "pending" | "declined">("all");
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState<"none" | "side" | "group">("none");
@@ -180,7 +184,7 @@ export default function GuestsTool() {
           <p className="text-muted-foreground mb-6">
             Tell me about your guests in chat and I'll add them to your list.
           </p>
-          <Button onClick={() => browser.goHome()} className="rounded-full px-6 shadow-soft">
+          <Button onClick={() => router.push('/planner/chat')} className="rounded-full px-6 shadow-soft">
             Go to chat
           </Button>
         </Card>
@@ -347,7 +351,7 @@ export default function GuestsTool() {
           <div className="text-center mt-4 p-4 bg-muted/30 rounded-2xl">
             <p className="text-muted-foreground text-sm">
               Need to add or update guests?{" "}
-              <Link href="#" onClick={() => browser.goHome()} className="text-primary font-medium hover:underline">
+              <Link href="#" onClick={() => router.push('/planner/chat')} className="text-primary font-medium hover:underline">
                 Tell me in chat
               </Link>
             </p>

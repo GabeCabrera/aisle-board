@@ -4,7 +4,7 @@ import { config } from "dotenv";
 config({ path: resolve(process.cwd(), ".env.local") });
 
 import { db } from "../lib/db";
-import { palettes, sparks, tenants } from "../lib/db/schema";
+import { boards, ideas, tenants } from "../lib/db/schema"; // Updated imports
 import { eq } from "drizzle-orm";
 
 const DEMO_SLUG = "emma-james-demo";
@@ -13,7 +13,7 @@ const INSPIRATION_DATA = [
   {
     name: "Modern Minimal",
     description: "Clean lines, neutral colors, and understated elegance.",
-    sparks: [
+    ideas: [ // Updated from sparks
       {
         title: "Minimalist Table Setting",
         imageUrl: "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?q=80&w=800&auto=format&fit=crop",
@@ -39,7 +39,7 @@ const INSPIRATION_DATA = [
   {
     name: "Romantic Garden",
     description: "Soft pastels, lush florals, and outdoor whimsy.",
-    sparks: [
+    ideas: [ // Updated from sparks
       {
         title: "Garden Ceremony Arch",
         imageUrl: "https://images.unsplash.com/photo-1519225468359-6963275409834-432f7b1728f2?q=80&w=800&auto=format&fit=crop",
@@ -65,7 +65,7 @@ const INSPIRATION_DATA = [
   {
     name: "Boho Chic",
     description: "Earthy tones, dried florals, and relaxed vibes.",
-    sparks: [
+    ideas: [ // Updated from sparks
       {
         title: "Boho Lace Dress",
         imageUrl: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=800&auto=format&fit=crop", // Reusing suitable image
@@ -99,14 +99,14 @@ async function seedInspo() {
 
   console.log(`Found tenant: ${tenant.displayName}`);
 
-  // Clear existing palettes
-  await db.delete(palettes).where(eq(palettes.tenantId, tenant.id));
-  console.log("Cleared existing palettes.");
+  // Clear existing boards
+  await db.delete(boards).where(eq(boards.tenantId, tenant.id)); // Updated table name
+  console.log("Cleared existing boards."); // Updated message
 
   for (const [index, p] of INSPIRATION_DATA.entries()) {
-    console.log(`Creating palette: ${p.name}`);
+    console.log(`Creating board: ${p.name}`); // Updated message
     
-    const [palette] = await db.insert(palettes).values({
+    const [board] = await db.insert(boards).values({
       tenantId: tenant.id,
       name: p.name,
       description: p.description,
@@ -114,15 +114,15 @@ async function seedInspo() {
       isPublic: true,
     }).returning();
 
-    for (const s of p.sparks) {
-      await db.insert(sparks).values({
-        paletteId: palette.id,
+    for (const s of p.ideas) { // Updated from p.sparks
+      await db.insert(ideas).values({
+        boardId: board.id, // Updated from paletteId
         title: s.title,
         imageUrl: s.imageUrl,
         tags: s.tags,
       });
     }
-    console.log(`  - Added ${p.sparks.length} sparks`);
+    console.log(`  - Added ${p.ideas.length} ideas`); // Updated message
   }
 
   console.log("\n✨ Inspiration seeded successfully!");

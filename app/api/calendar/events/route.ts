@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-import {
-  getCalendarEventsByTenantId,
-  createCalendarEvent,
-} from "@/lib/db/queries";
+
+import { getCalendarEvents } from "@/lib/data/calendar"; // Import the new function
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +29,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const events = await getCalendarEventsByTenantId(session.user.tenantId);
+    const events = await getCalendarEvents(session.user.tenantId); // Use the new function
 
     return NextResponse.json({ events });
   } catch (error) {
@@ -43,54 +41,4 @@ export async function GET() {
   }
 }
 
-// POST /api/calendar/events - Create a new event
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
 
-    if (!session?.user?.tenantId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-    }
-
-    const result = createEventSchema.safeParse(body);
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.errors[0]?.message || "Validation failed" },
-        { status: 400 }
-      );
-    }
-
-    const data = result.data;
-
-    const event = await createCalendarEvent({
-      tenantId: session.user.tenantId,
-      title: data.title,
-      description: data.description,
-      startTime: new Date(data.startTime),
-      endTime: data.endTime ? new Date(data.endTime) : null,
-      allDay: data.allDay,
-      location: data.location,
-      category: data.category,
-      color: data.color || null,
-      vendorId: data.vendorId,
-      taskId: data.taskId,
-      syncStatus: "local",
-      createdBy: session.user.id,
-    });
-
-    return NextResponse.json({ event }, { status: 201 });
-  } catch (error) {
-    console.error("Create calendar event error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}

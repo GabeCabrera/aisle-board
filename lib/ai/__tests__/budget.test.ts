@@ -1,5 +1,6 @@
 import { executeToolCall, ToolContext } from '../executor';
 import { db } from '@/lib/db';
+import { pages } from '@/lib/db/schema'; // Import pages for the mock
 
 // Mock DB
 jest.mock('@/lib/db', () => ({
@@ -53,7 +54,7 @@ describe('Budget Tool Logic', () => {
     expect(result.success).toBe(true);
     // Check that update was called with the filtered list
     const updateCall = (db.update as jest.Mock).mock.calls[0];
-    const setCall = (db.update(null).set as jest.Mock).mock.calls[0];
+    const setCall = (db.update(pages).set as jest.Mock).mock.calls[0]; // Updated to use 'pages'
     
     // The set call argument should contain the new items list
     const newItems = setCall[0].fields.items;
@@ -75,7 +76,7 @@ describe('Budget Tool Logic', () => {
     const result = await executeToolCall('delete_budget_item', { itemId: 'undefined' }, mockContext);
 
     expect(result.success).toBe(true);
-    const setCall = (db.update(null).set as jest.Mock).mock.calls[0];
+    const setCall = (db.update(pages).set as jest.Mock).mock.calls[0]; // Updated to use 'pages'
     const newItems = setCall[0].fields.items;
     expect(newItems).toHaveLength(1);
     expect(newItems[0].id).toBe('valid-id');

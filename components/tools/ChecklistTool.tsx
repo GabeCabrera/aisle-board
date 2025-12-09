@@ -101,14 +101,23 @@ function DecisionRow({ decision }: { decision: Decision }) {
   );
 }
 
-export default function ChecklistTool() {
-  const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [progress, setProgress] = useState<DecisionProgress | null>(null);
-  const [loading, setLoading] = useState(true);
+interface ChecklistToolProps {
+  initialData?: any;
+}
+
+export default function ChecklistTool({ initialData }: ChecklistToolProps) {
+  const [decisions, setDecisions] = useState<Decision[]>(initialData?.decisions?.list || []);
+  const [progress, setProgress] = useState<DecisionProgress | null>(initialData?.decisions?.progress || null);
+  const [loading, setLoading] = useState(!initialData?.decisions);
   const [filter, setFilter] = useState<"all" | "todo" | "done">("all");
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialData?.decisions) {
+        setLoading(false);
+        return;
+    }
+
     const loadDecisions = async () => {
       try {
         const res = await fetch("/api/decisions");
@@ -124,7 +133,7 @@ export default function ChecklistTool() {
       }
     };
     loadDecisions();
-  }, []);
+  }, [initialData]);
 
   const byCategory = decisions.reduce((acc, d) => {
     if (!acc[d.category]) acc[d.category] = [];

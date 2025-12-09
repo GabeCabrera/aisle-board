@@ -17,7 +17,7 @@ interface WeddingKernel {
   budgetTotal?: number;
   vibe?: string[];
   formality?: string;
-  colorPalette?: string[];
+  colorBoard?: string[];
   priorities?: string[];
   stressors?: string[];
   biggestConcern?: string;
@@ -364,7 +364,7 @@ function buildKernelContext(kernel: WeddingKernel | null): string {
   if (kernel.guestCount) parts.push(`Expected guests: ~${kernel.guestCount}`);
   if (kernel.budgetTotal) parts.push(`Budget: $${(kernel.budgetTotal / 100).toLocaleString()}`);
   if (kernel.vibe && kernel.vibe.length > 0) parts.push(`Vibe: ${kernel.vibe.join(", ")}`);
-  if (kernel.colorPalette && kernel.colorPalette.length > 0) parts.push(`Colors: ${kernel.colorPalette.join(", ")}`);
+  if (kernel.colorBoard && kernel.colorBoard.length > 0) parts.push(`Colors: ${kernel.colorBoard.join(", ")}`);
   if (kernel.vendorsBooked && kernel.vendorsBooked.length > 0) {
     parts.push(`Vendors booked: ${kernel.vendorsBooked.join(", ")}`);
   }

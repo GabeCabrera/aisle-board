@@ -1,23 +1,24 @@
 "use client";
 
-import React from "react"; // Removed useState, useEffect
-import { usePlannerData, formatCurrency, BudgetItem } from "@/lib/hooks/usePlannerData"; // Removed lastRefresh from usePlannerData return
+import React from "react";
+import { usePlannerData, formatCurrency, BudgetItem } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Wallet, AlertTriangle } from "lucide-react"; // Removed History, Info, CheckCircle, ArrowRight
-import { useBrowser } from "../layout/browser-context";
-import Link from "next/link"; // Assuming Link is used for goHome
+import { RefreshCw, Wallet, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export default function BudgetTool() {
-  const browser = useBrowser();
+interface BudgetToolProps {
+  initialData?: any;
+}
+
+export default function BudgetTool({ initialData }: BudgetToolProps) {
+  const router = useRouter();
   // Request only the sections needed by the BudgetTool
-  const { data, loading, refetch, isFetching } = usePlannerData(["budget", "kernel", "summary"]); // use `loading` for initial fetch, `isFetching` for background re-fetches
+  const { data, loading, refetch, isFetching } = usePlannerData(["budget", "kernel", "summary"], { initialData });
 
-  // No need for lastRefresh, setTimeAgo, isRefreshing, or the associated useEffects; react-query handles this
-  // We can use `isFetching` to show a spinner on refresh.
-
-  if (loading) { // isLoading for initial fetch
+  if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" data-testid="loading-spinner" />
@@ -53,13 +54,12 @@ export default function BudgetTool() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Replaced 'Updated timeAgo' with a dynamic refresh indicator */}
           <Button
             variant="outline"
             size="sm"
             className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
-            onClick={() => refetch()} // refetch directly from useQuery
-            disabled={isFetching} // Disable button while fetching in background
+            onClick={() => refetch()} 
+            disabled={isFetching} 
           >
             <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
             {isFetching ? "Refreshing..." : "Refresh"}
@@ -77,7 +77,7 @@ export default function BudgetTool() {
           <p className="text-muted-foreground mb-6">
             Tell me about your wedding expenses in chat and I'll track them here.
           </p>
-          <Button onClick={() => browser.goHome()} className="rounded-full px-6 shadow-soft">
+          <Button onClick={() => router.push('/planner/chat')} className="rounded-full px-6 shadow-soft">
             Go to chat
           </Button>
         </Card>
@@ -223,7 +223,7 @@ export default function BudgetTool() {
           <div className="text-center mt-4 p-4 bg-muted/30 rounded-2xl">
             <p className="text-muted-foreground text-sm">
               Need to add or update something?{" "}
-              <Link href="#" onClick={() => browser.goHome()} className="text-primary font-medium hover:underline">
+              <Link href="/planner/chat" className="text-primary font-medium hover:underline">
                 Tell me in chat
               </Link>
             </p>

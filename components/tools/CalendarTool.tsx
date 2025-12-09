@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBrowser } from "@/components/layout/browser-context";
+import { useRouter } from "next/navigation";
 import { 
   Loader2, 
   RefreshCw, 
@@ -57,12 +57,16 @@ interface GoogleSyncStatus {
   calendarName?: string;
 }
 
-export default function CalendarTool() {
-  const browser = useBrowser();
+interface CalendarToolProps {
+  initialEvents: CalendarEvent[];
+}
+
+export default function CalendarTool({ initialEvents }: CalendarToolProps) {
+  const router = useRouter();
   const calendarRef = useRef<FullCalendar>(null);
   
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [loading, setLoading] = useState(initialEvents.length === 0); // Only show loading if no initial events
   const [syncStatus, setSyncStatus] = useState<GoogleSyncStatus>({ connected: false });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -80,7 +84,8 @@ export default function CalendarTool() {
   // Fetch Data
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
+      // Only set loading if no initial events, otherwise it's a background refresh
+      if (events.length === 0) setLoading(true); 
       
       // Fetch events
       const eventsRes = await fetch("/api/calendar/events");
@@ -123,11 +128,15 @@ export default function CalendarTool() {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [events.length]); // Depend on events.length to control loading state
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (initialEvents.length > 0) {
+      setLoading(false); // Already have data
+    } else {
+      fetchData(); // Fetch if no initial events
+    }
+  }, [initialEvents, fetchData]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -220,7 +229,7 @@ export default function CalendarTool() {
     setView(newView);
   };
 
-  if (loading && !events.length) {
+  if (loading && events.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" data-testid="loading-spinner" />

@@ -1,8 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
 import { usePlannerData, formatCurrency } from "@/lib/hooks/usePlannerData";
-import { useBrowser } from "@/components/layout/browser-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { calculateSanityScore } from "@/lib/algorithms/sanity-engine";
@@ -20,12 +20,16 @@ import {
   Activity
 } from "lucide-react";
 
-export default function DashboardTool() {
+interface DashboardToolProps {
+  initialData?: any;
+}
+
+export default function DashboardTool({ initialData }: DashboardToolProps) {
   // Request specific sections for the dashboard
   const { data, loading, refetch, isFetching } = usePlannerData([
     "summary", "budget", "guests", "vendors", "decisions", "kernel"
-  ]);
-  const browser = useBrowser();
+  ], { initialData });
+  const router = useRouter();
   const [familyFriction, setFamilyFriction] = useState(1);
 
   const handleRefresh = () => {
@@ -33,7 +37,7 @@ export default function DashboardTool() {
   };
 
   const handleToolClick = (toolId: string) => {
-    browser.openTool(toolId);
+    router.push(`/planner/${toolId}`);
   };
 
   const sanityData = useMemo(() => {
