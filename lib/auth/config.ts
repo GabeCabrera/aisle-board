@@ -57,34 +57,6 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-    callbackUrl: {
-      name: `next-auth.callback-url`,
-      options: {
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-    csrfToken: {
-      name: `next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-  },
   pages: {
     signIn: "/login",
   },
@@ -230,7 +202,9 @@ export const authOptions: NextAuthOptions = {
           return true;
         } catch (error) {
           console.error("[AUTH] Error during Google sign in:", error);
-          return false;
+          // Throwing the error ensures it's passed to the client in the URL (error=...)
+          // instead of a generic "Callback" error.
+          throw error;
         }
       }
 
