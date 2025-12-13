@@ -10,18 +10,42 @@ export const PLANNER_SYNC_CHANNEL = "planner-data-changed";
 // Custom event name for same-tab communication
 export const PLANNER_DATA_CHANGED_EVENT = "planner-data-changed-event";
 
+// Storage key for tracking when planner data was last modified
+const PLANNER_DATA_MODIFIED_KEY = "planner-data-modified-at";
+
+// Set a timestamp when planner data is modified (used to trigger refetch on navigation)
+function setDataModifiedTimestamp() {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(PLANNER_DATA_MODIFIED_KEY, Date.now().toString());
+}
+
+// Get the last modified timestamp
+function getDataModifiedTimestamp(): number {
+  if (typeof window === "undefined") return 0;
+  return parseInt(sessionStorage.getItem(PLANNER_DATA_MODIFIED_KEY) || "0", 10);
+}
+
+// Clear the modified timestamp (after refetch)
+function clearDataModifiedTimestamp() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(PLANNER_DATA_MODIFIED_KEY);
+}
+
 // Broadcast that planner data has changed (call from chat after tool calls)
 // This handles both cross-tab (BroadcastChannel) and same-tab (CustomEvent) scenarios
 export function broadcastPlannerDataChanged() {
   if (typeof window === "undefined") return;
-  
+
   console.log("[PlannerData] Broadcasting data change signal...");
-  
+
+  // Set timestamp for components that mount later (after navigation)
+  setDataModifiedTimestamp();
+
   // Same-tab: Dispatch a CustomEvent that components in the same tab can listen for
   window.dispatchEvent(new CustomEvent(PLANNER_DATA_CHANGED_EVENT, {
     detail: { timestamp: Date.now() }
   }));
-  
+
   // Cross-tab: Use BroadcastChannel for other tabs
   if ("BroadcastChannel" in window) {
     const channel = new BroadcastChannel(PLANNER_SYNC_CHANNEL);
@@ -236,6 +260,7 @@ export function usePlannerData(
   const { data: session } = useSession();
   const tenantId = session?.user?.tenantId;
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const mountTimeRef = useRef<number>(Date.now());
 
   const queryKey = ['plannerData', tenantId, sections.sort().join('-')];
 
@@ -248,6 +273,27 @@ export function usePlannerData(
     initialData: options?.initialData,
   });
 
+  // Check on mount if data was modified while component wasn't mounted
+  // This handles the case where user navigates away, AI makes changes, then user navigates back
+  useEffect(() => {
+    if (typeof window === "undefined" || !tenantId) return;
+
+    const modifiedAt = getDataModifiedTimestamp();
+
+    // If data was modified after this component was created (or from a previous session)
+    // and we have cached data, trigger a refetch
+    if (modifiedAt > 0) {
+      console.log("[PlannerData] Found pending data modification, triggering refetch...");
+      // Invalidate all planner queries for this tenant and refetch active ones
+      queryClient.invalidateQueries({
+        queryKey: ['plannerData', tenantId],
+        refetchType: 'active'
+      });
+      // Clear the flag since we've handled it
+      clearDataModifiedTimestamp();
+    }
+  }, [tenantId, queryClient]); // Run once when tenantId becomes available
+
   // Listen for real-time updates via CustomEvent (same-tab) and BroadcastChannel (cross-tab)
   useEffect(() => {
     if (typeof window === "undefined" || !tenantId) return;
@@ -255,7 +301,13 @@ export function usePlannerData(
     // Handler for data change events
     const handleDataChange = () => {
       console.log("[PlannerData] Received sync signal, invalidating queries...");
-      queryClient.invalidateQueries({ queryKey: ['plannerData', tenantId] }); // Invalidate all plannerData queries for this tenant
+      // Invalidate all plannerData queries for this tenant and trigger refetch
+      queryClient.invalidateQueries({
+        queryKey: ['plannerData', tenantId],
+        refetchType: 'active'
+      });
+      // Clear the modified timestamp since we've handled it
+      clearDataModifiedTimestamp();
     };
 
     // Same-tab: Listen for CustomEvent
@@ -279,10 +331,10 @@ export function usePlannerData(
     };
   }, [queryClient, tenantId]);
 
-  return { 
-    data, 
-    loading: isLoading, 
-    error, 
+  return {
+    data,
+    loading: isLoading,
+    error,
     refetch,
     isFetching // isFetching indicates background refreshes
   };
