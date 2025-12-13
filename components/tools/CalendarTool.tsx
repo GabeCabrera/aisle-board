@@ -32,6 +32,19 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 // Types
+interface ApiCalendarEvent {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime?: string;
+  allDay?: boolean;
+  description?: string;
+  location?: string;
+  category?: string;
+  googleEventId?: string;
+  syncStatus?: string;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -93,7 +106,7 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
       const eventsData = await eventsRes.json();
       
       // Map API events to FullCalendar format
-      const mappedEvents = eventsData.events.map((e: any) => ({
+      const mappedEvents = eventsData.events.map((e: ApiCalendarEvent) => ({
         id: e.id,
         title: e.title,
         start: e.startTime,

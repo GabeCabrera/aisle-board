@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-import { getUserByEmail, getAllPromoCodes, createPromoCode, updatePromoCode } from "@/lib/db/queries";
+import { isAdmin } from "@/lib/auth/admin";
+import { getAllPromoCodes, createPromoCode, updatePromoCode } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAILS = ["gabecabr@gmail.com"];
-
-async function isAdmin(session: { user?: { email?: string | null } } | null): Promise<boolean> {
-  if (!session?.user?.email) return false;
-  if (ADMIN_EMAILS.includes(session.user.email)) return true;
-  const user = await getUserByEmail(session.user.email);
-  return user?.isAdmin ?? false;
-}
 
 // GET /api/manage-x7k9/promo-codes - Get all promo codes
 export async function GET() {

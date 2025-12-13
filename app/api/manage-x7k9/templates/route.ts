@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
+import { isAdmin } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { customTemplates } from "@/lib/db/schema";
-import { getUserByEmail } from "@/lib/db/queries";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sanitizeString } from "@/lib/validation";
-
-const ADMIN_EMAILS = [
-  "gabecabr@gmail.com",
-];
-
-async function isAdmin(email: string) {
-  const user = await getUserByEmail(email);
-  return user?.isAdmin || ADMIN_EMAILS.includes(email);
-}
 
 const createTemplateSchema = z.object({
   templateId: z.string()
@@ -35,8 +26,8 @@ const createTemplateSchema = z.object({
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email || !(await isAdmin(session.user.email))) {
+
+    if (!(await isAdmin(session))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -51,8 +42,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email || !(await isAdmin(session.user.email))) {
+
+    if (!(await isAdmin(session))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

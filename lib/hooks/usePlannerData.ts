@@ -152,11 +152,11 @@ export interface PlannerData {
       name: string;
       capacity: number;
       tableNumber: number;
-      guests: any[];
+      guests: Guest[];
       count: number;
       isFull: boolean;
     }>;
-    unseated: any[];
+    unseated: Guest[];
     stats: {
       totalGuests: number;
       seatedCount: number;

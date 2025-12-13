@@ -119,6 +119,28 @@ export const rsvpFormSchema = z.object({
   mealOptions: z.array(z.string().max(100)).max(20, "Too many meal options").optional(),
 });
 
+// Profile update
+export const profileUpdateSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+  weddingDate: z.string().datetime().optional().nullable(),
+  onboardingComplete: z.boolean().optional(),
+  plannerName: z.string().max(50).optional(),
+  bio: z.string().max(500).optional(),
+  socialLinks: z.record(z.string().url()).optional().nullable(),
+  profileImage: z.string().url().max(2000).optional().nullable(),
+});
+
+// Plan selection
+export const planSelectSchema = z.object({
+  plan: z.enum(["free", "starter", "complete"]),
+});
+
+// Chat message
+export const chatMessageSchema = z.object({
+  message: z.string().min(1, "Message is required").max(10000, "Message is too long"),
+  conversationId: z.string().uuid().optional(),
+});
+
 // ============================================================================
 // RATE LIMITING HELPER (simple in-memory, use Redis in production)
 // ============================================================================

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { usePlannerData } from "@/lib/hooks/usePlannerData";
+import { usePlannerData, PlannerData, Guest } from "@/lib/hooks/usePlannerData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -18,20 +18,13 @@ interface SeatingTable {
   name: string;
   capacity: number;
   tableNumber: number;
-  guests: any[];
+  guests: Guest[];
   count: number;
   isFull: boolean;
 }
 
-interface UnseatedGuest {
-  id: string;
-  name: string;
-  email?: string;
-  rsvp?: string;
-}
-
 interface SeatingToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function SeatingTool({ initialData }: SeatingToolProps) {
@@ -53,7 +46,7 @@ export default function SeatingTool({ initialData }: SeatingToolProps) {
 
   const seatingData = data?.seating;
   const tables = (seatingData?.tables || []) as SeatingTable[];
-  const unseated = (seatingData?.unseated || []) as UnseatedGuest[];
+  const unseated = (seatingData?.unseated || []) as Guest[];
   const stats = seatingData?.stats;
 
   const hasData = tables.length > 0;
@@ -158,7 +151,7 @@ export default function SeatingTool({ initialData }: SeatingToolProps) {
                 <CardContent className="p-0">
                   {table.guests.length > 0 ? (
                     <ul className="divide-y divide-border/30">
-                      {table.guests.map((guest: any) => (
+                      {table.guests.map((guest) => (
                         <li key={guest.id} className="px-4 py-2 text-sm text-foreground flex items-center gap-2">
                           <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
                           {guest.name}

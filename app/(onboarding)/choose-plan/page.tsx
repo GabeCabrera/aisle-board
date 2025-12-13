@@ -77,6 +77,12 @@ function ChoosePlanContent() {
     }
   }, [session, router]);
 
+  // Clear promo result when billing cycle changes (promo may not apply to both cycles)
+  useEffect(() => {
+    setPromoResult(null);
+    setPromoCode("");
+  }, [billingCycle]);
+
   // Calculate savings
   const scribeMonthlyCost = PRICING.scribe.monthly * 12;
   const scribeYearlySavings = Math.round(scribeMonthlyCost - PRICING.scribe.yearly);

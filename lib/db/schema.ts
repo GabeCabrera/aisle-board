@@ -158,6 +158,7 @@ import {
   jsonb,
   uuid,
   uniqueIndex,
+  index,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -302,7 +303,9 @@ export const pages = pgTable("pages", {
   fields: jsonb("fields").notNull().default({}), // Template-specific data
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  plannerIdx: index("pages_planner_idx").on(table.plannerId),
+}));
 
 export const pagesRelations = relations(pages, ({ one }) => ({
   planner: one(planners, {
@@ -370,6 +373,7 @@ export const rsvpForms = pgTable(
   },
   (table) => ({
     slugIdx: uniqueIndex("rsvp_form_slug_idx").on(table.slug),
+    tenantIdx: index("rsvp_forms_tenant_idx").on(table.tenantId),
   })
 );
 
@@ -409,7 +413,9 @@ export const rsvpResponses = pgTable("rsvp_responses", {
   // Sync status
   syncedToGuestList: boolean("synced_to_guest_list").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  formIdx: index("rsvp_responses_form_idx").on(table.formId),
+}));
 
 export const rsvpResponsesRelations = relations(rsvpResponses, ({ one }) => ({
   form: one(rsvpForms, {
@@ -454,10 +460,12 @@ export const calendarEvents = pgTable("calendar_events", {
   recurrenceRule: text("recurrence_rule"), // iCal RRULE format
 
   // Metadata
-  createdBy: uuid("created_by").references(() => users.id),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantIdx: index("calendar_events_tenant_idx").on(table.tenantId),
+}));
 
 export const calendarEventsRelations = relations(calendarEvents, ({ one }) => ({
   tenant: one(tenants, {
@@ -609,14 +617,16 @@ export const boards = pgTable("boards", {
   name: text("name").notNull(),
   description: text("description"),
   position: integer("position").notNull().default(0),
-  
+
   // Social features
   isPublic: boolean("is_public").default(false).notNull(),
   viewCount: integer("view_count").default(0).notNull(),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantIdx: index("boards_tenant_idx").on(table.tenantId),
+}));
 
 export const boardsRelations = relations(boards, ({ one, many }) => ({
   tenant: one(tenants, {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { usePlannerData, TimelineEvent } from "@/lib/hooks/usePlannerData";
+import { usePlannerData, TimelineEvent, PlannerData } from "@/lib/hooks/usePlannerData";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -40,7 +40,7 @@ const categoryOrder = ["Prep", "Ceremony", "Cocktail Hour", "Reception", "Other"
 
 
 interface TimelineToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function TimelineTool({ initialData }: TimelineToolProps) {

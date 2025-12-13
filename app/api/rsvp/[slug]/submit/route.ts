@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rsvpForms, rsvpResponses, pages } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { 
+import {
   checkRateLimit,
   sanitizeString,
   sanitizeEmail,
-  sanitizePhone 
+  sanitizePhone
 } from "@/lib/validation";
+
+type DrizzleTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // Simple validation schema
 const rsvpSubmissionSchema = z.object({
@@ -119,29 +121,32 @@ export async function POST(
       }
     }
 
-    // Insert the response with sanitized data
-    const [response] = await db
-      .insert(rsvpResponses)
-      .values({
-        formId: form.id,
-        name: sanitizedData.name,
-        email: sanitizedData.email,
-        phone: sanitizedData.phone,
-        address: sanitizedData.address,
-        attending: sanitizedData.attending,
-        mealChoice: sanitizedData.mealChoice,
-        dietaryRestrictions: sanitizedData.dietaryRestrictions,
-        plusOne: sanitizedData.plusOne,
-        plusOneName: sanitizedData.plusOneName,
-        plusOneMeal: sanitizedData.plusOneMeal,
-        songRequest: sanitizedData.songRequest,
-        notes: sanitizedData.notes,
-        syncedToGuestList: false,
-      })
-      .returning();
+    // Insert the response and sync to guest list atomically
+    await db.transaction(async (tx) => {
+      // Insert the response
+      const [response] = await tx
+        .insert(rsvpResponses)
+        .values({
+          formId: form.id,
+          name: sanitizedData.name,
+          email: sanitizedData.email,
+          phone: sanitizedData.phone,
+          address: sanitizedData.address,
+          attending: sanitizedData.attending,
+          mealChoice: sanitizedData.mealChoice,
+          dietaryRestrictions: sanitizedData.dietaryRestrictions,
+          plusOne: sanitizedData.plusOne,
+          plusOneName: sanitizedData.plusOneName,
+          plusOneMeal: sanitizedData.plusOneMeal,
+          songRequest: sanitizedData.songRequest,
+          notes: sanitizedData.notes,
+          syncedToGuestList: false,
+        })
+        .returning();
 
-    // Auto-sync to guest list page
-    await syncResponseToGuestList(form.pageId, response);
+      // Auto-sync to guest list page within the same transaction
+      await syncResponseToGuestList(tx, form.pageId, response);
+    });
 
     return NextResponse.json(
       { success: true },
@@ -161,75 +166,72 @@ export async function POST(
 }
 
 async function syncResponseToGuestList(
-  pageId: string, 
+  tx: DrizzleTransaction,
+  pageId: string,
   response: typeof rsvpResponses.$inferSelect
 ) {
-  try {
-    // Get the guest list page
-    const [page] = await db
-      .select()
-      .from(pages)
-      .where(eq(pages.id, pageId))
-      .limit(1);
+  // Get the guest list page with FOR UPDATE lock to prevent race conditions
+  const pageResult = await tx.execute(sql`
+    SELECT id, fields FROM pages
+    WHERE id = ${pageId}
+    FOR UPDATE
+  `);
 
-    if (!page) return;
+  const page = pageResult.rows[0] as { id: string; fields: Record<string, unknown> } | undefined;
+  if (!page) return;
 
-    const fields = page.fields as Record<string, unknown>;
-    const guests = (fields.guests as Record<string, unknown>[]) || [];
+  const fields = page.fields as Record<string, unknown>;
+  const guests = (fields.guests as Record<string, unknown>[]) || [];
 
-    // Add the new guest (data is already sanitized)
-    const newGuest: Record<string, unknown> = {
-      name: response.name,
-      email: response.email || "",
-      phone: response.phone || "",
-      address: response.address || "",
+  // Add the new guest (data is already sanitized)
+  const newGuest: Record<string, unknown> = {
+    name: response.name,
+    email: response.email || "",
+    phone: response.phone || "",
+    address: response.address || "",
+    rsvp: response.attending ?? false,
+    meal: response.mealChoice || "",
+    dietaryRestrictions: response.dietaryRestrictions || "",
+    plusOne: response.plusOne || false,
+    plusOneName: response.plusOneName || "",
+    notes: response.notes || "",
+    giftReceived: false,
+    thankYouSent: false,
+  };
+
+  guests.push(newGuest);
+
+  // If they have a plus one, add that too
+  if (response.plusOne && response.plusOneName) {
+    const plusOneGuest: Record<string, unknown> = {
+      name: response.plusOneName,
+      email: "",
+      phone: "",
+      address: "",
       rsvp: response.attending ?? false,
-      meal: response.mealChoice || "",
-      dietaryRestrictions: response.dietaryRestrictions || "",
-      plusOne: response.plusOne || false,
-      plusOneName: response.plusOneName || "",
-      notes: response.notes || "",
+      meal: response.plusOneMeal || "",
+      dietaryRestrictions: "",
+      plusOne: false,
+      plusOneName: "",
+      notes: `Guest of ${response.name}`,
       giftReceived: false,
       thankYouSent: false,
     };
-
-    guests.push(newGuest);
-
-    // If they have a plus one, add that too
-    if (response.plusOne && response.plusOneName) {
-      const plusOneGuest: Record<string, unknown> = {
-        name: response.plusOneName,
-        email: "",
-        phone: "",
-        address: "",
-        rsvp: response.attending ?? false,
-        meal: response.plusOneMeal || "",
-        dietaryRestrictions: "",
-        plusOne: false,
-        plusOneName: "",
-        notes: `Guest of ${response.name}`,
-        giftReceived: false,
-        thankYouSent: false,
-      };
-      guests.push(plusOneGuest);
-    }
-
-    // Update the page
-    await db
-      .update(pages)
-      .set({
-        fields: { ...fields, guests },
-        updatedAt: new Date(),
-      })
-      .where(eq(pages.id, pageId));
-
-    // Mark response as synced
-    await db
-      .update(rsvpResponses)
-      .set({ syncedToGuestList: true })
-      .where(eq(rsvpResponses.id, response.id));
-
-  } catch (error) {
-    console.error("Failed to sync to guest list:", error);
+    guests.push(plusOneGuest);
   }
+
+  // Update the page within the transaction
+  await tx
+    .update(pages)
+    .set({
+      fields: { ...fields, guests },
+      updatedAt: new Date(),
+    })
+    .where(eq(pages.id, pageId));
+
+  // Mark response as synced within the transaction
+  await tx
+    .update(rsvpResponses)
+    .set({ syncedToGuestList: true })
+    .where(eq(rsvpResponses.id, response.id));
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function RegisterForm() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -83,7 +85,7 @@ export function RegisterForm() {
 
       toast.success("Account created successfully!");
       redditPixel.trackSignUp();
-      window.location.href = "/welcome";
+      router.push("/welcome");
     } catch (error) {
       console.error("[REGISTER] Error:", error);
       toast.error(error instanceof Error ? error.message : "An unknown error occurred.");

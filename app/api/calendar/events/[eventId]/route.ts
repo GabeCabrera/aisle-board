@@ -5,8 +5,11 @@ import {
   getCalendarEventById,
   updateCalendarEvent,
   deleteCalendarEvent,
+  getGoogleCalendarConnection,
 } from "@/lib/db/queries";
+import { deleteGoogleEvent } from "@/lib/calendar/google-client";
 import { z } from "zod";
+import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ event });
   } catch (error) {
-    console.error("Get calendar event error:", error);
+    logger.error("Get calendar event error", error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -114,7 +117,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ event });
   } catch (error) {
-    console.error("Update calendar event error:", error);
+    logger.error("Update calendar event error", error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -139,13 +142,28 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    // TODO: If synced with Google, delete from Google Calendar too
+    // If synced with Google, delete from Google Calendar too
+    if (existingEvent.googleEventId) {
+      const connection = await getGoogleCalendarConnection(session.user.tenantId);
+      if (connection?.weddingCalendarId) {
+        try {
+          await deleteGoogleEvent(
+            session.user.tenantId,
+            connection.weddingCalendarId,
+            existingEvent.googleEventId
+          );
+        } catch (googleError) {
+          // Log but don't fail the deletion - the event may already be deleted from Google
+          logger.error("Failed to delete Google event", googleError instanceof Error ? googleError : undefined);
+        }
+      }
+    }
 
     await deleteCalendarEvent(eventId, session.user.tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete calendar event error:", error);
+    logger.error("Delete calendar event error", error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

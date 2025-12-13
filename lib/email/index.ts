@@ -17,16 +17,17 @@ const FROM_EMAIL = "Stem <hello@scribeandstem.com>";
 const PERSONAL_FROM_EMAIL = "Gabe & Sarah <GabeandSarah@scribeandstem.com>";
 const BASE_URL = process.env.NEXTAUTH_URL || "https://scribeandstem.com";
 
-export type EmailTemplate = "welcome" | "why_29" | "tips_week_1" | "broadcast";
+export type EmailTemplate = "welcome" | "why_29" | "tips_week_1" | "broadcast" | "password_reset" | "payment_failed";
 
 interface SendEmailOptions {
   to: string;
   template: EmailTemplate;
   data: {
     name: string;
-    unsubscribeToken: string;
+    unsubscribeToken?: string; // Optional for transactional emails
     subject?: string; // For broadcast emails
     content?: string; // For broadcast emails
+    resetUrl?: string; // For password reset emails
   };
 }
 
@@ -324,9 +325,8 @@ function getTipsWeek1Email(name: string, unsubscribeToken: string) {
   };
 }
 
-function getBroadcastEmail(name: string, unsubscribeToken: string, subject: string, content: string) {
-  const firstName = name.split(" ")[0] || name;
-  
+function getBroadcastEmail(_name: string, unsubscribeToken: string, subject: string, content: string) {
+  // Note: name parameter preserved for interface consistency but not used in broadcast template
   return {
     subject,
     html: `
@@ -382,6 +382,159 @@ function getBroadcastEmail(name: string, unsubscribeToken: string, subject: stri
 }
 
 // ============================================================================
+// PASSWORD RESET EMAIL
+// ============================================================================
+
+function getPasswordResetEmail(name: string, resetUrl: string) {
+  const firstName = name.split(" ")[0] || name;
+
+  return {
+    subject: "Reset your Stem password",
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9a8d7f;">
+                Wedding Planner
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                Reset Your Password
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                Hi ${firstName},
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                We received a request to reset your password. Click the button below to create a new password:
+              </p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" style="display: inline-block; padding: 16px 32px; background-color: #8b7355; color: #ffffff; text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">
+                  Reset Password
+                </a>
+              </div>
+
+              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #9a8d7f;">
+                This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+              </p>
+
+              <p style="margin: 30px 0 0; font-size: 12px; line-height: 1.6; color: #9a8d7f; border-top: 1px solid #e8e4df; padding-top: 20px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${resetUrl}" style="color: #8b7355; word-break: break-all;">${resetUrl}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+// ============================================================================
+// PAYMENT FAILED EMAIL
+// ============================================================================
+
+function getPaymentFailedEmail(name: string) {
+  const firstName = name.split(" ")[0] || name;
+
+  return {
+    subject: "Action needed: Your Stem payment failed",
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9a8d7f;">
+                Wedding Planner
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                Payment Issue
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                Hi ${firstName},
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                We weren't able to process your payment for your Stem subscription. This can happen if your card expired or there were insufficient funds.
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                To keep your planner access uninterrupted, please update your payment method:
+              </p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${BASE_URL}/planner/settings" style="display: inline-block; padding: 16px 32px; background-color: #8b7355; color: #ffffff; text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">
+                  Update Payment Method
+                </a>
+              </div>
+
+              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #9a8d7f;">
+                If you have any questions, just reply to this email — we're here to help.
+              </p>
+
+              <p style="margin: 30px 0 0; font-size: 14px; line-height: 1.6; color: #9a8d7f; text-align: center;">
+                — The Stem Team
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+// ============================================================================
 // SEND EMAIL FUNCTION
 // ============================================================================
 
@@ -390,19 +543,28 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
 
   switch (template) {
     case "welcome":
-      emailContent = getWelcomeEmail(data.name, data.unsubscribeToken);
+      emailContent = getWelcomeEmail(data.name, data.unsubscribeToken || "");
       break;
     case "why_29":
-      emailContent = getWhy29Email(data.name, data.unsubscribeToken);
+      emailContent = getWhy29Email(data.name, data.unsubscribeToken || "");
       break;
     case "tips_week_1":
-      emailContent = getTipsWeek1Email(data.name, data.unsubscribeToken);
+      emailContent = getTipsWeek1Email(data.name, data.unsubscribeToken || "");
       break;
     case "broadcast":
       if (!data.subject || !data.content) {
         return { success: false, error: "Subject and content required for broadcast" };
       }
-      emailContent = getBroadcastEmail(data.name, data.unsubscribeToken, data.subject, data.content);
+      emailContent = getBroadcastEmail(data.name, data.unsubscribeToken || "", data.subject, data.content);
+      break;
+    case "password_reset":
+      if (!data.resetUrl) {
+        return { success: false, error: "Reset URL required for password reset" };
+      }
+      emailContent = getPasswordResetEmail(data.name, data.resetUrl);
+      break;
+    case "payment_failed":
+      emailContent = getPaymentFailedEmail(data.name);
       break;
     default:
       return { success: false, error: "Unknown template" };
@@ -415,15 +577,24 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
   }
 
   try {
-    const result = await client.emails.send({
+    // Transactional emails (password reset, payment failed) don't need unsubscribe headers
+    const isTransactional = template === "password_reset" || template === "payment_failed";
+
+    const emailOptions: Parameters<typeof client.emails.send>[0] = {
       from: FROM_EMAIL,
       to,
       subject: emailContent.subject,
       html: emailContent.html,
-      headers: {
+    };
+
+    // Only add unsubscribe header for marketing/promotional emails
+    if (!isTransactional && data.unsubscribeToken) {
+      emailOptions.headers = {
         "List-Unsubscribe": `<${BASE_URL}/unsubscribe?token=${data.unsubscribeToken}>`,
-      },
-    });
+      };
+    }
+
+    const result = await client.emails.send(emailOptions);
 
     return { success: true, id: result.data?.id };
   } catch (error) {

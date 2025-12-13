@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/config";
 import { getPromoCodeByCode, incrementPromoCodeUses, upgradeTenantByUserEmail } from "@/lib/db/queries";
 
 // Check discount validity and return pricing info
@@ -7,7 +9,25 @@ export async function POST(request: NextRequest) {
     const { promoCode, userEmail, applyCode } = await request.json();
 
     const originalPrice = 2900; // $29.00 in cents
-    
+
+    // If applying a code (which can upgrade accounts), require authentication
+    if (applyCode) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.email) {
+        return NextResponse.json(
+          { error: "Authentication required to apply promo codes" },
+          { status: 401 }
+        );
+      }
+      // Verify the email matches the session user (prevent upgrading other accounts)
+      if (userEmail && userEmail !== session.user.email) {
+        return NextResponse.json(
+          { error: "Cannot apply promo code to a different account" },
+          { status: 403 }
+        );
+      }
+    }
+
     // No promo code provided
     if (!promoCode) {
       return NextResponse.json({

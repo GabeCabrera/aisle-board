@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
+import { isAdmin } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { tenants, users, planners, pages, rsvpForms, rsvpResponses, scribeConversations } from "@/lib/db/schema";
 import { count, eq, gte, sql, desc, and, ne, notInArray, inArray } from "drizzle-orm";
 
-const ADMIN_EMAILS = ["gabecabr@gmail.com"];
 const COMPLETE_PLAN_PRICE = 29; // $29 one-time
 const TAX_RATE = 0.0; // Adjust based on your tax situation (0% for now, could be ~30% for self-employment)
 
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.email || !ADMIN_EMAILS.includes(session.user.email)) {
+  if (!(await isAdmin(session))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

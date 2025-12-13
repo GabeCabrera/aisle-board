@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { usePlannerData, Guest } from "@/lib/hooks/usePlannerData";
+import { usePlannerData, Guest, PlannerData } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,7 +81,7 @@ function GuestRow({ guest }: { guest: Guest }) {
 }
 
 interface GuestsToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function GuestsTool({ initialData }: GuestsToolProps) {

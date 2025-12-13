@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getAuthUrl } from "@/lib/calendar/google-client";
+import { createSignedState } from "@/lib/auth/oauth-state";
 
 export const dynamic = "force-dynamic";
 
@@ -48,14 +49,11 @@ export async function GET(request: Request) {
       );
     }
 
-    // Create state with tenant ID for verification in callback
-    const state = Buffer.from(
-      JSON.stringify({
-        tenantId: session.user.tenantId,
-        userId: session.user.id,
-        timestamp: Date.now(),
-      })
-    ).toString("base64");
+    // Create HMAC-signed state with tenant ID for CSRF protection in callback
+    const state = createSignedState({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+    });
 
     let authUrl: string;
     try {

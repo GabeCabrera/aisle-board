@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-import { getUserByEmail } from "@/lib/db/queries";
+import { isAdmin } from "@/lib/auth/admin";
 import { sendDirectEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAILS = ["gabecabr@gmail.com"];
-
-async function isAdmin(session: { user?: { email?: string | null } } | null): Promise<boolean> {
-  if (!session?.user?.email) return false;
-  if (ADMIN_EMAILS.includes(session.user.email)) return true;
-  const user = await getUserByEmail(session.user.email);
-  return user?.isAdmin ?? false;
-}
 
 // POST /api/manage-x7k9/email/direct - Send a direct email from GabeandSarah@scribeandstem.com
 export async function POST(request: NextRequest) {

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { usePlannerData, formatCurrency, BudgetItem } from "@/lib/hooks/usePlannerData";
+import { usePlannerData, formatCurrency, BudgetItem, PlannerData } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface BudgetToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function BudgetTool({ initialData }: BudgetToolProps) {

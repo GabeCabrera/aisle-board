@@ -50,9 +50,12 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
 
   // Load conversation history on mount
   useEffect(() => {
-    if (isOpen && !hasLoaded) {
-      loadConversation();
-    }
+    if (!isOpen || hasLoaded) return;
+
+    const controller = new AbortController();
+    loadConversation(controller.signal);
+
+    return () => controller.abort();
   }, [isOpen, hasLoaded]);
 
   // Handle open animation (only for overlay)
@@ -89,25 +92,27 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
-  const loadConversation = async () => {
+  const loadConversation = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch("/api/scribe");
+      const res = await fetch("/api/scribe", { signal });
       if (res.ok) {
         const data = await res.json();
-        const loadedMessages = (data.messages || []).map((msg: Message) => ({ 
-          role: msg.role, 
-          content: msg.content, 
-          timestamp: msg.timestamp 
+        const loadedMessages = (data.messages || []).map((msg: Message) => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp
         }));
         setMessages(loadedMessages);
         setAiAccess(data.aiAccess || null);
         setHasLoaded(true);
-        
+
         if (data.aiAccess && !data.aiAccess.hasAccess) {
           setShowUpgradePrompt(true);
         }
       }
     } catch (error) {
+      // Ignore abort errors (expected when component unmounts)
+      if (error instanceof Error && error.name === "AbortError") return;
       console.error("Failed to load conversation:", error);
     }
   };
@@ -203,11 +208,12 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
         <button
           onClick={handleRestore}
           className="flex items-center gap-3 px-5 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
+          aria-label="Open chat with Scribe"
         >
-          <Sparkles className="w-5 h-5" />
+          <Sparkles className="w-5 h-5" aria-hidden="true" />
           <span className="font-medium">Continue chatting</span>
           {messages.length > 0 && (
-            <span className="w-2 h-2 bg-rose-400 rounded-full animate-pulse" />
+            <span className="w-2 h-2 bg-rose-400 rounded-full animate-pulse" aria-hidden="true" />
           )}
         </button>
       </div>
@@ -247,10 +253,11 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
               onClick={clearConversation}
               className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-stone-600"
               title="Clear chat"
+              aria-label="Clear chat history"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4" aria-hidden="true" />
             </button>
-            
+
             {/* Only show Minimize/Close in overlay mode */}
             {variant === "overlay" && (
               <>
@@ -258,15 +265,17 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                   onClick={handleMinimize}
                   className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-stone-600"
                   title="Minimize"
+                  aria-label="Minimize chat"
                 >
-                  <Minimize2 className="w-4 h-4" />
+                  <Minimize2 className="w-4 h-4" aria-hidden="true" />
                 </button>
                 <button
                   onClick={onClose}
                   className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-stone-600"
                   title="Close"
+                  aria-label="Close chat"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4" aria-hidden="true" />
                 </button>
               </>
             )}
@@ -274,7 +283,12 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto overscroll-contain bg-white">
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain bg-white"
+          role="log"
+          aria-live="polite"
+          aria-label="Chat messages"
+        >
           <div className="p-4 md:p-8 space-y-8 min-h-full">
             {showUpgradePrompt ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
@@ -369,11 +383,16 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                   </div>
                 ))}
                 {isLoading && (
-                  <div className="flex gap-4 justify-start animate-in fade-in duration-300">
+                  <div
+                    className="flex gap-4 justify-start animate-in fade-in duration-300"
+                    role="status"
+                    aria-busy="true"
+                    aria-label="Scribe is typing"
+                  >
                     <div className="flex items-center gap-1.5 h-8">
-                      <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} aria-hidden="true" />
+                      <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} aria-hidden="true" />
+                      <span className="w-1.5 h-1.5 bg-stone-300 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} aria-hidden="true" />
                     </div>
                   </div>
                 )}
@@ -402,8 +421,9 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                       size="icon"
                       className="h-8 w-8 rounded-lg bg-stone-100 text-stone-500 hover:bg-stone-200"
                       disabled
+                      aria-label="Processing message"
                     >
-                      <StopCircle className="w-4 h-4" />
+                      <StopCircle className="w-4 h-4" aria-hidden="true" />
                     </Button>
                   ) : (
                     <Button
@@ -411,8 +431,9 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
                       disabled={!input.trim()}
                       size="icon"
                       className="h-8 w-8 rounded-lg bg-stone-900 text-white hover:bg-stone-800 disabled:opacity-50 disabled:hover:bg-stone-900 transition-all"
+                      aria-label="Send message"
                     >
-                      <Send className="w-4 h-4" />
+                      <Send className="w-4 h-4" aria-hidden="true" />
                     </Button>
                   )}
                 </div>

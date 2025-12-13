@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
+import { isAdmin } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { users, tenants, planners, pages, rsvpForms, rsvpResponses, calendarEvents, googleCalendarConnections, scheduledEmails } from "@/lib/db/schema";
 import { eq, desc, like, or, count, and, sql } from "drizzle-orm";
-import { getUserByEmail } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAILS = ["gabecabr@gmail.com"];
-
-async function isAdmin(session: { user?: { email?: string | null } } | null): Promise<boolean> {
-  if (!session?.user?.email) return false;
-  if (ADMIN_EMAILS.includes(session.user.email)) return true;
-  const user = await getUserByEmail(session.user.email);
-  return user?.isAdmin ?? false;
-}
 
 // GET /api/manage-x7k9/users - Get all users with pagination and search
 export async function GET(request: NextRequest) {

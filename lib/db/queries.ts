@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { eq, and, lte, count, isNotNull } from "drizzle-orm";
+import { eq, and, or, lte, lt, count, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   tenants,
   users,
@@ -68,6 +68,13 @@ export async function getUserById(id: string): Promise<User | null> {
     where: eq(users.id, id),
   });
   return result ?? null;
+}
+
+export async function getUsersByTenantId(tenantId: string): Promise<User[]> {
+  const result = await db.query.users.findMany({
+    where: eq(users.tenantId, tenantId),
+  });
+  return result;
 }
 
 export async function updateUserPassword(
@@ -536,19 +543,29 @@ export async function updatePromoCode(
   return code ?? null;
 }
 
-export async function incrementPromoCodeUses(id: string): Promise<void> {
-  const code = await db.query.promoCodes.findFirst({
-    where: eq(promoCodes.id, id),
-  });
-  if (!code) return;
-  
-  await db
+export async function incrementPromoCodeUses(id: string): Promise<boolean> {
+  // Use atomic SQL increment to prevent race conditions
+  // Also validates that we don't exceed maxUses in the same query
+  const result = await db
     .update(promoCodes)
     .set({
-      currentUses: code.currentUses + 1,
+      currentUses: sql`${promoCodes.currentUses} + 1`,
       updatedAt: new Date(),
     })
-    .where(eq(promoCodes.id, id));
+    .where(
+      and(
+        eq(promoCodes.id, id),
+        // Only increment if under limit (or no limit set)
+        or(
+          isNull(promoCodes.maxUses),
+          lt(promoCodes.currentUses, promoCodes.maxUses)
+        )
+      )
+    )
+    .returning({ id: promoCodes.id });
+
+  // Return true if update was successful (row matched the conditions)
+  return result.length > 0;
 }
 
 // ============================================================================

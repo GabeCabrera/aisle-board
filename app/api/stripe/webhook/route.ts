@@ -3,6 +3,9 @@ import Stripe from "stripe";
 import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import logger from "@/lib/logger";
+import { getUsersByTenantId } from "@/lib/db/queries";
+import { sendEmail } from "@/lib/email";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16" as Stripe.LatestApiVersion,
@@ -25,14 +28,14 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+    logger.error("Webhook signature verification failed", err instanceof Error ? err : undefined);
     return NextResponse.json(
       { error: "Webhook signature verification failed" },
       { status: 400 }
     );
   }
 
-  console.log(`Received Stripe webhook: ${event.type}`);
+  logger.info("Received Stripe webhook", { eventType: event.type });
 
   // Handle different event types
   switch (event.type) {
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(tenants.id, tenantId));
 
-        console.log(`Updated tenant ${tenantId}: plan=${plan}, status=${status}`);
+        logger.info("Subscription updated", { tenantId, plan, status });
       }
       break;
     }
@@ -90,7 +93,7 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(tenants.id, tenantId));
 
-        console.log(`Subscription canceled for tenant ${tenantId}`);
+        logger.info("Subscription canceled", { tenantId });
       }
       break;
     }
@@ -118,7 +121,7 @@ export async function POST(request: NextRequest) {
             })
             .where(eq(tenants.id, tenantId));
 
-          console.log(`Payment succeeded for tenant ${tenantId}`);
+          logger.info("Payment succeeded", { tenantId });
         }
       }
       break;
@@ -127,11 +130,11 @@ export async function POST(request: NextRequest) {
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.subscription as string;
-      
+
       if (subscriptionId) {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const tenantId = subscription.metadata?.tenantId;
-        
+
         if (tenantId) {
           // Mark as past due but don't immediately downgrade
           await db
@@ -142,8 +145,19 @@ export async function POST(request: NextRequest) {
             })
             .where(eq(tenants.id, tenantId));
 
-          console.log(`Payment failed for tenant ${tenantId}`);
-          // TODO: Send email notification about failed payment
+          logger.warn("Payment failed", { tenantId });
+
+          // Send email notification about failed payment to all users in tenant
+          const tenantUsers = await getUsersByTenantId(tenantId);
+          for (const user of tenantUsers) {
+            await sendEmail({
+              to: user.email,
+              template: "payment_failed",
+              data: {
+                name: user.name || user.email.split("@")[0],
+              },
+            });
+          }
         }
       }
       break;
@@ -171,7 +185,7 @@ export async function POST(request: NextRequest) {
             })
             .where(eq(tenants.id, tenantId));
           
-          console.log(`Granted legacy access to tenant ${tenantId}`);
+          logger.info("Granted legacy access", { tenantId });
         }
       }
       // Subscription checkouts are handled by customer.subscription.created
@@ -179,7 +193,7 @@ export async function POST(request: NextRequest) {
     }
 
     default:
-      console.log(`Unhandled event type: ${event.type}`);
+      logger.debug("Unhandled Stripe event", { eventType: event.type });
   }
 
   return NextResponse.json({ received: true });

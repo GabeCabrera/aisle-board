@@ -10,6 +10,7 @@ import {
   getGoogleCalendarConnection,
   getTenantById,
 } from "@/lib/db/queries";
+import { verifySignedState } from "@/lib/auth/oauth-state";
 import { google } from "googleapis";
 
 // Force dynamic rendering since this route uses searchParams
@@ -47,30 +48,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Decode and verify state
-    let stateData: { tenantId: string; userId: string; timestamp: number };
-    try {
-      stateData = JSON.parse(Buffer.from(state, "base64").toString());
-    } catch (parseError) {
-      console.error("Google callback: Failed to parse state", parseError);
+    // Verify HMAC-signed state (handles signature validation and expiration)
+    const stateData = verifySignedState(state);
+    if (!stateData) {
+      console.error("Google callback: Invalid or expired state");
       return NextResponse.redirect(
         new URL("/?error=invalid_state", baseUrl)
-      );
-    }
-
-    // Validate state data
-    if (!stateData.tenantId || !stateData.userId) {
-      console.error("Google callback: State missing required fields", { stateData });
-      return NextResponse.redirect(
-        new URL("/planner?error=invalid_state", baseUrl)
-      );
-    }
-
-    // Check if state is expired (1 hour)
-    if (Date.now() - stateData.timestamp > 3600000) {
-      console.error("Google callback: State expired");
-      return NextResponse.redirect(
-        new URL("/?error=state_expired", baseUrl)
       );
     }
 

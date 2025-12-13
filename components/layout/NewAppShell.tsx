@@ -77,7 +77,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
   const showFloatingChat = browser.activeTabId !== 'scribe' && browser.activeTabId !== 'settings';
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-canvas/50 border-r border-border backdrop-blur-xl">
+    <nav className="flex flex-col h-full bg-canvas/50 border-r border-border backdrop-blur-xl" aria-label="Main navigation">
       {/* Header */}
       <div className="h-16 flex items-center px-6 border-b border-border/50">
         <span className="font-serif text-2xl font-medium tracking-tight text-foreground">Scribe & Stem</span>
@@ -89,13 +89,14 @@ function MainContent({ children }: { children: React.ReactNode }) {
           variant="ghost"
           className={cn(
             "w-full justify-start h-10 mb-6 font-medium",
-            browser.activeTabId === 'chat' 
-              ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary" 
+            browser.activeTabId === 'chat'
+              ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
           onClick={() => browser.goHome()}
+          aria-current={browser.activeTabId === 'chat' ? "page" : undefined}
         >
-          <MessageSquare className="mr-2 h-4 w-4" />
+          <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
           Chat
         </Button>
 
@@ -106,20 +107,21 @@ function MainContent({ children }: { children: React.ReactNode }) {
         {tools.map((tool) => {
           const Icon = tool.icon || TOOL_ICONS[tool.id] || LayoutDashboard;
           const isActive = browser.activeTabId === tool.id || browser.tabs.find(t => t.id === browser.activeTabId)?.toolId === tool.id;
-          
+
           return (
             <Button
               key={tool.id}
               variant="ghost"
               className={cn(
                 "w-full justify-start h-10 font-medium transition-all duration-200",
-                isActive 
-                  ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary translate-x-1" 
+                isActive
+                  ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary translate-x-1"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:translate-x-1"
               )}
               onClick={() => handleToolClick(tool.id)}
+              aria-current={isActive ? "page" : undefined}
             >
-              <Icon className={cn("mr-2 h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+              <Icon className={cn("mr-2 h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} aria-hidden="true" />
               {tool.label}
             </Button>
           );
@@ -164,7 +166,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </div>
+    </nav>
   );
 
   return (
@@ -184,6 +186,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
               className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+              aria-hidden="true"
             />
             <motion.div
               initial={{ x: "-100%" }}
@@ -191,6 +194,9 @@ function MainContent({ children }: { children: React.ReactNode }) {
               exit={{ x: "-100%" }}
               transition={{ type: "spring", bounce: 0, duration: 0.3 }}
               className="fixed inset-y-0 left-0 z-50 w-72 bg-background md:hidden shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
             >
               <SidebarContent />
             </motion.div>
@@ -202,10 +208,19 @@ function MainContent({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col relative min-w-0 overflow-hidden bg-white/50">
         {/* Mobile Header */}
         <div className="md:hidden h-16 flex items-center px-4 border-b border-border bg-background/80 backdrop-blur-md z-20">
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="-ml-2">
-            <Menu className="h-5 w-5" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(true)}
+            className="-ml-2"
+            aria-label="Open navigation menu"
+            aria-expanded={isMobileOpen}
+            aria-controls="mobile-nav"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
-                        <span className="ml-2 font-serif text-lg font-medium">Scribe & Stem</span>        </div>
+          <span className="ml-2 font-serif text-lg font-medium">Scribe & Stem</span>
+        </div>
 
         {/* Content Scroll Area */}
         <div className="flex-1 overflow-y-auto scroll-smooth p-4 md:p-8">

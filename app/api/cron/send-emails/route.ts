@@ -15,7 +15,18 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // SECURITY: Always require CRON_SECRET to be configured
+  if (!cronSecret) {
+    console.error("CRON_SECRET environment variable is not configured");
+    return NextResponse.json(
+      { error: "Server misconfiguration" },
+      { status: 500 }
+    );
+  }
+
+  // Validate the authorization header
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    console.warn("Unauthorized cron request attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

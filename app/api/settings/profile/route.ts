@@ -4,24 +4,35 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { profileUpdateSchema, sanitizeString } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const body = await request.json();
-    const { displayName, weddingDate, onboardingComplete, plannerName, bio, socialLinks, profileImage } = body;
+
+    // Validate input
+    const parsed = profileUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid input", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { displayName, weddingDate, onboardingComplete, plannerName, bio, socialLinks, profileImage } = parsed.data;
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
     };
 
     if (displayName !== undefined) {
-      updateData.displayName = displayName;
+      updateData.displayName = sanitizeString(displayName);
     }
 
     if (weddingDate !== undefined) {
@@ -33,17 +44,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (plannerName !== undefined) {
-      updateData.plannerName = plannerName;
+      updateData.plannerName = sanitizeString(plannerName);
     }
 
     if (bio !== undefined) {
-      updateData.bio = bio;
+      updateData.bio = sanitizeString(bio);
     }
 
     if (socialLinks !== undefined) {
-      updateData.socialLinks = socialLinks; // Assuming socialLinks is already a valid JSON object
+      updateData.socialLinks = socialLinks;
     }
-    
+
     if (profileImage !== undefined) {
       updateData.profileImage = profileImage;
     }

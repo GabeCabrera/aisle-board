@@ -26,7 +26,7 @@ import {
   weddingDecisions,
   type CalendarEvent
 } from "@/lib/db/schema";
-import { eq, and, sql, desc, like, or } from "drizzle-orm";
+import { eq, and, sql, desc, like, ilike, or } from "drizzle-orm";
 
 // ============================================================================ 
 // TYPES
@@ -47,7 +47,76 @@ export interface ToolResult {
   };
 }
 
-// ============================================================================ 
+// Type for Drizzle transaction context
+type DrizzleTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// Page data returned from transactional page access
+interface PageData {
+  pageId: string;
+  plannerId: string;
+  fields: Record<string, unknown>;
+}
+
+/**
+ * Execute a read-modify-write operation on a page with row-level locking.
+ * Uses FOR UPDATE to prevent concurrent modifications.
+ *
+ * @param tenantId - The tenant ID
+ * @param templateId - The page template ID (e.g., "guest-list", "vendor-contacts")
+ * @param operation - Callback that receives the transaction context and page data
+ * @returns The result of the operation
+ */
+async function withPageLock<T>(
+  tenantId: string,
+  templateId: string,
+  operation: (
+    tx: DrizzleTransaction,
+    pageData: PageData
+  ) => Promise<T>
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    // Get or create planner
+    let planner = await tx.query.planners.findFirst({
+      where: eq(planners.tenantId, tenantId)
+    });
+
+    if (!planner) {
+      const [newPlanner] = await tx.insert(planners).values({ tenantId }).returning();
+      planner = newPlanner;
+    }
+
+    // Try to get page with FOR UPDATE lock to prevent concurrent modifications
+    const pageResult = await tx.execute(sql`
+      SELECT id, fields FROM pages
+      WHERE planner_id = ${planner.id} AND template_id = ${templateId}
+      FOR UPDATE
+    `);
+
+    let page: { id: string; fields: Record<string, unknown> };
+
+    if (pageResult.rows.length === 0) {
+      // Create new page if it doesn't exist
+      const [newPage] = await tx.insert(pages).values({
+        plannerId: planner.id,
+        templateId,
+        title: getTemplateTitle(templateId),
+        fields: getDefaultFields(templateId)
+      }).returning();
+      page = { id: newPage.id, fields: (newPage.fields as Record<string, unknown>) || {} };
+    } else {
+      const row = pageResult.rows[0] as { id: string; fields: Record<string, unknown> };
+      page = { id: row.id, fields: row.fields || {} };
+    }
+
+    return operation(tx, {
+      pageId: page.id,
+      plannerId: planner.id,
+      fields: page.fields
+    });
+  });
+}
+
+// ============================================================================
 // MAIN EXECUTOR
 // ============================================================================ 
 
@@ -324,161 +393,176 @@ async function updateBudgetItem(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "budget");
-  
-  const items = (fields.items as Array<Record<string, unknown>>) || [];
-  let itemIndex = -1;
+  return withPageLock(context.tenantId, "budget", async (tx, { pageId, fields }) => {
+    const items = (fields.items as Array<Record<string, unknown>>) || [];
+    let itemIndex = -1;
 
-  // Find by ID first
-  if (params.itemId) {
-    itemIndex = items.findIndex(i => i.id === params.itemId);
-  }
-  // Find by Vendor Name (fuzzy)
-  else if (params.findVendor) {
-    const search = (params.findVendor as string).toLowerCase();
-    itemIndex = items.findIndex(i => (i.vendor as string)?.toLowerCase().includes(search));
-  }
-  // Find by Category (exactish)
-  else if (params.findCategory) {
-    const search = (params.findCategory as string).toLowerCase();
-    itemIndex = items.findIndex(i => (i.category as string)?.toLowerCase() === search);
-  }
+    // Find by ID first
+    if (params.itemId) {
+      itemIndex = items.findIndex(i => i.id === params.itemId);
+    }
+    // Find by Vendor Name (fuzzy)
+    else if (params.findVendor) {
+      const search = (params.findVendor as string).toLowerCase();
+      itemIndex = items.findIndex(i => (i.vendor as string)?.toLowerCase().includes(search));
+    }
+    // Find by Category (exactish)
+    else if (params.findCategory) {
+      const search = (params.findCategory as string).toLowerCase();
+      itemIndex = items.findIndex(i => (i.category as string)?.toLowerCase() === search);
+    }
 
-  if (itemIndex === -1) {
-    return { success: false, message: "Budget item not found" };
-  }
+    if (itemIndex === -1) {
+      return { success: false, message: "Budget item not found" };
+    }
 
-  const item = items[itemIndex];
-  const changes: string[] = [];
+    const item = items[itemIndex];
+    const changes: string[] = [];
 
-  // Store as string in CENTS
-  if (params.estimatedCost !== undefined) {
-    item.totalCost = String((params.estimatedCost as number) * 100);
-    changes.push(`cost to $${(params.estimatedCost as number).toLocaleString()}`);
-  }
-  if (params.amountPaid !== undefined) {
-    item.amountPaid = String((params.amountPaid as number) * 100);
-    changes.push(`paid amount to $${(params.amountPaid as number).toLocaleString()}`);
-  }
-  if (params.vendor !== undefined) {
-    item.vendor = params.vendor;
-    changes.push(`vendor to ${params.vendor}`);
-  }
-  if (params.notes !== undefined) {
-    item.notes = params.notes;
-    changes.push(`notes`);
-  }
+    // Store as string in CENTS
+    if (params.estimatedCost !== undefined) {
+      item.totalCost = String((params.estimatedCost as number) * 100);
+      changes.push(`cost to $${(params.estimatedCost as number).toLocaleString()}`);
+    }
+    if (params.amountPaid !== undefined) {
+      item.amountPaid = String((params.amountPaid as number) * 100);
+      changes.push(`paid amount to $${(params.amountPaid as number).toLocaleString()}`);
+    }
+    if (params.vendor !== undefined) {
+      item.vendor = params.vendor;
+      changes.push(`vendor to ${params.vendor}`);
+    }
+    if (params.notes !== undefined) {
+      item.notes = params.notes;
+      changes.push(`notes`);
+    }
 
-  items[itemIndex] = item;
+    items[itemIndex] = item;
 
-  await db.update(pages)
-    .set({ fields: { ...fields, items }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
+    await tx.update(pages)
+      .set({ fields: { ...fields, items }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
 
-  return {
-    success: true,
-    message: `Updated ${item.category || "item"}: changed ${changes.join(", ")}`,
-    data: items[itemIndex]
-  };
+    return {
+      success: true,
+      message: `Updated ${item.category || "item"}: changed ${changes.join(", ")}`,
+      data: items[itemIndex]
+    };
+  });
 }
 
 async function deleteBudgetItem(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "budget");
-  
-  let items = (fields.items as Array<Record<string, unknown>>) || [];
-  const initialCount = items.length;
+  return withPageLock(context.tenantId, "budget", async (tx, { pageId, fields }) => {
+    const items = (fields.items as Array<Record<string, unknown>>) || [];
+    const initialCount = items.length;
 
-  // Normalize search strings for comparison
-  const normalize = (s: string | undefined | null) => 
-    (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    // Normalize search strings for comparison
+    const normalize = (s: string | undefined | null) =>
+      (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  const searchVendor = params.vendor ? normalize(params.vendor as string) : null;
-  const searchCategory = params.category ? normalize(params.category as string) : null;
-  const searchAmount = params.amount as number | undefined;
+    const searchVendor = params.vendor ? normalize(params.vendor as string) : null;
+    const searchCategory = params.category ? normalize(params.category as string) : null;
+    const searchAmount = params.amount as number | undefined;
 
-  // Filter out items that match the criteria
-  // We keep items that DO NOT match
-  const newItems = items.filter(i => {
-    // 1. ID Check
-    if (params.itemId) {
-      if (params.itemId === "undefined") {
-        // If target is "undefined", delete items with missing/null/"undefined" IDs
-        if (!i.id || i.id === "undefined") return false; // Delete this
-      } else {
-        // Standard ID match
-        if (i.id === params.itemId) return false; // Delete this
+    // Filter out items that match the criteria
+    // We keep items that DO NOT match
+    const newItems = items.filter(i => {
+      // 1. ID Check
+      if (params.itemId) {
+        if (params.itemId === "undefined") {
+          // If target is "undefined", delete items with missing/null/"undefined" IDs
+          if (!i.id || i.id === "undefined") return false; // Delete this
+        } else {
+          // Standard ID match
+          if (i.id === params.itemId) return false; // Delete this
+        }
+        // If ID was provided and didn't match above, keep it (unless we want to support mixed criteria, but ID is usually specific)
+        return true;
       }
-      // If ID was provided and didn't match above, keep it (unless we want to support mixed criteria, but ID is usually specific)
-      return true;
-    }
 
-    let matches = false;
-    let criteriaCount = 0;
-    let matchCount = 0;
+      let matches = false;
+      let criteriaCount = 0;
+      let matchCount = 0;
 
-    // Vendor Check
-    if (searchVendor) {
-      criteriaCount++;
-      const itemVendor = normalize(i.vendor as string);
-      if (itemVendor === searchVendor || itemVendor.includes(searchVendor) || searchVendor.includes(itemVendor)) {
-        matchCount++;
+      // Vendor Check
+      if (searchVendor) {
+        criteriaCount++;
+        const itemVendor = normalize(i.vendor as string);
+        if (itemVendor === searchVendor || itemVendor.includes(searchVendor) || searchVendor.includes(itemVendor)) {
+          matchCount++;
+        }
       }
-    }
 
-    // Category Check
-    if (searchCategory) {
-      criteriaCount++;
-      const itemCategory = normalize(i.category as string);
-      if (itemCategory === searchCategory || itemCategory.includes(searchCategory) || searchCategory.includes(itemCategory)) {
-        matchCount++;
+      // Category Check
+      if (searchCategory) {
+        criteriaCount++;
+        const itemCategory = normalize(i.category as string);
+        if (itemCategory === searchCategory || itemCategory.includes(searchCategory) || searchCategory.includes(itemCategory)) {
+          matchCount++;
+        }
       }
-    }
 
-    // Amount Check
-    if (searchAmount !== undefined) {
-      criteriaCount++;
-      const cost = parseFloat(String(i.totalCost));
-      // Check exact dollars, x100 (cents), or /100 (dollars from cents)
-      if (Math.abs(cost - searchAmount) < 0.01 || 
-          Math.abs(cost - searchAmount * 100) < 0.01 || 
-          Math.abs(cost - searchAmount / 100) < 0.01) {
-        matchCount++;
+      // Amount Check
+      if (searchAmount !== undefined) {
+        criteriaCount++;
+        const cost = parseFloat(String(i.totalCost));
+        // Check exact dollars, x100 (cents), or /100 (dollars from cents)
+        if (Math.abs(cost - searchAmount) < 0.01 ||
+            Math.abs(cost - searchAmount * 100) < 0.01 ||
+            Math.abs(cost - searchAmount / 100) < 0.01) {
+          matchCount++;
+        }
       }
+
+      // If we have criteria and they ALL match, then delete
+      if (criteriaCount > 0 && matchCount === criteriaCount) {
+        matches = true;
+      }
+
+      return !matches;
+    });
+
+    if (newItems.length === initialCount) {
+      const itemList = items.slice(0, 5).map(i => {
+        const cost = parseFloat(String(i.totalCost)) || 0;
+        return `${i.category || "Unknown"} - ${i.vendor || "No vendor"} ($${cost.toLocaleString()})`;
+      }).join(", ");
+      return {
+        success: false,
+        message: `Budget item not found. Available items: ${itemList || "none"}`
+      };
     }
 
-    // If we have criteria and they ALL match, then delete
-    if (criteriaCount > 0 && matchCount === criteriaCount) {
-      matches = true;
+    const deletedCount = initialCount - newItems.length;
+
+    // Require explicit confirmation for bulk deletes (more than 1 item)
+    if (deletedCount > 1 && params.confirmBulk !== true) {
+      const itemsToDelete = items
+        .filter(i => !newItems.includes(i))
+        .map(i => `${i.category || "Unknown"} - ${i.vendor || "No vendor"}`)
+        .slice(0, 10)
+        .join(", ");
+      return {
+        success: false,
+        message: `This will delete ${deletedCount} budget items: ${itemsToDelete}${deletedCount > 10 ? "..." : ""}. Please confirm this bulk delete operation.`,
+        requiresConfirmation: true,
+        data: { count: deletedCount }
+      };
     }
 
-    return !matches;
-  });
+    await tx.update(pages)
+      .set({ fields: { ...fields, items: newItems }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
 
-  if (newItems.length === initialCount) {
-     const itemList = items.slice(0, 5).map(i => {
-      const cost = parseFloat(String(i.totalCost)) || 0;
-      return `${i.category || "Unknown"} - ${i.vendor || "No vendor"} ($${cost.toLocaleString()})`;
-    }).join(", ");
-    return { 
-      success: false, 
-      message: `Budget item not found. Available items: ${itemList || "none"}` 
+    return {
+      success: true,
+      message: `Removed ${deletedCount} item${deletedCount > 1 ? "s" : ""} from budget`,
+      data: { deletedCount }
     };
-  }
-
-  const deletedCount = initialCount - newItems.length;
-
-  await db.update(pages)
-    .set({ fields: { ...fields, items: newItems }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
-
-  return {
-    success: true,
-    message: `Removed ${deletedCount} item${deletedCount > 1 ? "s" : ""} from budget`,
-    data: { deletedCount }
-  };
+  });
 }
 
 async function setTotalBudget(
@@ -543,310 +627,317 @@ async function addGuest(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "guest-list");
-  
-  const guests = (fields.guests as GuestData[]) || [];
-  
-  // Check if guest already exists (by name)
-  const existingGuest = guests.find(
-    g => g.name?.toLowerCase() === (params.name as string)?.toLowerCase()
-  );
-  
-  if (existingGuest) {
-    return {
-      success: false,
-      message: `${params.name} is already on the guest list. Use update_guest to modify their info.`
+  const result = await withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
+    const guests = (fields.guests as GuestData[]) || [];
+
+    // Check if guest already exists (by name)
+    const existingGuest = guests.find(
+      g => g.name?.toLowerCase() === (params.name as string)?.toLowerCase()
+    );
+
+    if (existingGuest) {
+      return {
+        success: false,
+        message: `${params.name} is already on the guest list. Use update_guest to modify their info.`,
+        guestCount: guests.length
+      };
+    }
+
+    const newGuest: GuestData = {
+      id: crypto.randomUUID(),
+      name: params.name as string,
+      email: (params.email as string) || "",
+      phone: (params.phone as string) || "",
+      address: (params.address as string) || "",
+      side: (params.side as string) || "both",
+      group: (params.group as string) || "",
+      plusOne: (params.plusOne as boolean) || false,
+      plusOneName: "",
+      rsvp: (params.rsvp as string) || "pending",
+      mealChoice: (params.mealChoice as string) || "",
+      dietaryRestrictions: (params.dietaryRestrictions as string) || "",
+      tableNumber: params.tableNumber as number | undefined,
+      giftReceived: false,
+      thankYouSent: false,
+      notes: (params.notes as string) || "",
+      createdAt: new Date().toISOString()
     };
-  }
-  
-  const newGuest: GuestData = {
-    id: crypto.randomUUID(),
-    name: params.name as string,
-    email: (params.email as string) || "",
-    phone: (params.phone as string) || "",
-    address: (params.address as string) || "",
-    side: (params.side as string) || "both",
-    group: (params.group as string) || "",
-    plusOne: (params.plusOne as boolean) || false,
-    plusOneName: "",
-    rsvp: (params.rsvp as string) || "pending",
-    mealChoice: (params.mealChoice as string) || "",
-    dietaryRestrictions: (params.dietaryRestrictions as string) || "",
-    tableNumber: params.tableNumber as number | undefined,
-    giftReceived: false,
-    thankYouSent: false,
-    notes: (params.notes as string) || "",
-    createdAt: new Date().toISOString()
-  };
 
-  guests.push(newGuest);
+    guests.push(newGuest);
 
-  await db.update(pages)
-    .set({ fields: { ...fields, guests }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
+    // Update page within transaction
+    await tx.update(pages)
+      .set({ fields: { ...fields, guests }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
 
-  // Update kernel guest count
-  await db.update(weddingKernels)
-    .set({ guestCount: guests.length, updatedAt: new Date() })
-    .where(eq(weddingKernels.tenantId, context.tenantId));
+    // Update kernel guest count within transaction
+    await tx.update(weddingKernels)
+      .set({ guestCount: guests.length, updatedAt: new Date() })
+      .where(eq(weddingKernels.tenantId, context.tenantId));
 
-  // Update checklist decision
-  if (guests.length > 0) {
-      await updateDecisionFn(context.tenantId, "guest_list", {
-          status: "researching"
-      });
+    const extras: string[] = [];
+    if (params.group) extras.push(`group: ${params.group}`);
+    if (params.plusOne) extras.push("with plus one");
+    if (params.rsvp === "confirmed") extras.push("confirmed");
+
+    return {
+      success: true,
+      message: `Added ${params.name} to guest list${extras.length ? ` (${extras.join(", ")})` : ""}. Total guests: ${guests.length}`,
+      data: { guest: newGuest, totalGuests: guests.length, pageId },
+      guestCount: guests.length
+    };
+  });
+
+  // Update checklist decision outside transaction (non-critical)
+  if (result.success && (result as { guestCount?: number }).guestCount && (result as { guestCount: number }).guestCount > 0) {
+    await updateDecisionFn(context.tenantId, "guest_list", {
+      status: "researching"
+    });
   }
 
-  const extras: string[] = [];
-  if (params.group) extras.push(`group: ${params.group}`);
-  if (params.plusOne) extras.push("with plus one");
-  if (params.rsvp === "confirmed") extras.push("confirmed");
-  
-  return {
-    success: true,
-    message: `Added ${params.name} to guest list${extras.length ? ` (${extras.join(", ")})` : ""}. Total guests: ${guests.length}`,
-    data: { guest: newGuest, totalGuests: guests.length, pageId }
-  };
+  return result;
 }
 
 async function updateGuest(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "guest-list");
-  
-  const guests = (fields.guests as GuestData[]) || [];
-  let guestIndex = -1;
+  return withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
+    const guests = (fields.guests as GuestData[]) || [];
+    let guestIndex = -1;
 
-  // Find by ID first
-  if (params.guestId) {
-    guestIndex = guests.findIndex(g => g.id === params.guestId);
-  }
-  // Find by name (partial match, case insensitive)
-  else if (params.guestName) {
-    const searchName = (params.guestName as string).toLowerCase();
-    // Try exact match first
-    guestIndex = guests.findIndex(g => 
-      g.name?.toLowerCase() === searchName
-    );
-    // Then try partial match
-    if (guestIndex === -1) {
-      guestIndex = guests.findIndex(g => 
-        g.name?.toLowerCase().includes(searchName) ||
-        searchName.includes(g.name?.toLowerCase() || "")
-      );
+    // Find by ID first
+    if (params.guestId) {
+      guestIndex = guests.findIndex(g => g.id === params.guestId);
     }
-  }
+    // Find by name (partial match, case insensitive)
+    else if (params.guestName) {
+      const searchName = (params.guestName as string).toLowerCase();
+      // Try exact match first
+      guestIndex = guests.findIndex(g =>
+        g.name?.toLowerCase() === searchName
+      );
+      // Then try partial match
+      if (guestIndex === -1) {
+        guestIndex = guests.findIndex(g =>
+          g.name?.toLowerCase().includes(searchName) ||
+          searchName.includes(g.name?.toLowerCase() || "")
+        );
+      }
+    }
 
-  if (guestIndex === -1) {
-    const guestNames = guests.slice(0, 10).map(g => g.name).join(", ");
-    return { 
-      success: false, 
-      message: `Guest not found. Available guests: ${guestNames || "none"}${guests.length > 10 ? `... and ${guests.length - 10} more` : ""}` 
+    if (guestIndex === -1) {
+      const guestNames = guests.slice(0, 10).map(g => g.name).join(", ");
+      return {
+        success: false,
+        message: `Guest not found. Available guests: ${guestNames || "none"}${guests.length > 10 ? `... and ${guests.length - 10} more` : ""}`
+      };
+    }
+
+    const guest = guests[guestIndex];
+    const changes: string[] = [];
+
+    // Update all provided fields
+    if (params.name !== undefined) {
+      guest.name = params.name as string;
+      changes.push("name");
+    }
+    if (params.email !== undefined) {
+      guest.email = params.email as string;
+      changes.push("email");
+    }
+    if (params.phone !== undefined) {
+      guest.phone = params.phone as string;
+      changes.push("phone");
+    }
+    if (params.address !== undefined) {
+      guest.address = params.address as string;
+      changes.push("address");
+    }
+    if (params.side !== undefined) {
+      guest.side = params.side as string;
+      changes.push("side");
+    }
+    if (params.group !== undefined) {
+      guest.group = params.group as string;
+      changes.push("group");
+    }
+    if (params.plusOne !== undefined) {
+      guest.plusOne = params.plusOne as boolean;
+      changes.push("plus one");
+    }
+    if (params.plusOneName !== undefined) {
+      guest.plusOneName = params.plusOneName as string;
+      changes.push("plus one name");
+    }
+    if (params.rsvp !== undefined) {
+      guest.rsvp = params.rsvp as string;
+      changes.push(`RSVP to ${params.rsvp}`);
+    }
+    if (params.mealChoice !== undefined) {
+      guest.mealChoice = params.mealChoice as string;
+      changes.push(`meal to ${params.mealChoice}`);
+    }
+    if (params.dietaryRestrictions !== undefined) {
+      guest.dietaryRestrictions = params.dietaryRestrictions as string;
+      changes.push("dietary restrictions");
+    }
+    if (params.tableNumber !== undefined) {
+      guest.tableNumber = params.tableNumber as number;
+      changes.push(`table to ${params.tableNumber}`);
+    }
+    if (params.giftReceived !== undefined) {
+      guest.giftReceived = params.giftReceived as boolean;
+      changes.push(params.giftReceived ? "marked gift received" : "marked gift not received");
+    }
+    if (params.thankYouSent !== undefined) {
+      guest.thankYouSent = params.thankYouSent as boolean;
+      changes.push(params.thankYouSent ? "marked thank you sent" : "marked thank you not sent");
+    }
+    if (params.notes !== undefined) {
+      guest.notes = params.notes as string;
+      changes.push("notes");
+    }
+
+    guests[guestIndex] = guest;
+
+    await tx.update(pages)
+      .set({ fields: { ...fields, guests }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    return {
+      success: true,
+      message: `Updated ${guest.name}: changed ${changes.join(", ")}`,
+      data: { guest, pageId }
     };
-  }
-
-  const guest = guests[guestIndex];
-  const changes: string[] = [];
-
-  // Update all provided fields
-  if (params.name !== undefined) {
-    guest.name = params.name as string;
-    changes.push("name");
-  }
-  if (params.email !== undefined) {
-    guest.email = params.email as string;
-    changes.push("email");
-  }
-  if (params.phone !== undefined) {
-    guest.phone = params.phone as string;
-    changes.push("phone");
-  }
-  if (params.address !== undefined) {
-    guest.address = params.address as string;
-    changes.push("address");
-  }
-  if (params.side !== undefined) {
-    guest.side = params.side as string;
-    changes.push("side");
-  }
-  if (params.group !== undefined) {
-    guest.group = params.group as string;
-    changes.push("group");
-  }
-  if (params.plusOne !== undefined) {
-    guest.plusOne = params.plusOne as boolean;
-    changes.push("plus one");
-  }
-  if (params.plusOneName !== undefined) {
-    guest.plusOneName = params.plusOneName as string;
-    changes.push("plus one name");
-  }
-  if (params.rsvp !== undefined) {
-    guest.rsvp = params.rsvp as string;
-    changes.push(`RSVP to ${params.rsvp}`);
-  }
-  if (params.mealChoice !== undefined) {
-    guest.mealChoice = params.mealChoice as string;
-    changes.push(`meal to ${params.mealChoice}`);
-  }
-  if (params.dietaryRestrictions !== undefined) {
-    guest.dietaryRestrictions = params.dietaryRestrictions as string;
-    changes.push("dietary restrictions");
-  }
-  if (params.tableNumber !== undefined) {
-    guest.tableNumber = params.tableNumber as number;
-    changes.push(`table to ${params.tableNumber}`);
-  }
-  if (params.giftReceived !== undefined) {
-    guest.giftReceived = params.giftReceived as boolean;
-    changes.push(params.giftReceived ? "marked gift received" : "marked gift not received");
-  }
-  if (params.thankYouSent !== undefined) {
-    guest.thankYouSent = params.thankYouSent as boolean;
-    changes.push(params.thankYouSent ? "marked thank you sent" : "marked thank you not sent");
-  }
-  if (params.notes !== undefined) {
-    guest.notes = params.notes as string;
-    changes.push("notes");
-  }
-
-  guests[guestIndex] = guest;
-
-  await db.update(pages)
-    .set({ fields: { ...fields, guests }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
-
-  return {
-    success: true,
-    message: `Updated ${guest.name}: changed ${changes.join(", ")}`,
-    data: { guest, pageId }
-  };
+  });
 }
 
 async function deleteGuest(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "guest-list");
-  
-  const guests = (fields.guests as GuestData[]) || [];
-  let guestIndex = -1;
+  return withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
+    const guests = (fields.guests as GuestData[]) || [];
+    let guestIndex = -1;
 
-  // Find by ID first
-  if (params.guestId) {
-    guestIndex = guests.findIndex(g => g.id === params.guestId);
-  }
-  // Find by name (partial match, case insensitive)
-  else if (params.guestName) {
-    const searchName = (params.guestName as string).toLowerCase();
-    // Try exact match first
-    guestIndex = guests.findIndex(g => 
-      g.name?.toLowerCase() === searchName
-    );
-    // Then try partial match
-    if (guestIndex === -1) {
-      guestIndex = guests.findIndex(g => 
-        g.name?.toLowerCase().includes(searchName) ||
-        searchName.includes(g.name?.toLowerCase() || "")
-      );
+    // Find by ID first
+    if (params.guestId) {
+      guestIndex = guests.findIndex(g => g.id === params.guestId);
     }
-  }
+    // Find by name (partial match, case insensitive)
+    else if (params.guestName) {
+      const searchName = (params.guestName as string).toLowerCase();
+      // Try exact match first
+      guestIndex = guests.findIndex(g =>
+        g.name?.toLowerCase() === searchName
+      );
+      // Then try partial match
+      if (guestIndex === -1) {
+        guestIndex = guests.findIndex(g =>
+          g.name?.toLowerCase().includes(searchName) ||
+          searchName.includes(g.name?.toLowerCase() || "")
+        );
+      }
+    }
 
-  if (guestIndex === -1) {
-    const guestNames = guests.slice(0, 5).map(g => g.name).join(", ");
-    return { 
-      success: false, 
-      message: `Guest not found. Current guests: ${guestNames || "none"}${guests.length > 5 ? `... and ${guests.length - 5} more` : ""}` 
+    if (guestIndex === -1) {
+      const guestNames = guests.slice(0, 5).map(g => g.name).join(", ");
+      return {
+        success: false,
+        message: `Guest not found. Current guests: ${guestNames || "none"}${guests.length > 5 ? `... and ${guests.length - 5} more` : ""}`
+      };
+    }
+
+    const deletedGuest = guests[guestIndex];
+    guests.splice(guestIndex, 1);
+
+    // Update page within transaction
+    await tx.update(pages)
+      .set({ fields: { ...fields, guests }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    // Update kernel guest count within transaction
+    await tx.update(weddingKernels)
+      .set({ guestCount: guests.length, updatedAt: new Date() })
+      .where(eq(weddingKernels.tenantId, context.tenantId));
+
+    return {
+      success: true,
+      message: `Removed ${deletedGuest.name} from guest list. Total guests: ${guests.length}`,
+      data: deletedGuest
     };
-  }
-
-  const deletedGuest = guests[guestIndex];
-  guests.splice(guestIndex, 1);
-
-  await db.update(pages)
-    .set({ fields: { ...fields, guests }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
-
-  // Update kernel guest count
-  await db.update(weddingKernels)
-    .set({ guestCount: guests.length, updatedAt: new Date() })
-    .where(eq(weddingKernels.tenantId, context.tenantId));
-
-  return {
-    success: true,
-    message: `Removed ${deletedGuest.name} from guest list. Total guests: ${guests.length}`,
-    data: deletedGuest
-  };
+  });
 }
 
 async function addGuestGroup(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "guest-list");
-  
-  const guests = (fields.guests as GuestData[]) || [];
-  const guestNames = params.guests as string[];
-  const newGuests: GuestData[] = [];
-  const skipped: string[] = [];
+  return withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
+    const guests = (fields.guests as GuestData[]) || [];
+    const guestNames = params.guests as string[];
+    const newGuests: GuestData[] = [];
+    const skipped: string[] = [];
 
-  for (const name of guestNames) {
-    // Check if guest already exists
-    const exists = guests.some(g => g.name?.toLowerCase() === name.toLowerCase());
-    if (exists) {
-      skipped.push(name);
-      continue;
+    for (const name of guestNames) {
+      // Check if guest already exists
+      const exists = guests.some(g => g.name?.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        skipped.push(name);
+        continue;
+      }
+
+      const newGuest: GuestData = {
+        id: crypto.randomUUID(),
+        name,
+        email: "",
+        phone: "",
+        address: (params.address as string) || "",
+        side: (params.side as string) || "both",
+        group: (params.group as string) || "",
+        plusOne: (params.plusOnes as boolean) || false,
+        rsvp: "pending",
+        mealChoice: "",
+        dietaryRestrictions: "",
+        giftReceived: false,
+        thankYouSent: false,
+        notes: "",
+        createdAt: new Date().toISOString()
+      };
+      guests.push(newGuest);
+      newGuests.push(newGuest);
     }
-    
-    const newGuest: GuestData = {
-      id: crypto.randomUUID(),
-      name,
-      email: "",
-      phone: "",
-      address: (params.address as string) || "",
-      side: (params.side as string) || "both",
-      group: (params.group as string) || "",
-      plusOne: (params.plusOnes as boolean) || false,
-      rsvp: "pending",
-      mealChoice: "",
-      dietaryRestrictions: "",
-      giftReceived: false,
-      thankYouSent: false,
-      notes: "",
-      createdAt: new Date().toISOString()
-    };
-    guests.push(newGuest);
-    newGuests.push(newGuest);
-  }
 
-  if (newGuests.length === 0) {
+    if (newGuests.length === 0) {
+      return {
+        success: false,
+        message: `All ${skipped.length} guests are already on the list: ${skipped.join(", ")}`
+      };
+    }
+
+    // Update page within transaction
+    await tx.update(pages)
+      .set({ fields: { ...fields, guests }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    // Update kernel guest count within transaction
+    await tx.update(weddingKernels)
+      .set({ guestCount: guests.length, updatedAt: new Date() })
+      .where(eq(weddingKernels.tenantId, context.tenantId));
+
+    let message = `Added ${newGuests.length} guest${newGuests.length > 1 ? "s" : ""}: ${newGuests.map(g => g.name).join(", ")}`;
+    if (skipped.length > 0) {
+      message += `. Skipped ${skipped.length} (already on list): ${skipped.join(", ")}`;
+    }
+    message += `. Total guests: ${guests.length}`;
+
     return {
-      success: false,
-      message: `All ${skipped.length} guests are already on the list: ${skipped.join(", ")}`
+      success: true,
+      message,
+      data: { guests: newGuests, totalGuests: guests.length, skipped, pageId }
     };
-  }
-
-  await db.update(pages)
-    .set({ fields: { ...fields, guests }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
-
-  // Update kernel guest count
-  await db.update(weddingKernels)
-    .set({ guestCount: guests.length, updatedAt: new Date() })
-    .where(eq(weddingKernels.tenantId, context.tenantId));
-
-  let message = `Added ${newGuests.length} guest${newGuests.length > 1 ? "s" : ""}: ${newGuests.map(g => g.name).join(", ")}`;
-  if (skipped.length > 0) {
-    message += `. Skipped ${skipped.length} (already on list): ${skipped.join(", ")}`;
-  }
-  message += `. Total guests: ${guests.length}`;
-
-  return {
-    success: true,
-    message,
-    data: { guests: newGuests, totalGuests: guests.length, skipped, pageId }
-  };
+  });
 }
 
 async function getGuestList(
@@ -1657,58 +1748,56 @@ async function addVendor(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
-  
-  const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-  
-  const newVendor = {
-    id: crypto.randomUUID(),
-    category: params.category,
-    name: params.name,
-    contactName: params.contactName || "",
-    email: params.email || "",
-    phone: params.phone || "",
-    status: params.status || "researching",
-    price: params.price ? (params.price as number) * 100 : null,
-    notes: params.notes || "",
-    depositPaid: false,
-    contractSigned: false,
-    createdAt: new Date().toISOString()
-  };
+  const result = await withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
+    const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
 
-  vendors.push(newVendor);
+    const newVendor = {
+      id: crypto.randomUUID(),
+      category: params.category,
+      name: params.name,
+      contactName: params.contactName || "",
+      email: params.email || "",
+      phone: params.phone || "",
+      status: params.status || "researching",
+      price: params.price ? (params.price as number) * 100 : null,
+      notes: params.notes || "",
+      depositPaid: false,
+      contractSigned: false,
+      createdAt: new Date().toISOString()
+    };
 
-  await db.update(pages)
-    .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
+    vendors.push(newVendor);
 
-  // Update kernel decisions
-  await updateKernelDecision(context.tenantId, params.category as string, {
-    status: params.status,
-    name: params.name,
-    locked: params.status === "booked"
+    await tx.update(pages)
+      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    return {
+      success: true,
+      message: `Added ${params.name} (${params.category}) to vendors`,
+      data: newVendor
+    };
   });
 
-  // Update checklist decision
-  const decisionName = getDecisionNameFromCategory(params.category as string);
-  if (decisionName) {
-    const decisionStatus = params.status === "booked" || params.status === "confirmed" ? "decided" : "researching";
-    await updateDecisionFn(context.tenantId, decisionName, {
-      status: decisionStatus,
-      choiceName: params.name as string,
-      // If booked, we could lock it, but let's stick to decided/researching for now unless explicitly locked
+  // Update kernel and checklist decisions outside transaction (non-critical)
+  if (result.success) {
+    await updateKernelDecision(context.tenantId, params.category as string, {
+      status: params.status,
+      name: params.name,
+      locked: params.status === "booked"
     });
-    
-    if (params.status === "booked") {
-        // If booked, allows updating the "locked" state if we wanted, but updateDecisionFn handles auto-lock on deposit
+
+    const decisionName = getDecisionNameFromCategory(params.category as string);
+    if (decisionName) {
+      const decisionStatus = params.status === "booked" || params.status === "confirmed" ? "decided" : "researching";
+      await updateDecisionFn(context.tenantId, decisionName, {
+        status: decisionStatus,
+        choiceName: params.name as string,
+      });
     }
   }
 
-  return {
-    success: true,
-    message: `Added ${params.name} (${params.category}) to vendors`,
-    data: newVendor
-  };
+  return result;
 }
 
 function getDecisionNameFromCategory(category: string): string | null {
@@ -1733,112 +1822,118 @@ async function updateVendor(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
-  
-  const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-  let vendorIndex = -1;
+  const result = await withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
+    const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
+    let vendorIndex = -1;
 
-  // Find by ID first
-  if (params.vendorId) {
-    vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
-  }
-  // Fall back to name match (case insensitive)
-  else if (params.vendorName) {
-    const searchName = (params.vendorName as string).toLowerCase();
-    // Try exact match first
-    vendorIndex = vendors.findIndex(v => 
-      (v.name as string)?.toLowerCase() === searchName
-    );
-    // Then try partial match
-    if (vendorIndex === -1) {
-      vendorIndex = vendors.findIndex(v => 
-        (v.name as string)?.toLowerCase().includes(searchName) ||
-        searchName.includes((v.name as string)?.toLowerCase() || "")
+    // Find by ID first
+    if (params.vendorId) {
+      vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
+    }
+    // Fall back to name match (case insensitive)
+    else if (params.vendorName) {
+      const searchName = (params.vendorName as string).toLowerCase();
+      // Try exact match first
+      vendorIndex = vendors.findIndex(v =>
+        (v.name as string)?.toLowerCase() === searchName
       );
+      // Then try partial match
+      if (vendorIndex === -1) {
+        vendorIndex = vendors.findIndex(v =>
+          (v.name as string)?.toLowerCase().includes(searchName) ||
+          searchName.includes((v.name as string)?.toLowerCase() || "")
+        );
+      }
+    }
+
+    if (vendorIndex === -1) {
+      const vendorNames = vendors.slice(0, 5).map(v => v.name).join(", ");
+      return {
+        success: false,
+        message: `Vendor not found. Available vendors: ${vendorNames || "none"}${vendors.length > 5 ? `... and ${vendors.length - 5} more` : ""}`
+      };
+    }
+
+    const vendor = vendors[vendorIndex];
+    const changes: string[] = [];
+
+    // Update fields if provided
+    if (params.name !== undefined) {
+      vendor.name = params.name;
+      changes.push("name");
+    }
+    if (params.category !== undefined) {
+      vendor.category = params.category;
+      changes.push("category");
+    }
+    if (params.contactName !== undefined) {
+      vendor.contactName = params.contactName;
+      changes.push("contact info");
+    }
+    if (params.email !== undefined) {
+      vendor.email = params.email;
+      changes.push("email");
+    }
+    if (params.phone !== undefined) {
+      vendor.phone = params.phone;
+      changes.push("phone");
+    }
+    if (params.status !== undefined) {
+      vendor.status = params.status;
+      changes.push(`status to ${params.status}`);
+    }
+    if (params.price !== undefined) {
+      vendor.price = (params.price as number) * 100; // Convert to cents
+      changes.push(`price to $${params.price}`);
+    }
+    if (params.notes !== undefined) {
+      vendor.notes = params.notes;
+      changes.push("notes");
+    }
+    if (params.depositPaid !== undefined) {
+      vendor.depositPaid = params.depositPaid;
+      changes.push(params.depositPaid ? "deposit paid" : "deposit unpaid");
+    }
+    if (params.contractSigned !== undefined) {
+      vendor.contractSigned = params.contractSigned;
+      changes.push(params.contractSigned ? "contract signed" : "contract unsigned");
+    }
+
+    await tx.update(pages)
+      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
+
+    return {
+      success: true,
+      message: `Updated ${vendor.name}: changed ${changes.join(", ")}`,
+      data: vendor,
+      _vendor: vendor // Pass vendor data for post-transaction updates
+    };
+  });
+
+  // Update kernel and checklist decisions outside transaction (non-critical)
+  if (result.success && (result as { _vendor?: Record<string, unknown> })._vendor) {
+    const vendor = (result as { _vendor: Record<string, unknown> })._vendor;
+
+    if (params.status || params.name) {
+      await updateKernelDecision(context.tenantId, vendor.category as string, {
+        status: vendor.status,
+        name: vendor.name,
+        locked: vendor.status === "booked"
+      });
+    }
+
+    const decisionName = getDecisionNameFromCategory(vendor.category as string);
+    if (decisionName && params.status) {
+      const decisionStatus = vendor.status === "booked" || vendor.status === "confirmed" ? "decided" : "researching";
+      await updateDecisionFn(context.tenantId, decisionName, {
+        status: decisionStatus,
+        choiceName: vendor.name as string,
+      });
     }
   }
 
-  if (vendorIndex === -1) {
-    const vendorNames = vendors.slice(0, 5).map(v => v.name).join(", ");
-    return { 
-      success: false, 
-      message: `Vendor not found. Available vendors: ${vendorNames || "none"}${vendors.length > 5 ? `... and ${vendors.length - 5} more` : ""}` 
-    };
-  }
-
-  const vendor = vendors[vendorIndex];
-  const changes: string[] = [];
-  
-  // Update fields if provided
-  if (params.name !== undefined) {
-    vendor.name = params.name;
-    changes.push("name");
-  }
-  if (params.category !== undefined) {
-    vendor.category = params.category;
-    changes.push("category");
-  }
-  if (params.contactName !== undefined) {
-    vendor.contactName = params.contactName;
-    changes.push("contact info");
-  }
-  if (params.email !== undefined) {
-    vendor.email = params.email;
-    changes.push("email");
-  }
-  if (params.phone !== undefined) {
-    vendor.phone = params.phone;
-    changes.push("phone");
-  }
-  if (params.status !== undefined) {
-    vendor.status = params.status;
-    changes.push(`status to ${params.status}`);
-  }
-  if (params.price !== undefined) {
-    vendor.price = (params.price as number) * 100; // Convert to cents
-    changes.push(`price to $${params.price}`);
-  }
-  if (params.notes !== undefined) {
-    vendor.notes = params.notes;
-    changes.push("notes");
-  }
-  if (params.depositPaid !== undefined) {
-    vendor.depositPaid = params.depositPaid;
-    changes.push(params.depositPaid ? "deposit paid" : "deposit unpaid");
-  }
-  if (params.contractSigned !== undefined) {
-    vendor.contractSigned = params.contractSigned;
-    changes.push(params.contractSigned ? "contract signed" : "contract unsigned");
-  }
-
-  await db.update(pages)
-    .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-    .where(eq(pages.id, pageId));
-
-  // Update kernel if status or name changed
-  if (params.status || params.name) {
-    await updateKernelDecision(context.tenantId, vendor.category as string, {
-      status: vendor.status,
-      name: vendor.name,
-      locked: vendor.status === "booked"
-    });
-  }
-
-  // Update checklist decision if status changed
-  const decisionName = getDecisionNameFromCategory(vendor.category as string);
-  if (decisionName && params.status) {
-    const decisionStatus = vendor.status === "booked" || vendor.status === "confirmed" ? "decided" : "researching";
-    await updateDecisionFn(context.tenantId, decisionName, {
-        status: decisionStatus,
-        choiceName: vendor.name as string,
-    });
-  }
-
-  return {
-    success: true,
-    message: `Updated ${vendor.name}: changed ${changes.join(", ")}`,
-    data: vendors[vendorIndex]
-  };
+  return result;
 }
 
 async function getVendorList(
@@ -1919,114 +2014,128 @@ async function deleteVendor(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
-  
-  const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-  
-  // 1. Delete by ID
-  if (params.vendorId) {
-    // Special handling for "undefined" ID string which comes from LLM when ID is missing
-    const targetId = params.vendorId as string;
-    const isTargetingUndefined = targetId === "undefined";
+  return withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
+    const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
 
-    let vendorIndex = vendors.findIndex(v => {
-      if (isTargetingUndefined) {
-        return !v.id || v.id === "undefined" || v.name === "0";
-      }
-      return v.id === targetId;
-    });
+    // 1. Delete by ID
+    if (params.vendorId) {
+      // Special handling for "undefined" ID string which comes from LLM when ID is missing
+      const targetId = params.vendorId as string;
+      const isTargetingUndefined = targetId === "undefined";
 
-    // Fallback: If targeting undefined and didn't find it, try looking for the strange "0" vendor by name
-    if (vendorIndex === -1 && isTargetingUndefined) {
+      let vendorIndex = vendors.findIndex(v => {
+        if (isTargetingUndefined) {
+          return !v.id || v.id === "undefined" || v.name === "0";
+        }
+        return v.id === targetId;
+      });
+
+      // Fallback: If targeting undefined and didn't find it, try looking for the strange "0" vendor by name
+      if (vendorIndex === -1 && isTargetingUndefined) {
         vendorIndex = vendors.findIndex(v => v.name === "0");
+      }
+
+      if (vendorIndex === -1) {
+        return { success: false, message: "Vendor not found by ID" };
+      }
+      const deletedVendor = vendors[vendorIndex];
+      vendors.splice(vendorIndex, 1);
+
+      await tx.update(pages)
+        .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+        .where(eq(pages.id, pageId));
+
+      return {
+        success: true,
+        message: `Removed ${deletedVendor.name} from vendor list`,
+        data: deletedVendor
+      };
     }
 
-    if (vendorIndex === -1) {
-      return { success: false, message: "Vendor not found by ID" };
-    }
-    const deletedVendor = vendors[vendorIndex];
-    vendors.splice(vendorIndex, 1);
+    // 2. Delete by Category (Bulk) - Only if name is NOT provided
+    if (params.category && !params.vendorName) {
+      const category = (params.category as string).toLowerCase();
+      const initialCount = vendors.length;
 
-    await db.update(pages)
-      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-      .where(eq(pages.id, pageId));
+      // Filter out vendors that match the category
+      const newVendors = vendors.filter(v => (v.category as string)?.toLowerCase() !== category);
+
+      if (newVendors.length === initialCount) {
+        return { success: false, message: `No vendors found in category: ${params.category}` };
+      }
+
+      const deletedCount = initialCount - newVendors.length;
+
+      // Require explicit confirmation for bulk deletes (more than 1 vendor)
+      if (deletedCount > 1 && params.confirmBulk !== true) {
+        const vendorsToDelete = vendors
+          .filter(v => (v.category as string)?.toLowerCase() === category)
+          .map(v => v.name)
+          .join(", ");
+        return {
+          success: false,
+          message: `This will delete ${deletedCount} vendors: ${vendorsToDelete}. Please confirm this bulk delete operation.`,
+          requiresConfirmation: true,
+          data: { count: deletedCount, vendors: vendorsToDelete }
+        };
+      }
+
+      await tx.update(pages)
+        .set({ fields: { ...fields, vendors: newVendors }, updatedAt: new Date() })
+        .where(eq(pages.id, pageId));
+
+      return {
+        success: true,
+        message: `Removed ${deletedCount} vendor(s) from category: ${params.category}`,
+        data: { deletedCount }
+      };
+    }
+
+    // 3. Delete by Name (with optional category filter)
+    if (params.vendorName) {
+      const searchName = (params.vendorName as string).toLowerCase();
+      const searchCategory = params.category ? (params.category as string).toLowerCase() : null;
+
+      // Map to preserve original indices
+      const candidates = vendors.map((v, i) => ({ vendor: v, index: i }));
+
+      // Filter by category if provided
+      const filteredCandidates = searchCategory
+        ? candidates.filter(({ vendor }) => (vendor.category as string)?.toLowerCase() === searchCategory)
+        : candidates;
+
+      // Try exact match first
+      let match = filteredCandidates.find(({ vendor }) => (vendor.name as string)?.toLowerCase() === searchName);
+
+      // If no exact match, try partial match
+      if (!match) {
+        match = filteredCandidates.find(({ vendor }) => (vendor.name as string)?.toLowerCase().includes(searchName));
+      }
+
+      if (!match) {
+        return { success: false, message: `Vendor "${params.vendorName}" not found` };
+      }
+
+      // We found a match, delete it using the original index
+      const deletedVendor = vendors[match.index];
+      vendors.splice(match.index, 1);
+
+      await tx.update(pages)
+        .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
+        .where(eq(pages.id, pageId));
+
+      return {
+        success: true,
+        message: `Removed ${deletedVendor.name} from vendor list`,
+        data: deletedVendor
+      };
+    }
 
     return {
-      success: true,
-      message: `Removed ${deletedVendor.name} from vendor list`,
-      data: deletedVendor
+      success: false,
+      message: "Please provide a vendorId, vendorName, or category to delete."
     };
-  }
-
-  // 2. Delete by Category (Bulk) - Only if name is NOT provided
-  if (params.category && !params.vendorName) {
-    const category = (params.category as string).toLowerCase();
-    const initialCount = vendors.length;
-    
-    // Filter out vendors that match the category
-    const newVendors = vendors.filter(v => (v.category as string)?.toLowerCase() !== category);
-    
-    if (newVendors.length === initialCount) {
-      return { success: false, message: `No vendors found in category: ${params.category}` };
-    }
-
-    const deletedCount = initialCount - newVendors.length;
-
-    await db.update(pages)
-      .set({ fields: { ...fields, vendors: newVendors }, updatedAt: new Date() })
-      .where(eq(pages.id, pageId));
-
-    return {
-      success: true,
-      message: `Removed ${deletedCount} vendor(s) from category: ${params.category}`,
-      data: { deletedCount }
-    };
-  }
-
-  // 3. Delete by Name (with optional category filter)
-  if (params.vendorName) {
-    const searchName = (params.vendorName as string).toLowerCase();
-    const searchCategory = params.category ? (params.category as string).toLowerCase() : null;
-
-    // Map to preserve original indices
-    const candidates = vendors.map((v, i) => ({ vendor: v, index: i }));
-    
-    // Filter by category if provided
-    const filteredCandidates = searchCategory
-      ? candidates.filter(({ vendor }) => (vendor.category as string)?.toLowerCase() === searchCategory)
-      : candidates;
-
-    // Try exact match first
-    let match = filteredCandidates.find(({ vendor }) => (vendor.name as string)?.toLowerCase() === searchName);
-    
-    // If no exact match, try partial match
-    if (!match) {
-      match = filteredCandidates.find(({ vendor }) => (vendor.name as string)?.toLowerCase().includes(searchName));
-    }
-
-    if (!match) {
-       return { success: false, message: `Vendor "${params.vendorName}" not found` };
-    }
-
-    // We found a match, delete it using the original index
-    const deletedVendor = vendors[match.index];
-    vendors.splice(match.index, 1);
-
-    await db.update(pages)
-      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-      .where(eq(pages.id, pageId));
-
-    return {
-      success: true,
-      message: `Removed ${deletedVendor.name} from vendor list`,
-      data: deletedVendor
-    };
-  }
-
-  return { 
-    success: false, 
-    message: "Please provide a vendorId, vendorName, or category to delete." 
-  };
+  });
 }
 
 // ============================================================================ 
@@ -2643,22 +2752,43 @@ async function getBoards(
 // KNOWLEDGE BASE TOOLS
 // ============================================================================ 
 
+// Escape special regex characters to prevent SQL injection
+function escapeRegexPattern(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function queryKnowledgeBase(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const query = (params.query as string).toLowerCase();
+  const rawQuery = params.query as string;
+
+  // Validate and sanitize input
+  if (!rawQuery || typeof rawQuery !== 'string') {
+    return {
+      success: false,
+      message: "Please provide a search query."
+    };
+  }
+
+  // Limit query length and sanitize
+  const query = rawQuery.toLowerCase().slice(0, 200);
   const category = params.category as string;
 
-  // Simple keyword search using ILIKE
+  // Escape regex special characters for safe JSONB path query
+  const escapedQuery = escapeRegexPattern(query);
+
+  // Simple keyword search using ILIKE (parameterized by Drizzle)
+  // and safe JSONB keyword search with escaped pattern
   // In production, you'd want vector search here (pgvector)
   const results = await db.query.knowledgeBase.findMany({
     where: and(
       category ? eq(knowledgeBase.category, category) : undefined,
       or(
-        like(knowledgeBase.title, `%${query}%`),
-        like(knowledgeBase.content, `%${query}%`),
-        sql`jsonb_path_exists(${knowledgeBase.keywords}, ${`$[*] ? (@ like_regex "${query}" flag "i")`})`
+        ilike(knowledgeBase.title, `%${query}%`),
+        ilike(knowledgeBase.content, `%${query}%`),
+        // Use array containment instead of regex for safer keyword matching
+        sql`${knowledgeBase.keywords}::jsonb @> ${JSON.stringify([query])}::jsonb`
       )
     ),
     limit: 3
@@ -2880,7 +3010,8 @@ async function analyzePlanningGaps(
     wins.push(`${progress.locked} decision${progress.locked > 1 ? "s" : ""} locked in`);
   }
   if (guests.length > 0) {
-    const confirmed = guests.filter(g => g.rsvp === "yes").length;
+    // RSVP status values are: "pending", "confirmed", "declined"
+    const confirmed = guests.filter(g => g.rsvp === "confirmed").length;
     if (confirmed > 0) {
       wins.push(`${confirmed} guest${confirmed > 1 ? "s" : ""} confirmed`);
     }

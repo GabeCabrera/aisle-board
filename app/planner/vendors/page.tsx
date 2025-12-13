@@ -13,7 +13,7 @@ export default async function VendorsPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <VendorsTool initialData={data} />
+        <VendorsTool initialData={data ?? undefined} />
       </div>
     </div>
   );

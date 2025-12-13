@@ -13,7 +13,7 @@ export default async function TimelinePage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <TimelineTool initialData={data} />
+        <TimelineTool initialData={data ?? undefined} />
       </div>
     </div>
   );

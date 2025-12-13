@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkRateLimit, publicRateLimiter, getRateLimitIdentifier } from "@/lib/rate-limit";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -12,35 +13,62 @@ Your goal is to be helpful, encouraging, and knowledgeable. You are not a sales 
 RULES:
 - Your name is Scribe`;
 
-// Simple in-memory rate limiting (resets on server restart)
-const rateLimits = new Map<string, { count: number; resetAt: number }>();
+// Sanitize user input to prevent prompt injection
+function sanitizeCoupleNames(input: unknown): string | null {
+  if (!input || typeof input !== "string") return null;
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const limit = rateLimits.get(ip);
+  // Limit length to 100 characters
+  let sanitized = input.slice(0, 100);
 
-  if (!limit || now > limit.resetAt) {
-    rateLimits.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 }); // 1 hour window
-    return true;
+  // Remove newlines, control characters, and common injection patterns
+  sanitized = sanitized
+    .replace(/[\n\r\t\x00-\x1F\x7F]/g, " ") // Remove control characters
+    .replace(/\s+/g, " ") // Normalize whitespace
+    .trim();
+
+  // Block patterns that look like prompt injections
+  const injectionPatterns = [
+    /ignore\s*(previous|above|all)/i,
+    /forget\s*(previous|above|all)/i,
+    /disregard/i,
+    /new\s*instructions?/i,
+    /system\s*prompt/i,
+    /you\s*are\s*now/i,
+    /instead\s*(of|,)/i,
+    /\bRULES?\s*:/i,
+    /\bINSTRUCTIONS?\s*:/i,
+  ];
+
+  for (const pattern of injectionPatterns) {
+    if (pattern.test(sanitized)) {
+      return null; // Reject suspicious input
+    }
   }
 
-  if (limit.count >= 10) {
-    return false; // Max 10 messages per hour for anonymous users
+  // Only allow letters, numbers, spaces, ampersands, and basic punctuation
+  if (!/^[a-zA-Z0-9\s&',.-]+$/.test(sanitized)) {
+    return null;
   }
 
-  limit.count++;
-  return true;
+  return sanitized || null;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get("x-forwarded-for") || "anonymous";
-    
-    if (!checkRateLimit(ip)) {
+    // Rate limit using Redis (or in-memory fallback)
+    const identifier = getRateLimitIdentifier(request);
+    const rateLimit = await checkRateLimit(
+      `public:${identifier}`,
+      publicRateLimiter,
+      10, // 10 requests per hour for anonymous users (fallback)
+      60 * 60 * 1000
+    );
+
+    if (!rateLimit.success) {
       return NextResponse.json(
-        { 
+        {
           requiresAuth: true,
-          message: "You've reached the limit for anonymous chats. Create a free account to continue." 
+          message: "You've reached the limit for anonymous chats. Create a free account to continue."
         },
         { status: 200 }
       );
@@ -52,8 +80,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
-    const contextualPrompt = coupleNames 
-      ? `${SYSTEM_PROMPT}\n\nYou're helping ${coupleNames} plan their wedding.`
+    // Sanitize couple names to prevent prompt injection
+    const sanitizedNames = sanitizeCoupleNames(coupleNames);
+
+    const contextualPrompt = sanitizedNames
+      ? `${SYSTEM_PROMPT}\n\nYou're helping ${sanitizedNames} plan their wedding.`
       : SYSTEM_PROMPT;
 
     const response = await anthropic.messages.create({

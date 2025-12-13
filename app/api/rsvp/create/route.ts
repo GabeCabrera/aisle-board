@@ -3,8 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { rsvpForms, pages, tenants, planners } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { rsvpFormSchema, sanitizeString } from "@/lib/validation";
+
+type DrizzleTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // Generate a cute slug from couple names
 function generateSlug(displayName: string): string {
@@ -111,63 +113,73 @@ export async function POST(request: NextRequest) {
 
     // Generate cute slug from couple names
     const baseSlug = generateSlug(tenant.displayName);
-    
-    // Check if slug exists, if so add a short suffix
-    let slug = baseSlug;
-    const [existing] = await db
-      .select()
-      .from(rsvpForms)
-      .where(eq(rsvpForms.slug, slug))
-      .limit(1);
-    
-    if (existing) {
-      // Add last 4 chars of tenant ID to make unique
-      slug = `${baseSlug}-${tenant.id.slice(-4)}`;
-    }
 
-    // Limit RSVP forms per tenant
-    const existingFormsCount = await db
-      .select()
-      .from(rsvpForms)
-      .where(eq(rsvpForms.tenantId, session.user.tenantId));
-    
-    if (existingFormsCount.length >= 10) {
+    // Use transaction to prevent race conditions on slug creation
+    const newForm = await db.transaction(async (tx) => {
+      // Limit RSVP forms per tenant (check first to avoid unnecessary slug logic)
+      const existingFormsCount = await tx
+        .select()
+        .from(rsvpForms)
+        .where(eq(rsvpForms.tenantId, session.user.tenantId));
+
+      if (existingFormsCount.length >= 10) {
+        throw new Error("LIMIT_REACHED");
+      }
+
+      // Check if slug exists with FOR UPDATE to prevent race conditions
+      let slug = baseSlug;
+      const existingResult = await tx.execute(sql`
+        SELECT id FROM rsvp_forms
+        WHERE slug = ${slug}
+        FOR UPDATE SKIP LOCKED
+      `);
+
+      if (existingResult.rows.length > 0) {
+        // Add last 4 chars of tenant ID to make unique
+        slug = `${baseSlug}-${tenant.id.slice(-4)}`;
+      }
+
+      // Create new form
+      const [form] = await tx
+        .insert(rsvpForms)
+        .values({
+          tenantId: session.user.tenantId,
+          pageId,
+          slug,
+          title,
+          message,
+          weddingDate: tenant.weddingDate,
+          fields: fields || {
+            name: true,
+            email: true,
+            phone: false,
+            address: true,
+            attending: true,
+            mealChoice: false,
+            dietaryRestrictions: false,
+            plusOne: false,
+            plusOneName: false,
+            plusOneMeal: false,
+            songRequest: false,
+            notes: false,
+          },
+          mealOptions,
+        })
+        .returning();
+
+      return form;
+    });
+
+    return NextResponse.json(newForm);
+  } catch (error) {
+    // Handle specific error cases
+    if (error instanceof Error && error.message === "LIMIT_REACHED") {
       return NextResponse.json(
         { error: "Maximum RSVP forms limit reached" },
         { status: 400 }
       );
     }
 
-    // Create new form
-    const [newForm] = await db
-      .insert(rsvpForms)
-      .values({
-        tenantId: session.user.tenantId,
-        pageId,
-        slug,
-        title,
-        message,
-        weddingDate: tenant.weddingDate,
-        fields: fields || {
-          name: true,
-          email: true,
-          phone: false,
-          address: true,
-          attending: true,
-          mealChoice: false,
-          dietaryRestrictions: false,
-          plusOne: false,
-          plusOneName: false,
-          plusOneMeal: false,
-          songRequest: false,
-          notes: false,
-        },
-        mealOptions,
-      })
-      .returning();
-
-    return NextResponse.json(newForm);
-  } catch (error) {
     console.error("Create RSVP form error:", error);
     return NextResponse.json(
       { error: "Failed to create RSVP form" },

@@ -4,11 +4,12 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { planSelectSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.tenantId) {
       return NextResponse.json(
         { error: "Not authenticated" },
@@ -16,14 +17,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { plan } = await request.json();
+    const body = await request.json();
 
-    if (!["free", "complete"].includes(plan)) {
+    // Validate input
+    const parsed = planSelectSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid plan" },
         { status: 400 }
       );
     }
+
+    const { plan } = parsed.data;
 
     // Update tenant plan
     await db

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { usePlannerData, formatCurrency, Vendor } from "@/lib/hooks/usePlannerData";
+import { usePlannerData, formatCurrency, Vendor, PlannerData } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import {
 import VendorCard from "./vendors-tool/VendorCard";
 
 interface VendorsToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function VendorsTool({ initialData }: VendorsToolProps) {

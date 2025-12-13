@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
-import { usePlannerData, formatCurrency } from "@/lib/hooks/usePlannerData";
+import { usePlannerData, formatCurrency, PlannerData } from "@/lib/hooks/usePlannerData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { calculateSanityScore } from "@/lib/algorithms/sanity-engine";
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 interface DashboardToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function DashboardTool({ initialData }: DashboardToolProps) {

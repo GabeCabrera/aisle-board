@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { PlannerData } from "@/lib/hooks/usePlannerData";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,7 +103,7 @@ function DecisionRow({ decision }: { decision: Decision }) {
 }
 
 interface ChecklistToolProps {
-  initialData?: any;
+  initialData?: PlannerData;
 }
 
 export default function ChecklistTool({ initialData }: ChecklistToolProps) {

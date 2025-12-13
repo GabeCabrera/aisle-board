@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByEmail, createPasswordResetToken } from "@/lib/db/queries";
 import { generateResetToken } from "@/lib/utils";
+import { checkRateLimit, authRateLimiter, getRateLimitIdentifier } from "@/lib/rate-limit";
+import { sendEmail } from "@/lib/email";
+import logger from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit to prevent abuse
+    const identifier = getRateLimitIdentifier(request);
+    const rateLimit = await checkRateLimit(
+      `forgot-password:${identifier}`,
+      authRateLimiter,
+      5, // 5 attempts per minute (fallback)
+      60000
+    );
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const { email } = await request.json();
 
     if (!email) {
@@ -25,14 +44,22 @@ export async function POST(request: NextRequest) {
 
     await createPasswordResetToken(user.id, token, expiresAt);
 
-    // TODO: Send email with reset link
-    // In production, integrate with an email service like Resend, SendGrid, etc.
-    // The reset link should be: https://{subdomain}.stem.wedding/reset-password?token={token}
-    console.log(`Password reset token for ${email}: ${token}`);
+    // Send password reset email
+    const baseUrl = process.env.NEXTAUTH_URL || "https://scribeandstem.com";
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+    await sendEmail({
+      to: user.email,
+      template: "password_reset",
+      data: {
+        name: user.name || user.email.split("@")[0],
+        resetUrl,
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Forgot password error:", error);
+    logger.error("Forgot password error", error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

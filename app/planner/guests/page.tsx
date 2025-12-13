@@ -13,7 +13,7 @@ export default async function GuestsPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <GuestsTool initialData={data} />
+        <GuestsTool initialData={data ?? undefined} />
       </div>
     </div>
   );

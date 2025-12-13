@@ -13,7 +13,7 @@ export default async function BudgetPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <BudgetTool initialData={data} />
+        <BudgetTool initialData={data ?? undefined} />
       </div>
     </div>
   );

@@ -493,13 +493,14 @@ export async function POST(request: NextRequest) {
       conversationId: conversation.id,
     });
   } catch (error) {
-    console.error("Onboarding chat error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error("Error details:", { message: errorMessage, stack: errorStack });
-    
+    // Log full error details server-side for debugging
+    console.error("Onboarding chat error:", error instanceof Error ? error.message : error);
+    if (error instanceof Error && error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
+    // Return generic error to client (don't expose internal details)
     return NextResponse.json(
-      { error: "Failed to get response", details: errorMessage },
+      { error: "An error occurred. Please try again." },
       { status: 500 }
     );
   }

@@ -13,7 +13,7 @@ export default async function ChecklistPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <ChecklistTool initialData={data} />
+        <ChecklistTool initialData={data ?? undefined} />
       </div>
     </div>
   );

@@ -247,9 +247,14 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error("Chat error:", error);
+    // Log full error details server-side for debugging
+    console.error("Chat error:", error instanceof Error ? error.message : error);
+    if (error instanceof Error && error.stack) {
+      console.error("Stack trace:", error.stack);
+    }
+    // Return generic error to client (don't expose internal details)
     return NextResponse.json(
-      { error: "Failed to get response", details: error instanceof Error ? error.message : "Unknown" },
+      { error: "An error occurred. Please try again." },
       { status: 500 }
     );
   }
