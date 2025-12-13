@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rsvpForms, rsvpResponses, pages } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   checkRateLimit,
@@ -33,10 +33,9 @@ export async function POST(
   try {
     const { slug } = await params;
     
-    // Sanitize slug
+    // Sanitize slug - remove dangerous characters but preserve case for lookup
     const sanitizedSlug = slug
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "")
+      .replace(/[^a-zA-Z0-9-]/g, "")
       .slice(0, 100);
 
     // Rate limit by IP (10 submissions per minute per IP)
@@ -94,11 +93,11 @@ export async function POST(
       notes: data.notes ? sanitizeString(data.notes) : null,
     };
 
-    // Get the RSVP form
+    // Get the RSVP form (case-insensitive slug match)
     const [form] = await db
       .select()
       .from(rsvpForms)
-      .where(eq(rsvpForms.slug, sanitizedSlug))
+      .where(sql`lower(${rsvpForms.slug}) = lower(${sanitizedSlug})`)
       .limit(1);
 
     if (!form || !form.isActive) {

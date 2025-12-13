@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rsvpForms, tenants } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 // GET - Fetch RSVP form data by slug (public endpoint)
 export async function GET(
@@ -11,15 +11,14 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    // Sanitize slug
+    // Sanitize slug - remove dangerous characters but preserve case for lookup
     const sanitizedSlug = slug
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "")
+      .replace(/[^a-zA-Z0-9-]/g, "")
       .slice(0, 100);
 
-    // Get the RSVP form
+    // Get the RSVP form (case-insensitive slug match)
     const form = await db.query.rsvpForms.findFirst({
-      where: eq(rsvpForms.slug, sanitizedSlug),
+      where: sql`lower(${rsvpForms.slug}) = lower(${sanitizedSlug})`,
       with: {
         tenant: {
           columns: {
