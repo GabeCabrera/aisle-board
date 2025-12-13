@@ -27,6 +27,7 @@ import {
   type CalendarEvent
 } from "@/lib/db/schema";
 import { eq, and, sql, desc, like, ilike, or } from "drizzle-orm";
+import logger from "@/lib/logger";
 
 // ============================================================================ 
 // TYPES
@@ -74,46 +75,61 @@ async function withPageLock<T>(
     pageData: PageData
   ) => Promise<T>
 ): Promise<T> {
-  return db.transaction(async (tx) => {
-    // Get or create planner
-    let planner = await tx.query.planners.findFirst({
-      where: eq(planners.tenantId, tenantId)
-    });
+  logger.info("withPageLock: starting transaction", { tenantId, templateId });
 
-    if (!planner) {
-      const [newPlanner] = await tx.insert(planners).values({ tenantId }).returning();
-      planner = newPlanner;
-    }
+  try {
+    return await db.transaction(async (tx) => {
+      // Get or create planner
+      let planner = await tx.query.planners.findFirst({
+        where: eq(planners.tenantId, tenantId)
+      });
 
-    // Try to get page with FOR UPDATE lock to prevent concurrent modifications
-    const pageResult = await tx.execute(sql`
-      SELECT id, fields FROM pages
-      WHERE planner_id = ${planner.id} AND template_id = ${templateId}
-      FOR UPDATE
-    `);
+      if (!planner) {
+        logger.info("withPageLock: creating planner", { tenantId });
+        const [newPlanner] = await tx.insert(planners).values({ tenantId }).returning();
+        planner = newPlanner;
+      }
 
-    let page: { id: string; fields: Record<string, unknown> };
+      // Try to get page with FOR UPDATE lock to prevent concurrent modifications
+      const pageResult = await tx.execute(sql`
+        SELECT id, fields FROM pages
+        WHERE planner_id = ${planner.id} AND template_id = ${templateId}
+        FOR UPDATE
+      `);
 
-    if (pageResult.rows.length === 0) {
-      // Create new page if it doesn't exist
-      const [newPage] = await tx.insert(pages).values({
+      let page: { id: string; fields: Record<string, unknown> };
+
+      if (pageResult.rows.length === 0) {
+        // Create new page if it doesn't exist
+        logger.info("withPageLock: creating page", { plannerId: planner.id, templateId });
+        const [newPage] = await tx.insert(pages).values({
+          plannerId: planner.id,
+          templateId,
+          title: getTemplateTitle(templateId),
+          fields: getDefaultFields(templateId)
+        }).returning();
+        page = { id: newPage.id, fields: (newPage.fields as Record<string, unknown>) || {} };
+      } else {
+        const row = pageResult.rows[0] as { id: string; fields: Record<string, unknown> };
+        page = { id: row.id, fields: row.fields || {} };
+      }
+
+      logger.info("withPageLock: executing operation", { pageId: page.id, templateId });
+
+      return operation(tx, {
+        pageId: page.id,
         plannerId: planner.id,
-        templateId,
-        title: getTemplateTitle(templateId),
-        fields: getDefaultFields(templateId)
-      }).returning();
-      page = { id: newPage.id, fields: (newPage.fields as Record<string, unknown>) || {} };
-    } else {
-      const row = pageResult.rows[0] as { id: string; fields: Record<string, unknown> };
-      page = { id: row.id, fields: row.fields || {} };
-    }
-
-    return operation(tx, {
-      pageId: page.id,
-      plannerId: planner.id,
-      fields: page.fields
+        fields: page.fields
+      });
     });
-  });
+  } catch (error) {
+    logger.error("withPageLock: transaction failed", error instanceof Error ? error : undefined, {
+      tenantId,
+      templateId,
+      errorDetails: error instanceof Error ? error.stack : String(error),
+    });
+    throw error;
+  }
 }
 
 // ============================================================================
@@ -125,7 +141,7 @@ export async function executeToolCall(
   parameters: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  console.log(`Executing tool: ${toolName}`, parameters);
+  logger.info("Executing tool", { toolName, parameters, tenantId: context.tenantId });
 
   try {
     switch (toolName) {
@@ -256,7 +272,11 @@ export async function executeToolCall(
         };
     }
   } catch (error) {
-    console.error(`Tool execution error (${toolName}):`, error);
+    logger.error(`Tool execution failed: ${toolName}`, error instanceof Error ? error : undefined, {
+      parameters,
+      tenantId: context.tenantId,
+      errorDetails: error instanceof Error ? error.stack : String(error),
+    });
     return {
       success: false,
       message: error instanceof Error ? error.message : "Tool execution failed"
@@ -817,13 +837,22 @@ async function deleteGuest(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
+  logger.info("deleteGuest called", { params, tenantId: context.tenantId });
+
   return withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
     const guests = (fields.guests as GuestData[]) || [];
+    logger.info("deleteGuest: found guests", {
+      guestCount: guests.length,
+      guestNames: guests.slice(0, 5).map(g => g.name),
+      searchParams: { guestId: params.guestId, guestName: params.guestName }
+    });
+
     let guestIndex = -1;
 
     // Find by ID first
     if (params.guestId) {
       guestIndex = guests.findIndex(g => g.id === params.guestId);
+      logger.info("deleteGuest: searched by ID", { guestId: params.guestId, found: guestIndex !== -1 });
     }
     // Find by name (partial match, case insensitive)
     else if (params.guestName) {
@@ -832,17 +861,25 @@ async function deleteGuest(
       guestIndex = guests.findIndex(g =>
         g.name?.toLowerCase() === searchName
       );
+      logger.info("deleteGuest: exact name match", { searchName, found: guestIndex !== -1 });
       // Then try partial match
       if (guestIndex === -1) {
         guestIndex = guests.findIndex(g =>
           g.name?.toLowerCase().includes(searchName) ||
           searchName.includes(g.name?.toLowerCase() || "")
         );
+        logger.info("deleteGuest: partial name match", { searchName, found: guestIndex !== -1, index: guestIndex });
       }
+    } else {
+      logger.warn("deleteGuest: no guestId or guestName provided", { params });
     }
 
     if (guestIndex === -1) {
       const guestNames = guests.slice(0, 5).map(g => g.name).join(", ");
+      logger.info("deleteGuest: guest not found", {
+        searchParams: { guestId: params.guestId, guestName: params.guestName },
+        currentGuests: guestNames
+      });
       return {
         success: false,
         message: `Guest not found. Current guests: ${guestNames || "none"}${guests.length > 5 ? `... and ${guests.length - 5} more` : ""}`
@@ -861,6 +898,8 @@ async function deleteGuest(
     await tx.update(weddingKernels)
       .set({ guestCount: guests.length, updatedAt: new Date() })
       .where(eq(weddingKernels.tenantId, context.tenantId));
+
+    logger.info("deleteGuest: success", { deletedGuest: deletedGuest.name, remainingCount: guests.length });
 
     return {
       success: true,
