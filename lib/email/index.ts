@@ -13,9 +13,11 @@ function getResendClient(): Resend | null {
   return resend;
 }
 
-const FROM_EMAIL = "Stem <hello@scribeandstem.com>";
-const PERSONAL_FROM_EMAIL = "Gabe & Sarah <GabeandSarah@scribeandstem.com>";
-const BASE_URL = process.env.NEXTAUTH_URL || "https://scribeandstem.com";
+// Email configuration - uses environment variables with sensible defaults
+const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "scribeandstem.com";
+const FROM_EMAIL = process.env.EMAIL_FROM || `Stem <hello@${APP_DOMAIN}>`;
+const PERSONAL_FROM_EMAIL = process.env.EMAIL_FROM_PERSONAL || `Gabe & Sarah <GabeandSarah@${APP_DOMAIN}>`;
+const BASE_URL = process.env.NEXTAUTH_URL || `https://${APP_DOMAIN}`;
 
 export type EmailTemplate = "welcome" | "why_29" | "tips_week_1" | "broadcast" | "password_reset" | "payment_failed";
 

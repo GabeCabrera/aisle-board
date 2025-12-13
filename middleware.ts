@@ -75,10 +75,10 @@ export async function middleware(request: NextRequest) {
     host.includes("vercel.app") && 
     !host.includes("localhost")
   ) {
-    // Only redirect if we are sure we want to enforce production domain.
-    // Assuming 'scribeandstem.com' is the canonical URL from the logs.
+    // Redirect preview deployments to canonical domain
+    const canonicalDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "scribeandstem.com";
     const canonicalUrl = new URL(request.url);
-    canonicalUrl.host = "scribeandstem.com";
+    canonicalUrl.host = canonicalDomain;
     canonicalUrl.protocol = "https:";
     // console.log(`[MIDDLEWARE] Redirecting preview ${host} to canonical ${canonicalUrl.host}`);
     return NextResponse.redirect(canonicalUrl);
