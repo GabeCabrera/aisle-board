@@ -54,7 +54,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/stripe") ||
-    pathname.startsWith("/api/manage-x7k9") ||
+    pathname.startsWith("/api/admin") ||
     pathname.includes(".") // static files
   ) {
     return addSecurityHeaders(NextResponse.next());

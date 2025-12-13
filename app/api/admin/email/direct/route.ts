@@ -6,7 +6,7 @@ import { sendDirectEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/manage-x7k9/email/direct - Send a direct email from GabeandSarah@scribeandstem.com
+// POST /api/admin/email/direct - Send a direct email from GabeandSarah@scribeandstem.com
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

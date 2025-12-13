@@ -6,7 +6,7 @@ import { getUserByEmail, upgradeTenantByUserEmail } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/manage-x7k9/users/upgrade - Upgrade a user to complete plan
+// POST /api/admin/users/upgrade - Upgrade a user to complete plan
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

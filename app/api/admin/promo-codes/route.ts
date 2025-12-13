@@ -6,7 +6,7 @@ import { getAllPromoCodes, createPromoCode, updatePromoCode } from "@/lib/db/que
 
 export const dynamic = "force-dynamic";
 
-// GET /api/manage-x7k9/promo-codes - Get all promo codes
+// GET /api/admin/promo-codes - Get all promo codes
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -26,7 +26,7 @@ export async function GET() {
   }
 }
 
-// POST /api/manage-x7k9/promo-codes - Create a new promo code
+// POST /api/admin/promo-codes - Create a new promo code
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH /api/manage-x7k9/promo-codes - Update a promo code
+// PATCH /api/admin/promo-codes - Update a promo code
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

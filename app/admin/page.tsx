@@ -261,7 +261,7 @@ export default function AdminDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/manage-x7k9/stats");
+      const response = await fetch("/api/admin/stats");
       if (!response.ok) throw new Error("Failed to fetch stats");
       const data = await response.json();
       setStats(data);

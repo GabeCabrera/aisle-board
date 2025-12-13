@@ -35,35 +35,35 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     label: "Dashboard",
-    href: "/manage-x7k9",
+    href: "/admin",
     icon: LayoutDashboard,
     description: "Overview & analytics",
   },
   {
     label: "Users",
-    href: "/manage-x7k9/users",
+    href: "/admin/users",
     icon: Users,
     description: "Manage customers",
   },
   {
     label: "Email",
-    href: "/manage-x7k9/email",
+    href: "/admin/email",
     icon: Mail,
     description: "Broadcasts & subscribers",
   },
   {
     label: "Marketing",
-    href: "/manage-x7k9/marketing",
+    href: "/admin/marketing",
     icon: Image,
     description: "Ad creatives & assets",
     subItems: [
-      { label: "Ad Creatives", href: "/manage-x7k9/marketing" },
-      { label: "Media Kit", href: "/manage-x7k9/marketing/media-kit" },
+      { label: "Ad Creatives", href: "/admin/marketing" },
+      { label: "Media Kit", href: "/admin/marketing/media-kit" },
     ],
   },
   {
     label: "Discounts",
-    href: "/manage-x7k9/settings",
+    href: "/admin/settings",
     icon: Tag,
     description: "Promo codes & pricing",
   },
@@ -94,7 +94,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
     <aside className="fixed left-0 top-0 h-full w-64 bg-warm-900 text-white flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-warm-800">
-        <Link href="/manage-x7k9" className="flex items-center gap-3">
+        <Link href="/admin" className="flex items-center gap-3">
           <div className="w-10 h-10 bg-warm-700 rounded-lg flex items-center justify-center">
             <span className="text-lg font-serif">A</span>
           </div>
@@ -113,7 +113,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
         
         {navItems.map((item) => {
           const isActive = pathname === item.href || 
-            (item.href !== "/manage-x7k9" && pathname.startsWith(item.href));
+            (item.href !== "/admin" && pathname.startsWith(item.href));
           const hasSubItems = item.subItems && item.subItems.length > 0;
           
           return (

@@ -79,7 +79,7 @@ export default function UsersPage() {
       if (search) params.set("search", search);
       if (planFilter) params.set("plan", planFilter);
 
-      const response = await fetch(`/api/manage-x7k9/users?${params}`);
+      const response = await fetch(`/api/admin/users?${params}`);
       if (!response.ok) throw new Error("Failed to fetch users");
       
       const data = await response.json();
@@ -118,7 +118,7 @@ export default function UsersPage() {
 
   const toggleTestAccount = async (userId: string, currentStatus: boolean) => {
     try {
-      const response = await fetch("/api/manage-x7k9/users", {
+      const response = await fetch("/api/admin/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, isTestAccount: !currentStatus }),
@@ -141,7 +141,7 @@ export default function UsersPage() {
     setIsDeleting(true);
     try {
       const response = await fetch(
-        `/api/manage-x7k9/users?userId=${userId}&tenantId=${tenantId}`,
+        `/api/admin/users?userId=${userId}&tenantId=${tenantId}`,
         { method: "DELETE" }
       );
       

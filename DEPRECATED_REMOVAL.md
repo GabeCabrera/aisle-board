@@ -9,7 +9,7 @@
 - `/app/api/planner/reorder/` - template reordering
 - `/lib/templates/` - template registry system
 - `/lib/state/planner-context.tsx` - old planner state
-- `/app/manage-x7k9/templates/` - admin template manager
+- `/app/admin/templates/` - admin template manager
 
 ### Consolidated Tool Pages into Modals
 Moved from route pages to modal components:

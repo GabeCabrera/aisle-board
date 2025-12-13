@@ -41,7 +41,7 @@ export default function EmailManagementPage() {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/manage-x7k9/email");
+      const response = await fetch("/api/admin/email");
       if (!response.ok) throw new Error("Failed to fetch stats");
       const data = await response.json();
       setStats(data);
@@ -70,7 +70,7 @@ export default function EmailManagementPage() {
     setSendResult(null);
 
     try {
-      const response = await fetch("/api/manage-x7k9/email", {
+      const response = await fetch("/api/admin/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, content }),
@@ -109,7 +109,7 @@ export default function EmailManagementPage() {
     setIsSendingDirect(true);
 
     try {
-      const response = await fetch("/api/manage-x7k9/email/direct", {
+      const response = await fetch("/api/admin/email/direct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

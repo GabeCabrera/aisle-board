@@ -7,7 +7,7 @@ import { sendEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/manage-x7k9/email - Get email stats
+// GET /api/admin/email - Get email stats
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -27,7 +27,7 @@ export async function GET() {
   }
 }
 
-// POST /api/manage-x7k9/email - Send broadcast email to all subscribed users
+// POST /api/admin/email - Send broadcast email to all subscribed users
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

@@ -32,7 +32,7 @@ export function PriceDisplay({
   useEffect(() => {
     const fetchDiscount = async () => {
       try {
-        const res = await fetch("/api/manage-x7k9/discount");
+        const res = await fetch("/api/admin/discount");
         const data = await res.json();
         
         if (data.enabled && data.value > 0) {
@@ -134,7 +134,7 @@ export function useDiscount() {
   useEffect(() => {
     const fetchDiscount = async () => {
       try {
-        const res = await fetch("/api/manage-x7k9/discount");
+        const res = await fetch("/api/admin/discount");
         const data = await res.json();
         
         if (data.enabled && data.value > 0) {

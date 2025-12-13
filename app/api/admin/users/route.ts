@@ -8,7 +8,7 @@ import { eq, desc, like, or, count, and, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/manage-x7k9/users - Get all users with pagination and search
+// GET /api/admin/users - Get all users with pagination and search
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH /api/manage-x7k9/users - Update user (toggle test account status)
+// PATCH /api/admin/users - Update user (toggle test account status)
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE /api/manage-x7k9/users - Delete user and their tenant
+// DELETE /api/admin/users - Delete user and their tenant
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

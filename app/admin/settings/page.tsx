@@ -57,7 +57,7 @@ export default function SettingsPage() {
   const fetchPromoCodes = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/manage-x7k9/promo-codes");
+      const res = await fetch("/api/admin/promo-codes");
       const data = await res.json();
       setPromoCodes(data.codes || []);
     } catch (error) {
@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/manage-x7k9/promo-codes", {
+      const res = await fetch("/api/admin/promo-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCode),
@@ -112,7 +112,7 @@ export default function SettingsPage() {
 
   const handleToggleActive = async (code: PromoCode) => {
     try {
-      const res = await fetch("/api/manage-x7k9/promo-codes", {
+      const res = await fetch("/api/admin/promo-codes", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: code.id, isActive: !code.isActive }),
@@ -141,7 +141,7 @@ export default function SettingsPage() {
 
     setIsUpgrading(true);
     try {
-      const res = await fetch("/api/manage-x7k9/users/upgrade", {
+      const res = await fetch("/api/admin/users/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: upgradeEmail }),
