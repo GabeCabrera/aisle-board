@@ -385,7 +385,7 @@ export async function POST(request: NextRequest) {
       : buildSystemPrompt(plannerName, context);
 
     // Call Claude
-    const response = await anthropic.messages.create({
+    let response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 1024,
       system: systemPrompt,
@@ -397,35 +397,60 @@ export async function POST(request: NextRequest) {
     let shouldRefreshPlannerData = false; // Flag to indicate if planner data might have changed
     let namesExtracted = false;
     let displayName: string | null = null;
-    
-    // Process Claude's response content blocks
+
+    // Track messages for multi-turn tool use (typed for Anthropic API)
+    let conversationMessages: Anthropic.MessageParam[] = claudeMessages.map(m => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
+    // Process tool calls in a loop until Claude is done using tools
+    while (response.stop_reason === "tool_use") {
+      const toolUseBlocks = response.content.filter(
+        (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
+      );
+
+      const toolResultContents: Anthropic.ToolResultBlockParam[] = [];
+
+      for (const toolUse of toolUseBlocks) {
+        const toolContext = { tenantId: session.user.tenantId, userId: session.user.id };
+        const toolResult = await executeToolCall(
+          toolUse.name,
+          toolUse.input as Record<string, unknown>,
+          toolContext
+        );
+
+        if (toolResult.success) {
+          shouldRefreshPlannerData = true; // Data changed, refresh frontend
+        }
+
+        toolResultContents.push({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: JSON.stringify(toolResult),
+        });
+      }
+
+      // Make follow-up call with tool results
+      conversationMessages = [
+        ...conversationMessages,
+        { role: "assistant" as const, content: response.content },
+        { role: "user" as const, content: toolResultContents },
+      ];
+
+      response = await anthropic.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools: getAnthropicTools(),
+        messages: conversationMessages,
+      });
+    }
+
+    // Extract final text message from response
     for (const contentBlock of response.content) {
       if (contentBlock.type === "text") {
         assistantMessage += contentBlock.text;
-      } else if (contentBlock.type === "tool_use") {
-        const toolName = contentBlock.name;
-        const toolParameters = (contentBlock.input || {}) as Record<string, unknown>;
-
-        // Execute the tool call using our executor
-        const toolContext = { tenantId: session.user.tenantId, userId: session.user.id };
-        const toolResult = await executeToolCall(toolName, toolParameters, toolContext);
-
-        // Add tool execution result to the messages
-        // Claude might want to see this output in the next turn
-        // For now, we'll just append a simplified message to the assistant's response
-        assistantMessage += `\n\n(Executed tool: ${toolName}) Result: ${toolResult.message}`;
-        
-        if (toolResult.success) {
-            shouldRefreshPlannerData = true; // Data changed, refresh frontend
-        } else {
-            // If tool failed, inform the user or try to recover
-            assistantMessage += `\n\n(Tool execution failed: ${toolResult.message})`;
-        }
-        
-        // IMPORTANT: If Claude expects a tool_output block before its final text,
-        // this logic needs to be extended to make another API call to Claude
-        // with the tool_output. For simplicity, we are assuming Claude provides
-        // final text after tool_use in a single response.
       }
     }
 
