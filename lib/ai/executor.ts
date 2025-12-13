@@ -48,10 +48,10 @@ export interface ToolResult {
   };
 }
 
-// Type for Drizzle transaction context
-type DrizzleTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+// Type for database reference (used in operations)
+type DbRef = typeof db;
 
-// Page data returned from transactional page access
+// Page data returned from page access
 interface PageData {
   pageId: string;
   plannerId: string;
@@ -59,71 +59,68 @@ interface PageData {
 }
 
 /**
- * Execute a read-modify-write operation on a page with row-level locking.
- * Uses FOR UPDATE to prevent concurrent modifications.
+ * Execute a read-modify-write operation on a page.
+ * Uses optimistic approach since neon-http driver doesn't support transactions
+ * in Vercel serverless environments.
  *
  * @param tenantId - The tenant ID
  * @param templateId - The page template ID (e.g., "guest-list", "vendor-contacts")
- * @param operation - Callback that receives the transaction context and page data
+ * @param operation - Callback that receives the database reference and page data
  * @returns The result of the operation
  */
 async function withPageLock<T>(
   tenantId: string,
   templateId: string,
   operation: (
-    tx: DrizzleTransaction,
+    dbRef: DbRef,
     pageData: PageData
   ) => Promise<T>
 ): Promise<T> {
-  logger.info("withPageLock: starting transaction", { tenantId, templateId });
+  logger.info("withPageLock: starting operation", { tenantId, templateId });
 
   try {
-    return await db.transaction(async (tx) => {
-      // Get or create planner
-      let planner = await tx.query.planners.findFirst({
-        where: eq(planners.tenantId, tenantId)
-      });
-
-      if (!planner) {
-        logger.info("withPageLock: creating planner", { tenantId });
-        const [newPlanner] = await tx.insert(planners).values({ tenantId }).returning();
-        planner = newPlanner;
-      }
-
-      // Try to get page with FOR UPDATE lock to prevent concurrent modifications
-      const pageResult = await tx.execute(sql`
-        SELECT id, fields FROM pages
-        WHERE planner_id = ${planner.id} AND template_id = ${templateId}
-        FOR UPDATE
-      `);
-
-      let page: { id: string; fields: Record<string, unknown> };
-
-      if (pageResult.rows.length === 0) {
-        // Create new page if it doesn't exist
-        logger.info("withPageLock: creating page", { plannerId: planner.id, templateId });
-        const [newPage] = await tx.insert(pages).values({
-          plannerId: planner.id,
-          templateId,
-          title: getTemplateTitle(templateId),
-          fields: getDefaultFields(templateId)
-        }).returning();
-        page = { id: newPage.id, fields: (newPage.fields as Record<string, unknown>) || {} };
-      } else {
-        const row = pageResult.rows[0] as { id: string; fields: Record<string, unknown> };
-        page = { id: row.id, fields: row.fields || {} };
-      }
-
-      logger.info("withPageLock: executing operation", { pageId: page.id, templateId });
-
-      return operation(tx, {
-        pageId: page.id,
-        plannerId: planner.id,
-        fields: page.fields
-      });
+    // Get or create planner
+    let planner = await db.query.planners.findFirst({
+      where: eq(planners.tenantId, tenantId)
     });
+
+    if (!planner) {
+      logger.info("withPageLock: creating planner", { tenantId });
+      const [newPlanner] = await db.insert(planners).values({ tenantId }).returning();
+      planner = newPlanner;
+    }
+
+    // Get existing page
+    let page = await db.query.pages.findFirst({
+      where: and(
+        eq(pages.plannerId, planner.id),
+        eq(pages.templateId, templateId)
+      )
+    });
+
+    if (!page) {
+      // Create new page if it doesn't exist
+      logger.info("withPageLock: creating page", { plannerId: planner.id, templateId });
+      const [newPage] = await db.insert(pages).values({
+        plannerId: planner.id,
+        templateId,
+        title: getTemplateTitle(templateId),
+        fields: getDefaultFields(templateId)
+      }).returning();
+      page = newPage;
+    }
+
+    const pageData: PageData = {
+      pageId: page.id,
+      plannerId: planner.id,
+      fields: (page.fields as Record<string, unknown>) || {}
+    };
+
+    logger.info("withPageLock: executing operation", { pageId: page.id, templateId });
+
+    return operation(db, pageData);
   } catch (error) {
-    logger.error("withPageLock: transaction failed", error instanceof Error ? error : undefined, {
+    logger.error("withPageLock: operation failed", error instanceof Error ? error : undefined, {
       tenantId,
       templateId,
       errorDetails: error instanceof Error ? error.stack : String(error),
