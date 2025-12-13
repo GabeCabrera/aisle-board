@@ -7,14 +7,44 @@ export const DAILY_FREE_AI_MESSAGE_LIMIT = 5;
 
 // Subscription prices (set these in Stripe dashboard and copy the IDs here)
 export const STRIPE_PRICES = {
-  monthly: process.env.STRIPE_PRICE_MONTHLY!,           // $11.99/month
-  yearly: process.env.STRIPE_PRICE_YEARLY!,             // $119/year
-  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY!, // $24.99/month
-  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY!,   // $249/year
+  monthly: process.env.STRIPE_PRICE_MONTHLY,
+  yearly: process.env.STRIPE_PRICE_YEARLY,
+  premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
+  premium_yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY,
 };
+
+/**
+ * Validate that required Stripe env vars are set
+ * Call this before initiating checkout
+ */
+export function validateStripePrices(): { valid: boolean; missing: string[] } {
+  const required = ["monthly", "yearly"] as const;
+  const missing: string[] = [];
+
+  for (const key of required) {
+    if (!STRIPE_PRICES[key]) {
+      missing.push(`STRIPE_PRICE_${key.toUpperCase()}`);
+    }
+  }
+
+  return { valid: missing.length === 0, missing };
+}
 
 // Plan types - includes both standard and premium tiers
 export type PlanType = "free" | "monthly" | "yearly" | "premium_monthly" | "premium_yearly";
+
+/**
+ * Get plan type from Stripe price ID
+ * This is the source of truth - derive plan from price, not metadata
+ */
+export function getPlanFromPriceId(priceId: string): PlanType {
+  if (priceId === process.env.STRIPE_PRICE_MONTHLY) return "monthly";
+  if (priceId === process.env.STRIPE_PRICE_YEARLY) return "yearly";
+  if (priceId === process.env.STRIPE_PRICE_PREMIUM_MONTHLY) return "premium_monthly";
+  if (priceId === process.env.STRIPE_PRICE_PREMIUM_YEARLY) return "premium_yearly";
+  // Default to free if unknown price (shouldn't happen in production)
+  return "free";
+}
 
 // Helper to check if a plan is a premium tier
 export function isPremiumPlan(plan: PlanType): boolean {

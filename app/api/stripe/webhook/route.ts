@@ -4,8 +4,9 @@ import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import logger from "@/lib/logger";
-import { getUsersByTenantId } from "@/lib/db/queries";
+import { getUsersByTenantId, incrementPromoCodeUses } from "@/lib/db/queries";
 import { sendEmail } from "@/lib/email";
+import { getPlanFromPriceId, type PlanType } from "@/lib/subscription";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16" as Stripe.LatestApiVersion,
@@ -47,17 +48,16 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
       const tenantId = subscription.metadata?.tenantId;
-      
+
       if (tenantId) {
-        const billingCycle = subscription.metadata?.billingCycle as "monthly" | "yearly" || "monthly";
         const status = subscription.status;
         const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
         const priceId = subscription.items.data[0]?.price?.id;
 
-        // Determine plan based on subscription status
-        let plan: "free" | "monthly" | "yearly" = "free";
-        if (status === "active" || status === "trialing") {
-          plan = billingCycle;
+        // Derive plan from price_id (source of truth), not metadata
+        let plan: PlanType = "free";
+        if ((status === "active" || status === "trialing") && priceId) {
+          plan = getPlanFromPriceId(priceId);
         }
 
         await db
@@ -72,7 +72,20 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(tenants.id, tenantId));
 
-        logger.info("Subscription updated", { tenantId, plan, status });
+        // On new subscription creation, increment promo code usage if applicable
+        if (event.type === "customer.subscription.created") {
+          const promoCodeId = subscription.metadata?.promoCodeId;
+          if (promoCodeId) {
+            try {
+              await incrementPromoCodeUses(promoCodeId);
+              logger.info("Promo code usage incremented", { tenantId, promoCodeId });
+            } catch (promoError) {
+              logger.error("Failed to increment promo code usage", promoError instanceof Error ? promoError : undefined);
+            }
+          }
+        }
+
+        logger.info("Subscription updated", { tenantId, plan, status, priceId });
       }
       break;
     }
@@ -101,27 +114,28 @@ export async function POST(request: NextRequest) {
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = invoice.subscription as string;
-      
+
       if (subscriptionId) {
         // Get the subscription to find the tenant
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const tenantId = subscription.metadata?.tenantId;
-        
+
         if (tenantId) {
-          // Ensure tenant is marked as active
-          const billingCycle = subscription.metadata?.billingCycle as "monthly" | "yearly" || "monthly";
-          
+          // Derive plan from price_id (source of truth)
+          const priceId = subscription.items.data[0]?.price?.id;
+          const plan = priceId ? getPlanFromPriceId(priceId) : "free";
+
           await db
             .update(tenants)
             .set({
-              plan: billingCycle,
+              plan,
               subscriptionStatus: "active",
               subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
               updatedAt: new Date(),
             })
             .where(eq(tenants.id, tenantId));
 
-          logger.info("Payment succeeded", { tenantId });
+          logger.info("Payment succeeded", { tenantId, plan, priceId });
         }
       }
       break;

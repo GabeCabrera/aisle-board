@@ -112,7 +112,7 @@ describe('Stripe Webhook API', () => {
           mode: 'payment',
           payment_status: 'paid',
           status: 'complete',
-        } as Stripe.Checkout.Session,
+        } as unknown as Stripe.Checkout.Session,
       },
       livemode: false,
       pending_webhooks: 0,
@@ -146,16 +146,16 @@ describe('Stripe Webhook API', () => {
   });
 
   it('should handle customer.subscription.updated event', async () => {
-    const mockSubscription: Stripe.Subscription = {
+    const mockSubscription = {
       id: mockSubscriptionId,
       object: 'subscription',
       customer: mockCustomerId,
       status: 'active',
       current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
       metadata: { tenantId: mockTenantId, billingCycle: 'monthly' },
-      items: { data: [{ price: { id: mockPriceId, product: mockProductMonthlyId } }] } as any,
+      items: { data: [{ price: { id: mockPriceId, product: mockProductMonthlyId } }] },
       cancel_at_period_end: false,
-    } as Stripe.Subscription;
+    } as unknown as Stripe.Subscription;
 
     const mockEvent: Stripe.Event = {
       id: 'evt_subscription_updated',
@@ -195,15 +195,15 @@ describe('Stripe Webhook API', () => {
   });
 
   it('should handle customer.subscription.deleted event', async () => {
-    const mockSubscription: Stripe.Subscription = {
+    const mockSubscription = {
         id: mockSubscriptionId,
         object: 'subscription',
         customer: mockCustomerId,
         status: 'canceled',
         current_period_end: Math.floor(Date.now() / 1000) - 1,
         metadata: { tenantId: mockTenantId },
-        items: { data: [{ price: { id: mockPriceId, product: mockProductMonthlyId } }] } as any,
-    } as Stripe.Subscription;
+        items: { data: [{ price: { id: mockPriceId, product: mockProductMonthlyId } }] },
+    } as unknown as Stripe.Subscription;
 
     const mockEvent: Stripe.Event = {
       id: 'evt_subscription_deleted',

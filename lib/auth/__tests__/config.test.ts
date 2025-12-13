@@ -149,7 +149,7 @@ describe("Auth Config", () => {
 
     it("should allow credentials sign in without checks", async () => {
       const result = await signInCallback({
-        user: { id: "1" },
+        user: { id: "1" } as any,
         account: { provider: "credentials" } as any,
         profile: {} as any,
         email: { verificationRequest: false }

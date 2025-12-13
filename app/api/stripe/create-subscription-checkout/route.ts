@@ -5,7 +5,8 @@ import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getPromoCodeByCode, incrementPromoCodeUses } from "@/lib/db/queries";
+import { getPromoCodeByCode } from "@/lib/db/queries";
+import logger from "@/lib/logger";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16" as Stripe.LatestApiVersion,
@@ -119,13 +120,13 @@ export async function POST(request: NextRequest) {
               });
               stripeCouponId = coupon.id;
             }
-            
+
+            // Store promo code ID - usage will be incremented by webhook on successful payment
             promoCodeId = code.id;
-            await incrementPromoCodeUses(code.id);
           }
         }
       } catch (e) {
-        console.error("Error processing promo code:", e);
+        logger.error("Error processing promo code", e instanceof Error ? e : undefined);
         // Continue without discount
       }
     }
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {
-    console.error("Stripe subscription checkout error:", error);
+    logger.error("Stripe subscription checkout error", error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

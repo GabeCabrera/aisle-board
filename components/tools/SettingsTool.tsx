@@ -4,37 +4,102 @@ import { useSession } from "next-auth/react";
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  User,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import Link from "next/link";
+import { toast } from "sonner";
+import {
   ShieldQuestion,
   AlertTriangle,
   Loader2,
   Save,
-  Instagram,
-  Globe,
-  Link as LinkIcon, // Using Link as a generic link icon
-  UserPlus // Import UserPlus
+  UserPlus,
 } from "lucide-react";
-// ... (rest of imports)
 
 export default function SettingsTool() {
-  // ... (existing state and useEffect)
+  const { data: session } = useSession();
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Profile form state
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [profileImage, setProfileImage] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [tiktok, setTiktok] = useState("");
+  const [website, setWebsite] = useState("");
+
+  // Load initial values when session is available
+  useEffect(() => {
+    if (session?.user?.name) {
+      setDisplayName(session.user.name);
+    }
+  }, [session]);
+
+  const userInitial = session?.user?.name?.charAt(0).toUpperCase() || session?.user?.email?.charAt(0).toUpperCase();
 
   const handleInvitePartner = () => {
-    // In a real implementation, this would generate a unique invite link
     const inviteLink = `https://scribeandstem.com/invite/${session?.user?.id || "unique-id"}`;
     navigator.clipboard.writeText(inviteLink);
     toast.success("Invitation link copied to clipboard!");
   };
 
-  // ... (rest of handleProfileSave)
+  const handleProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/settings/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName,
+          bio,
+          profileImage,
+          socialLinks: {
+            instagram,
+            tiktok,
+            website,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save profile");
+      }
+
+      toast.success("Profile updated successfully!");
+      setIsEditProfileOpen(false);
+    } catch (error) {
+      toast.error("Failed to save profile. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto py-8 px-6 space-y-8 animate-fade-up">
-      {/* ... (Header and Account section) */}
+      {/* Header */}
+      <div>
+        <h1 className="font-serif text-5xl md:text-6xl text-foreground tracking-tight">
+          Settings
+        </h1>
+        <p className="text-xl text-muted-foreground mt-2 font-light">
+          Manage your account and preferences
+        </p>
+      </div>
 
+      {/* Account Section */}
       <Card className="bg-white rounded-3xl border border-border shadow-soft">
         <CardHeader className="p-6 border-b border-border/70 bg-muted/20 rounded-t-3xl">
           <CardTitle className="font-serif text-xl text-foreground">Account</CardTitle>
@@ -59,7 +124,6 @@ export default function SettingsTool() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px] rounded-xl">
-                {/* ... (Dialog content same as before) ... */}
                 <DialogHeader>
                   <DialogTitle className="font-serif text-2xl">Edit Your Profile</DialogTitle>
                   <DialogDescription>
@@ -167,9 +231,6 @@ export default function SettingsTool() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Plan section */}
-      {/* ... (rest of the file) */}
 
       {/* Plan section */}
       <Card className="bg-white rounded-3xl border border-border shadow-soft">

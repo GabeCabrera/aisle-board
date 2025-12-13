@@ -26,15 +26,17 @@ function SubscriptionSuccessContent() {
     // Verify the session and mark onboarding complete
     const verifyAndComplete = async () => {
       try {
-        // Verify the Stripe session
+        // Verify the Stripe session - webhook handles plan updates, we just confirm success
         const verifyRes = await fetch("/api/stripe/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId }),
         });
 
-        if (!verifyRes.ok) {
-          throw new Error("Failed to verify payment");
+        const verifyData = await verifyRes.json();
+
+        if (!verifyRes.ok || !verifyData.success) {
+          throw new Error(verifyData.error || "Failed to verify payment");
         }
 
         // Mark onboarding complete
@@ -46,11 +48,11 @@ function SubscriptionSuccessContent() {
 
         // Track subscription
         redditPixel.trackPurchase(12); // Track monthly value
-        
+
         setIsVerifying(false);
       } catch (err) {
-        console.error("Verification error:", err);
-        setError("Failed to verify subscription. Please contact support.");
+        // Don't log to console in production - error is shown to user
+        setError("Failed to verify subscription. Please contact support if this persists.");
         setIsVerifying(false);
       }
     };
