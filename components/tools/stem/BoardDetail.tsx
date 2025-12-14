@@ -20,12 +20,12 @@ export function BoardDetail({ board, ideas, isOwner }: BoardDetailProps) {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-up">
       {/* Navigation */}
-      <Button 
-        variant="ghost" 
-        onClick={() => router.push("/planner/stem")}
+      <Button
+        variant="ghost"
+        onClick={() => router.back()}
         className="pl-0 hover:pl-2 transition-all"
       >
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Inspiration
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
 
       {/* Header */}
