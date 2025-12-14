@@ -19,7 +19,17 @@ const FROM_EMAIL = process.env.EMAIL_FROM || `Stem <hello@${APP_DOMAIN}>`;
 const PERSONAL_FROM_EMAIL = process.env.EMAIL_FROM_PERSONAL || `Gabe & Sarah <GabeandSarah@${APP_DOMAIN}>`;
 const BASE_URL = process.env.NEXTAUTH_URL || `https://${APP_DOMAIN}`;
 
-export type EmailTemplate = "welcome" | "why_29" | "tips_week_1" | "broadcast" | "password_reset" | "payment_failed";
+export type EmailTemplate =
+  | "welcome"
+  | "why_29"
+  | "tips_week_1"
+  | "broadcast"
+  | "password_reset"
+  | "payment_failed"
+  | "vendor_claim_verification"
+  | "vendor_claim_approved"
+  | "vendor_claim_rejected"
+  | "admin_claim_notification";
 
 interface SendEmailOptions {
   to: string;
@@ -30,6 +40,12 @@ interface SendEmailOptions {
     subject?: string; // For broadcast emails
     content?: string; // For broadcast emails
     resetUrl?: string; // For password reset emails
+    // Vendor claim email fields
+    vendorName?: string;
+    verifyUrl?: string;
+    registrationUrl?: string;
+    claimEmail?: string;
+    adminNotes?: string;
   };
 }
 
@@ -537,6 +553,296 @@ function getPaymentFailedEmail(name: string) {
 }
 
 // ============================================================================
+// VENDOR CLAIM EMAILS
+// ============================================================================
+
+function getVendorClaimVerificationEmail(vendorName: string, verifyUrl: string) {
+  return {
+    subject: `Verify your claim for ${vendorName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9a8d7f;">
+                Vendor Portal
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                Verify Your Business Claim
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                You've requested to claim the business profile for <strong>${vendorName}</strong> on Stem.
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                Click the button below to verify your email address. Once verified, our team will review your claim and you'll receive a follow-up email within 1-2 business days.
+              </p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verifyUrl}" style="display: inline-block; padding: 16px 32px; background-color: #8b7355; color: #ffffff; text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">
+                  Verify Email
+                </a>
+              </div>
+
+              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #9a8d7f;">
+                This link will expire in 24 hours. If you didn't request this, you can safely ignore this email.
+              </p>
+
+              <p style="margin: 30px 0 0; font-size: 12px; line-height: 1.6; color: #9a8d7f; border-top: 1px solid #e8e4df; padding-top: 20px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${verifyUrl}" style="color: #8b7355; word-break: break-all;">${verifyUrl}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+function getVendorClaimApprovedEmail(vendorName: string, registrationUrl: string) {
+  return {
+    subject: `Your claim for ${vendorName} has been approved!`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9a8d7f;">
+                Vendor Portal
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                Claim Approved!
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                Great news! Your claim for <strong>${vendorName}</strong> has been approved.
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                Click the button below to complete your registration and gain access to your vendor dashboard:
+              </p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${registrationUrl}" style="display: inline-block; padding: 16px 32px; background-color: #8b7355; color: #ffffff; text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">
+                  Complete Registration
+                </a>
+              </div>
+
+              <div style="background-color: #faf9f7; padding: 20px; margin: 24px 0; border-left: 3px solid #c9b99a;">
+                <p style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #5c5147;">
+                  What you can do once registered:
+                </p>
+                <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8; color: #6b6157;">
+                  <li>Update your business profile and photos</li>
+                  <li>Respond to questions from couples</li>
+                  <li>Get discovered by engaged couples planning their weddings</li>
+                  <li>Share posts and inspiration on Stem</li>
+                </ul>
+              </div>
+
+              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #9a8d7f;">
+                This registration link will expire in 7 days. If you have any questions, just reply to this email.
+              </p>
+
+              <p style="margin: 30px 0 0; font-size: 12px; line-height: 1.6; color: #9a8d7f; border-top: 1px solid #e8e4df; padding-top: 20px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${registrationUrl}" style="color: #8b7355; word-break: break-all;">${registrationUrl}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+function getVendorClaimRejectedEmail(vendorName: string, adminNotes?: string) {
+  return {
+    subject: `Update on your claim for ${vendorName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9a8d7f;">
+                Vendor Portal
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                Claim Not Approved
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                Thank you for your interest in claiming <strong>${vendorName}</strong> on Stem.
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                After reviewing your request, we were unable to approve your claim at this time.
+              </p>
+
+              ${adminNotes ? `
+              <div style="background-color: #faf9f7; padding: 20px; margin: 24px 0; border-left: 3px solid #c9b99a;">
+                <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #5c5147;">
+                  Reason:
+                </p>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #6b6157;">
+                  ${adminNotes}
+                </p>
+              </div>
+              ` : ''}
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                If you believe this was a mistake, or if you have additional documentation to verify your ownership of this business, please reply to this email and we'll be happy to review again.
+              </p>
+
+              <p style="margin: 30px 0 0; font-size: 14px; line-height: 1.6; color: #9a8d7f; text-align: center;">
+                — The Stem Team
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+function getAdminClaimNotificationEmail(vendorName: string, claimEmail: string) {
+  const adminUrl = `${BASE_URL}/admin/vendors?tab=claims`;
+
+  return {
+    subject: `New vendor claim: ${vendorName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM ADMIN
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                New Vendor Claim
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                A new vendor claim has been submitted and verified:
+              </p>
+
+              <div style="background-color: #faf9f7; padding: 20px; margin: 24px 0; border-left: 3px solid #c9b99a;">
+                <p style="margin: 0 0 8px; font-size: 14px; color: #9a8d7f;">Business</p>
+                <p style="margin: 0 0 16px; font-size: 18px; font-weight: 600; color: #5c5147;">${vendorName}</p>
+
+                <p style="margin: 0 0 8px; font-size: 14px; color: #9a8d7f;">Claimant Email</p>
+                <p style="margin: 0; font-size: 16px; color: #5c5147;">${claimEmail}</p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${adminUrl}" style="display: inline-block; padding: 16px 32px; background-color: #8b7355; color: #ffffff; text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">
+                  Review Claim
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+// ============================================================================
 // SEND EMAIL FUNCTION
 // ============================================================================
 
@@ -568,6 +874,30 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
     case "payment_failed":
       emailContent = getPaymentFailedEmail(data.name);
       break;
+    case "vendor_claim_verification":
+      if (!data.vendorName || !data.verifyUrl) {
+        return { success: false, error: "Vendor name and verify URL required" };
+      }
+      emailContent = getVendorClaimVerificationEmail(data.vendorName, data.verifyUrl);
+      break;
+    case "vendor_claim_approved":
+      if (!data.vendorName || !data.registrationUrl) {
+        return { success: false, error: "Vendor name and registration URL required" };
+      }
+      emailContent = getVendorClaimApprovedEmail(data.vendorName, data.registrationUrl);
+      break;
+    case "vendor_claim_rejected":
+      if (!data.vendorName) {
+        return { success: false, error: "Vendor name required" };
+      }
+      emailContent = getVendorClaimRejectedEmail(data.vendorName, data.adminNotes);
+      break;
+    case "admin_claim_notification":
+      if (!data.vendorName || !data.claimEmail) {
+        return { success: false, error: "Vendor name and claim email required" };
+      }
+      emailContent = getAdminClaimNotificationEmail(data.vendorName, data.claimEmail);
+      break;
     default:
       return { success: false, error: "Unknown template" };
   }
@@ -579,8 +909,14 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
   }
 
   try {
-    // Transactional emails (password reset, payment failed) don't need unsubscribe headers
-    const isTransactional = template === "password_reset" || template === "payment_failed";
+    // Transactional emails don't need unsubscribe headers
+    const isTransactional =
+      template === "password_reset" ||
+      template === "payment_failed" ||
+      template === "vendor_claim_verification" ||
+      template === "vendor_claim_approved" ||
+      template === "vendor_claim_rejected" ||
+      template === "admin_claim_notification";
 
     const emailOptions: Parameters<typeof client.emails.send>[0] = {
       from: FROM_EMAIL,

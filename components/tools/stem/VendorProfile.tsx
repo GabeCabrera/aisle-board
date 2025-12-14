@@ -35,6 +35,7 @@ import { VendorReviewCard } from "./VendorReviewCard";
 import { VendorReviewForm } from "./VendorReviewForm";
 import { VendorQASection } from "./VendorQASection";
 import { VendorFollowButton } from "./VendorFollowButton";
+import { VendorClaimButton } from "./VendorClaimButton";
 import { VendorPostCard } from "./VendorPostCard";
 import { VendorPostForm } from "./VendorPostForm";
 import { ShowcaseCard } from "./ShowcaseCard";
@@ -504,6 +505,17 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
                     >
                       <Share2 className="h-4 w-4" />
                     </Button>
+
+                    {/* Claim Button - only show for unclaimed vendors */}
+                    {!vendor.claimedTenant && (
+                      <VendorClaimButton
+                        vendorId={vendor.id}
+                        vendorName={vendor.name}
+                        claimStatus={vendor.claimStatus as "unclaimed" | "pending" | "verified" | "claimed" | undefined}
+                        size="lg"
+                        className="rounded-full"
+                      />
+                    )}
                   </div>
                 </div>
               </div>

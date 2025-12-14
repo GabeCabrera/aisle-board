@@ -22,6 +22,9 @@ import {
   MessageSquare,
   Clock,
   Globe,
+  Building2,
+  Mail,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +47,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { VendorProfile, VendorRequest } from "@/lib/db/schema";
+import type { VendorProfile, VendorRequest, VendorClaimToken } from "@/lib/db/schema";
 
 const CATEGORIES = [
   { value: "photographer", label: "Photographer" },
@@ -118,6 +121,24 @@ const REQUEST_STATUS_LABELS: Record<string, { label: string; color: string }> = 
   declined: { label: "Declined", color: "bg-red-100 text-red-800" },
 };
 
+const CLAIM_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pending Email", color: "bg-yellow-100 text-yellow-800" },
+  verified: { label: "Email Verified", color: "bg-blue-100 text-blue-800" },
+  approved: { label: "Approved", color: "bg-green-100 text-green-800" },
+  rejected: { label: "Rejected", color: "bg-red-100 text-red-800" },
+};
+
+type ClaimWithVendor = VendorClaimToken & {
+  vendor?: { id: string; name: string; slug: string } | null;
+};
+
+interface PlaceSearchResult {
+  placeId: string;
+  name: string;
+  address: string;
+  types?: string[];
+}
+
 export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -136,6 +157,18 @@ export default function AdminVendorsPage() {
   const [requests, setRequests] = useState<VendorRequestWithTenant[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [requestStatusFilter, setRequestStatusFilter] = useState<string>("pending");
+
+  // Claims state
+  const [claims, setClaims] = useState<ClaimWithVendor[]>([]);
+  const [isLoadingClaims, setIsLoadingClaims] = useState(true);
+  const [claimStatusFilter, setClaimStatusFilter] = useState<string>("verified");
+
+  // Enrichment dialog state
+  const [enrichVendor, setEnrichVendor] = useState<VendorProfile | null>(null);
+  const [placeSearch, setPlaceSearch] = useState("");
+  const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
 
   const fetchVendors = async () => {
     setIsLoading(true);
@@ -172,10 +205,107 @@ export default function AdminVendorsPage() {
     }
   };
 
+  const fetchClaims = async () => {
+    setIsLoadingClaims(true);
+    try {
+      const params = new URLSearchParams();
+      if (claimStatusFilter) params.set("status", claimStatusFilter);
+      const response = await fetch(`/api/admin/vendors/claims?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch claims");
+      const data = await response.json();
+      setClaims(data.claims || []);
+    } catch (err) {
+      console.error("Failed to fetch vendor claims:", err);
+      toast.error("Failed to fetch vendor claims");
+    } finally {
+      setIsLoadingClaims(false);
+    }
+  };
+
+  // Enrichment functions
+  const openEnrichDialog = (vendor: VendorProfile) => {
+    setEnrichVendor(vendor);
+    setPlaceSearch(vendor.name);
+    setPlaceResults([]);
+  };
+
+  const searchPlaces = async () => {
+    if (!placeSearch.trim()) return;
+    setIsSearchingPlaces(true);
+    try {
+      const params = new URLSearchParams({ query: placeSearch });
+      if (enrichVendor?.city) params.set("location", `${enrichVendor.city}, ${enrichVendor.state || ""}`);
+      const response = await fetch(`/api/admin/vendors/enrich?${params}`);
+      if (!response.ok) throw new Error("Failed to search");
+      const data = await response.json();
+      setPlaceResults(data.results || []);
+    } catch (err) {
+      toast.error("Failed to search Google Places");
+    } finally {
+      setIsSearchingPlaces(false);
+    }
+  };
+
+  const enrichFromPlace = async (placeId: string, tier: "free" | "premium" = "free") => {
+    if (!enrichVendor) return;
+    setIsEnriching(true);
+    try {
+      const response = await fetch("/api/admin/vendors/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId: enrichVendor.id, placeId, tier }),
+      });
+      if (!response.ok) throw new Error("Failed to enrich");
+      toast.success("Vendor enriched from Google Places");
+      setEnrichVendor(null);
+      fetchVendors();
+    } catch (err) {
+      toast.error("Failed to enrich vendor");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
+  // Claim actions
+  const approveClaim = async (claimId: string) => {
+    try {
+      const response = await fetch(`/api/admin/vendors/claims/${claimId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      if (!response.ok) throw new Error("Failed to approve");
+      toast.success("Claim approved - vendor will receive registration email");
+      fetchClaims();
+    } catch (err) {
+      toast.error("Failed to approve claim");
+    }
+  };
+
+  const rejectClaim = async (claimId: string, reason: string) => {
+    try {
+      const response = await fetch(`/api/admin/vendors/claims/${claimId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", adminNotes: reason }),
+      });
+      if (!response.ok) throw new Error("Failed to reject");
+      toast.success("Claim rejected");
+      fetchClaims();
+    } catch (err) {
+      toast.error("Failed to reject claim");
+    }
+  };
+
   useEffect(() => {
     fetchVendors();
     fetchRequests();
+    fetchClaims();
   }, [categoryFilter]);
+
+  useEffect(() => {
+    fetchClaims();
+  }, [claimStatusFilter]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,6 +497,7 @@ export default function AdminVendorsPage() {
 
   // Stats
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
+  const pendingClaimsCount = claims.filter((c) => c.status === "verified").length;
   const verifiedCount = vendors.filter((v) => v.isVerified).length;
   const featuredCount = vendors.filter((v) => v.isFeatured).length;
   const categoryCounts = vendors.reduce((acc, v) => {
@@ -393,7 +524,7 @@ export default function AdminVendorsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-6 gap-4 mb-8">
         <div className="bg-white border border-warm-200 p-4 rounded-lg">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -451,7 +582,19 @@ export default function AdminVendorsPage() {
             </div>
             <div>
               <p className="text-2xl font-light text-warm-800">{pendingRequestsCount}</p>
-              <p className="text-xs text-warm-500">Pending Requests</p>
+              <p className="text-xs text-warm-500">Requests</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-warm-200 p-4 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${pendingClaimsCount > 0 ? "bg-emerald-100" : "bg-warm-100"}`}>
+              <FileCheck className={`w-5 h-5 ${pendingClaimsCount > 0 ? "text-emerald-600" : "text-warm-400"}`} />
+            </div>
+            <div>
+              <p className="text-2xl font-light text-warm-800">{pendingClaimsCount}</p>
+              <p className="text-xs text-warm-500">Claims</p>
             </div>
           </div>
         </div>
@@ -469,6 +612,15 @@ export default function AdminVendorsPage() {
             {pendingRequestsCount > 0 && (
               <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
                 {pendingRequestsCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="claims" className="gap-2">
+            <FileCheck className="w-4 h-4" />
+            Claims
+            {pendingClaimsCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-emerald-500 text-white rounded-full">
+                {pendingClaimsCount}
               </span>
             )}
           </TabsTrigger>
@@ -647,6 +799,15 @@ export default function AdminVendorsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEnrichDialog(vendor)}
+                        title="Enrich from Google Places"
+                        className="text-blue-600 hover:bg-blue-50"
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -902,6 +1063,145 @@ export default function AdminVendorsPage() {
             </table>
           </div>
         </TabsContent>
+
+        {/* Claims Tab */}
+        <TabsContent value="claims" className="space-y-6">
+          {/* Claims Filters */}
+          <div className="bg-white border border-warm-200 rounded-lg">
+            <div className="p-4 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-warm-400" />
+                <select
+                  value={claimStatusFilter}
+                  onChange={(e) => setClaimStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 text-sm"
+                >
+                  <option value="">All Status</option>
+                  <option value="pending">Pending Email</option>
+                  <option value="verified">Email Verified</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div className="flex-1" />
+
+              <Button variant="outline" size="sm" onClick={fetchClaims}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingClaims ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          {/* Claims Table */}
+          <div className="bg-white border border-warm-200 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-warm-50 border-b border-warm-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Vendor
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Claim Email
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Submitted
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-warm-100">
+                {isLoadingClaims ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-warm-400">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      Loading claims...
+                    </td>
+                  </tr>
+                ) : claims.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-warm-400">
+                      <FileCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      No vendor claims found
+                    </td>
+                  </tr>
+                ) : (
+                  claims.map((claim) => (
+                    <tr key={claim.id} className="hover:bg-warm-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-warm-800">{claim.vendor?.name || "Unknown"}</p>
+                          {claim.vendor?.slug && (
+                            <p className="text-xs text-warm-500">/{claim.vendor.slug}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-sm text-warm-600">
+                          <Mail className="w-3 h-3" />
+                          {claim.email}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            CLAIM_STATUS_LABELS[claim.status || "pending"]?.color
+                          }`}
+                        >
+                          {CLAIM_STATUS_LABELS[claim.status || "pending"]?.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-warm-600">
+                          {new Date(claim.createdAt).toLocaleDateString()}
+                        </p>
+                        {claim.verifiedAt && (
+                          <p className="text-xs text-warm-400">
+                            Verified: {new Date(claim.verifiedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          {claim.status === "verified" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => approveClaim(claim.id)}
+                                className="text-green-600 hover:bg-green-50"
+                                title="Approve claim"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const reason = prompt("Rejection reason:");
+                                  if (reason) rejectClaim(claim.id, reason);
+                                }}
+                                className="text-red-600 hover:bg-red-50"
+                                title="Reject claim"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Create/Edit Vendor Dialog */}
@@ -1095,6 +1395,88 @@ export default function AdminVendorsPage() {
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? "Saving..." : editingVendor ? "Save Changes" : "Create Vendor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Google Places Enrichment Dialog */}
+      <Dialog open={!!enrichVendor} onOpenChange={() => setEnrichVendor(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-blue-600" />
+              Enrich from Google Places
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-warm-50 p-3 rounded-lg">
+              <p className="font-medium text-warm-800">{enrichVendor?.name}</p>
+              {enrichVendor?.city && (
+                <p className="text-sm text-warm-500">
+                  {enrichVendor.city}, {enrichVendor.state}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Search Google Places</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={placeSearch}
+                  onChange={(e) => setPlaceSearch(e.target.value)}
+                  placeholder="Business name..."
+                  onKeyDown={(e) => e.key === "Enter" && searchPlaces()}
+                />
+                <Button onClick={searchPlaces} disabled={isSearchingPlaces}>
+                  {isSearchingPlaces ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {placeResults.length > 0 && (
+              <div className="space-y-2">
+                <Label>Select a business to import</Label>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {placeResults.map((place) => (
+                    <div
+                      key={place.placeId}
+                      className="p-3 border border-warm-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer"
+                      onClick={() => enrichFromPlace(place.placeId, "free")}
+                    >
+                      <p className="font-medium text-warm-800">{place.name}</p>
+                      <p className="text-sm text-warm-500">{place.address}</p>
+                      {place.types && (
+                        <div className="flex gap-1 mt-1">
+                          {place.types.slice(0, 3).map((type) => (
+                            <Badge key={type} variant="secondary" className="text-xs">
+                              {type.replace(/_/g, " ")}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isEnriching && (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw className="w-5 h-5 animate-spin text-blue-600 mr-2" />
+                <span className="text-warm-600">Enriching vendor...</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnrichVendor(null)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

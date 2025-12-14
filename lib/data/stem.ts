@@ -20,9 +20,16 @@ import {
   userBlocks,
   weddingKernels,
   customVendors,
+  contentReports,
 } from "@/lib/db/schema";
 import type { VendorProfile, CustomVendor, VendorPost, WeddingShowcase } from "@/lib/db/schema";
 import { eq, and, desc, or, inArray, not, sql, ilike, asc } from "drizzle-orm";
+import {
+  createFollowerNotification,
+  createReactionNotification,
+  createCommentNotification,
+  createMessageNotification,
+} from "@/lib/data/notifications";
 
 // =============================================================================
 // BOARDS & IDEAS (renamed from inspo.ts)
@@ -103,6 +110,54 @@ export async function getMyBoards(tenantId: string) {
   }));
 }
 
+/**
+ * Search for ideas across public boards
+ * Returns ideas with their associated board and tenant info
+ */
+export async function searchIdeas(query: string, limit = 20) {
+  if (!query.trim()) return [];
+
+  const searchPattern = `%${query.trim()}%`;
+
+  // Search ideas that belong to public boards
+  const results = await db
+    .select({
+      idea: ideas,
+      board: boards,
+      tenant: {
+        id: tenants.id,
+        displayName: tenants.displayName,
+        profileImage: tenants.profileImage,
+      },
+    })
+    .from(ideas)
+    .innerJoin(boards, eq(ideas.boardId, boards.id))
+    .innerJoin(tenants, eq(boards.tenantId, tenants.id))
+    .where(
+      and(
+        eq(boards.isPublic, true),
+        or(
+          ilike(ideas.title, searchPattern),
+          ilike(ideas.description, searchPattern),
+          sql`${ideas.tags}::text ILIKE ${searchPattern}`
+        )
+      )
+    )
+    .orderBy(desc(ideas.reactionCount), desc(ideas.saveCount), desc(ideas.createdAt))
+    .limit(limit);
+
+  // Transform to expected format: IdeaWithBoard
+  return results.map(({ idea, board, tenant }) => ({
+    ...idea,
+    board: {
+      ...board,
+      tenant,
+      ideas: [], // Not needed for search results
+      ideaCount: 0,
+    },
+  }));
+}
+
 // =============================================================================
 // PUBLIC PROFILES
 // =============================================================================
@@ -167,6 +222,13 @@ export async function getFollowStatus(followerId: string, followingId: string) {
 export async function followTenant(followerId: string, followingId: string) {
   if (followerId === followingId) return;
 
+  // Check if already following to avoid duplicate notifications
+  const existing = await db.query.follows.findFirst({
+    where: and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)),
+  });
+
+  if (existing) return;
+
   await db.insert(follows).values({ followerId, followingId }).onConflictDoNothing();
 
   // Create activity
@@ -177,6 +239,9 @@ export async function followTenant(followerId: string, followingId: string) {
     targetId: followingId,
     isPublic: true,
   });
+
+  // Notify the followed user
+  await createFollowerNotification(followingId, followerId);
 }
 
 export async function unfollowTenant(followerId: string, followingId: string) {
@@ -404,6 +469,29 @@ export async function createComment(data: {
       .update(ideas)
       .set({ commentCount: sql`${ideas.commentCount} + 1` })
       .where(eq(ideas.id, data.targetId));
+  } else if (data.targetType === "vendor_post") {
+    await db
+      .update(vendorPosts)
+      .set({ commentCount: sql`${vendorPosts.commentCount} + 1` })
+      .where(eq(vendorPosts.id, data.targetId));
+  } else if (data.targetType === "showcase") {
+    await db
+      .update(weddingShowcases)
+      .set({ commentCount: sql`${weddingShowcases.commentCount} + 1` })
+      .where(eq(weddingShowcases.id, data.targetId));
+  }
+
+  // Notify the content owner (if different from commenter) for boards and ideas
+  if (data.targetType === "board" || data.targetType === "idea") {
+    const ownerId = await getContentOwnerId(data.targetType, data.targetId);
+    if (ownerId && ownerId !== data.tenantId) {
+      await createCommentNotification(
+        ownerId,
+        data.tenantId,
+        data.targetType as "board" | "idea",
+        data.targetId
+      );
+    }
   }
 
   return newComment;
@@ -431,6 +519,16 @@ export async function deleteComment(commentId: string, tenantId: string) {
       .update(ideas)
       .set({ commentCount: sql`${ideas.commentCount} - 1` })
       .where(eq(ideas.id, comment.targetId));
+  } else if (comment.targetType === "vendor_post") {
+    await db
+      .update(vendorPosts)
+      .set({ commentCount: sql`${vendorPosts.commentCount} - 1` })
+      .where(eq(vendorPosts.id, comment.targetId));
+  } else if (comment.targetType === "showcase") {
+    await db
+      .update(weddingShowcases)
+      .set({ commentCount: sql`${weddingShowcases.commentCount} - 1` })
+      .where(eq(weddingShowcases.id, comment.targetId));
   }
 }
 
@@ -485,6 +583,17 @@ export async function toggleReaction(data: {
       metadata: { reactionType },
     });
 
+    // Notify the content owner (if different from reactor)
+    const ownerId = await getContentOwnerId(data.targetType, data.targetId);
+    if (ownerId && ownerId !== data.tenantId) {
+      await createReactionNotification(
+        ownerId,
+        data.tenantId,
+        data.targetType as "board" | "idea" | "comment",
+        data.targetId
+      );
+    }
+
     return { reacted: true };
   }
 }
@@ -501,6 +610,29 @@ async function updateReactionCount(targetType: string, targetId: string, delta: 
       .set({ reactionCount: sql`${ideas.reactionCount} + ${delta}` })
       .where(eq(ideas.id, targetId));
   }
+}
+
+async function getContentOwnerId(targetType: string, targetId: string): Promise<string | null> {
+  if (targetType === "board") {
+    const board = await db.query.boards.findFirst({
+      where: eq(boards.id, targetId),
+      columns: { tenantId: true },
+    });
+    return board?.tenantId ?? null;
+  } else if (targetType === "idea") {
+    const idea = await db.query.ideas.findFirst({
+      where: eq(ideas.id, targetId),
+      with: { board: { columns: { tenantId: true } } },
+    });
+    return idea?.board?.tenantId ?? null;
+  } else if (targetType === "comment") {
+    const comment = await db.query.comments.findFirst({
+      where: eq(comments.id, targetId),
+      columns: { tenantId: true },
+    });
+    return comment?.tenantId ?? null;
+  }
+  return null;
 }
 
 export async function getReactionStatus(
@@ -667,6 +799,12 @@ export async function sendMessage(
     .set({ lastMessageAt: new Date() })
     .where(eq(conversations.id, conversationId));
 
+  // Notify the recipient
+  const recipientId = convo.participant1Id === senderTenantId
+    ? convo.participant2Id
+    : convo.participant1Id;
+  await createMessageNotification(recipientId, senderTenantId, conversationId);
+
   return newMessage;
 }
 
@@ -714,6 +852,70 @@ export async function unblockUser(blockerTenantId: string, blockedTenantId: stri
         eq(userBlocks.blockedTenantId, blockedTenantId)
       )
     );
+}
+
+// =============================================================================
+// CONTENT REPORTS
+// =============================================================================
+
+const VALID_REPORT_REASONS = ["spam", "inappropriate", "harassment", "other"] as const;
+const VALID_REPORT_TARGETS = ["board", "idea", "comment", "message", "tenant", "vendor_post", "showcase"] as const;
+
+type ReportReason = typeof VALID_REPORT_REASONS[number];
+type ReportTarget = typeof VALID_REPORT_TARGETS[number];
+
+export async function createContentReport(data: {
+  reporterTenantId: string;
+  targetType: string;
+  targetId: string;
+  reason: string;
+  details?: string;
+}) {
+  // Validate reason
+  if (!VALID_REPORT_REASONS.includes(data.reason as ReportReason)) {
+    throw new Error("Invalid report reason");
+  }
+
+  // Validate target type
+  if (!VALID_REPORT_TARGETS.includes(data.targetType as ReportTarget)) {
+    throw new Error("Invalid target type");
+  }
+
+  const [report] = await db
+    .insert(contentReports)
+    .values({
+      reporterTenantId: data.reporterTenantId,
+      targetType: data.targetType,
+      targetId: data.targetId,
+      reason: data.reason,
+      details: data.details,
+      status: "pending",
+    })
+    .returning();
+
+  return report;
+}
+
+export async function getReportsForAdmin(options?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const { status, limit = 50, offset = 0 } = options || {};
+
+  const reports = await db.query.contentReports.findMany({
+    where: status ? eq(contentReports.status, status) : undefined,
+    with: {
+      reporter: {
+        columns: { id: true, displayName: true, profileImage: true },
+      },
+    },
+    orderBy: [desc(contentReports.createdAt)],
+    limit,
+    offset,
+  });
+
+  return reports;
 }
 
 // =============================================================================

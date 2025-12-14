@@ -200,6 +200,9 @@ export const tenants = pgTable(
     messagingEnabled: boolean("messaging_enabled").default(true).notNull(),
     profileVisibility: text("profile_visibility").default("public"), // "public", "followers", "private"
 
+    // Account type: "couple" (default) or "vendor"
+    accountType: text("account_type").default("couple"),
+
     // Legacy: for existing "complete" one-time purchases
     hasLegacyAccess: boolean("has_legacy_access").default(false).notNull(),
     
@@ -1340,6 +1343,15 @@ export const vendorProfiles = pgTable(
     claimedByTenantId: uuid("claimed_by_tenant_id").references(() => tenants.id, {
       onDelete: "set null",
     }),
+    claimStatus: text("claim_status").default("unclaimed"), // "unclaimed" | "pending" | "claimed"
+
+    // Google Places integration
+    googlePlaceId: text("google_place_id"),
+    googleData: jsonb("google_data").default({}),
+    googleDataUpdatedAt: timestamp("google_data_updated_at", { withTimezone: true }),
+
+    // Profile quality
+    profileCompleteness: integer("profile_completeness").default(0), // 0-100 score
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1363,6 +1375,47 @@ export const vendorProfilesRelations = relations(vendorProfiles, ({ one, many })
 
 export type VendorProfile = typeof vendorProfiles.$inferSelect;
 export type NewVendorProfile = typeof vendorProfiles.$inferInsert;
+
+// =============================================================================
+// VENDOR CLAIM TOKENS - Email verification for vendor claiming
+// =============================================================================
+export const vendorClaimTokens = pgTable(
+  "vendor_claim_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+    email: text("email").notNull(), // Business email for verification
+    token: text("token").notNull().unique(),
+    status: text("status").notNull().default("pending"), // "pending" | "verified" | "approved" | "rejected"
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id),
+    adminNotes: text("admin_notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tokenIdx: uniqueIndex("vendor_claim_tokens_token_idx").on(table.token),
+    vendorIdx: index("vendor_claim_tokens_vendor_idx").on(table.vendorId),
+    statusIdx: index("vendor_claim_tokens_status_idx").on(table.status),
+  })
+);
+
+export const vendorClaimTokensRelations = relations(vendorClaimTokens, ({ one }) => ({
+  vendor: one(vendorProfiles, {
+    fields: [vendorClaimTokens.vendorId],
+    references: [vendorProfiles.id],
+  }),
+  reviewer: one(users, {
+    fields: [vendorClaimTokens.reviewedBy],
+    references: [users.id],
+  }),
+}));
+
+export type VendorClaimToken = typeof vendorClaimTokens.$inferSelect;
+export type NewVendorClaimToken = typeof vendorClaimTokens.$inferInsert;
 
 // BOARD ARTICLES - Link articles to boards
 export const boardArticles = pgTable(
