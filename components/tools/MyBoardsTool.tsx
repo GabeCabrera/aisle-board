@@ -27,8 +27,8 @@ import {
 import type { Board, Idea } from '@/lib/db/schema'; // Updated import
 
 // Import refactored dialogs
-import { AddIdeaDialog } from './inspo-tool/AddIdeaDialog'; // Updated import
-import { IdeaList } from './inspo-tool/IdeaList'; // Updated import
+import { AddIdeaDialog } from './stem/AddIdeaDialog';
+import { IdeaList } from './stem/IdeaList';
 
 interface MyBoardsToolProps {
   initialBoards: Board[];
@@ -152,7 +152,7 @@ export default function MyBoardsTool({ initialBoards }: MyBoardsToolProps) {
           </h1>
         </div>
         <Button 
-            onClick={() => router.push('/planner/inspo/explore')} 
+            onClick={() => router.push('/planner/stem/explore')} 
             variant={'outline'}
             className={cn(
                 "rounded-full px-4 h-9"

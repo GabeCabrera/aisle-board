@@ -47,7 +47,7 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   "checklist": CheckSquare,
   "guests": Users,
   "vendors": Store,
-  "inspo": Sparkles,
+  "stem": Sparkles,
   "timeline": Calendar,
   "calendar": CalendarRange,
   "seating": Armchair,

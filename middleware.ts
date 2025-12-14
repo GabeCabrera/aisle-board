@@ -84,6 +84,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(canonicalUrl);
   }
 
+  // Redirect old /planner/inspo routes to /planner/stem
+  if (pathname.startsWith("/planner/inspo")) {
+    const newPath = pathname.replace("/planner/inspo", "/planner/stem");
+    return NextResponse.redirect(new URL(newPath, request.url));
+  }
+
   // Check authentication for protected routes
   const token = await getToken({
     req: request,

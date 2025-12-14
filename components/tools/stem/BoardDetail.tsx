@@ -22,7 +22,7 @@ export function BoardDetail({ board, ideas, isOwner }: BoardDetailProps) {
       {/* Navigation */}
       <Button 
         variant="ghost" 
-        onClick={() => router.push("/planner/inspo")}
+        onClick={() => router.push("/planner/stem")}
         className="pl-0 hover:pl-2 transition-all"
       >
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Inspiration

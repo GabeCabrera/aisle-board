@@ -44,7 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "checklist", label: "Checklist", icon: CheckSquare, href: "/planner/checklist" },
   { id: "guests", label: "Guests", icon: Users, href: "/planner/guests" },
   { id: "vendors", label: "Vendors", icon: Store, href: "/planner/vendors" },
-  { id: "inspo", label: "Inspo", icon: Sparkles, href: "/planner/inspo" },
+  { id: "stem", label: "Stem", icon: Sparkles, href: "/planner/stem" },
   { id: "timeline", label: "Timeline", icon: Calendar, href: "/planner/timeline" },
   { id: "calendar", label: "Calendar", icon: CalendarRange, href: "/planner/calendar" },
   { id: "seating", label: "Seating", icon: Armchair, href: "/planner/seating" },

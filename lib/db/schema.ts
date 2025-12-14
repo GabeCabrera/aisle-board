@@ -195,7 +195,11 @@ export const tenants = pgTable(
     bio: text("bio"),
     socialLinks: jsonb("social_links").default({}), // { instagram: "handle", tiktok: "handle", website: "url" }
     profileImage: text("profile_image"), // URL
-    
+
+    // Stem social platform additions
+    messagingEnabled: boolean("messaging_enabled").default(true).notNull(),
+    profileVisibility: text("profile_visibility").default("public"), // "public", "followers", "private"
+
     // Legacy: for existing "complete" one-time purchases
     hasLegacyAccess: boolean("has_legacy_access").default(false).notNull(),
     
@@ -622,6 +626,12 @@ export const boards = pgTable("boards", {
   isPublic: boolean("is_public").default(false).notNull(),
   viewCount: integer("view_count").default(0).notNull(),
 
+  // Stem social platform additions
+  boardType: text("board_type").default("standard").notNull(), // "standard", "learning", "vendor"
+  reactionCount: integer("reaction_count").default(0).notNull(),
+  commentCount: integer("comment_count").default(0).notNull(),
+  linkedVendorId: uuid("linked_vendor_id"), // For vendor showcase boards
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -634,6 +644,7 @@ export const boardsRelations = relations(boards, ({ one, many }) => ({
     references: [tenants.id],
   }),
   ideas: many(ideas),
+  articles: many(boardArticles),
 }));
 
 export type Board = typeof boards.$inferSelect;
@@ -663,6 +674,12 @@ export const ideas = pgTable("ideas", {
   originalIdeaId: uuid("original_idea_id"), // If copied from another idea
   viewCount: integer("view_count").default(0).notNull(),
   saveCount: integer("save_count").default(0).notNull(),
+
+  // Stem social platform additions
+  reactionCount: integer("reaction_count").default(0).notNull(),
+  commentCount: integer("comment_count").default(0).notNull(),
+  linkedVendorId: uuid("linked_vendor_id"), // If idea showcases a vendor
+  linkedArticleSlug: text("linked_article_slug"), // If idea is from an article
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -1044,3 +1061,381 @@ export const savedArticlesRelations = relations(savedArticles, ({ one }) => ({
 
 export type SavedArticle = typeof savedArticles.$inferSelect;
 export type NewSavedArticle = typeof savedArticles.$inferInsert;
+
+// ============================================================================
+// STEM SOCIAL PLATFORM - Activities, Comments, Reactions, Messaging, Vendors
+// ============================================================================
+
+// ACTIVITIES - Activity feed for social features
+export const activities = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorTenantId: uuid("actor_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Activity type
+    type: text("type").notNull(), // "board_created", "idea_added", "article_saved", "followed_user", "comment_added", "reaction_added"
+
+    // Target entity (polymorphic)
+    targetType: text("target_type").notNull(), // "board", "idea", "article", "tenant"
+    targetId: text("target_id").notNull(),
+
+    // Visibility
+    isPublic: boolean("is_public").default(true).notNull(),
+
+    // Extra context (JSON for flexibility)
+    metadata: jsonb("metadata").default({}),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    actorIdx: index("activities_actor_idx").on(table.actorTenantId),
+    targetIdx: index("activities_target_idx").on(table.targetType, table.targetId),
+    createdIdx: index("activities_created_idx").on(table.createdAt),
+  })
+);
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  actor: one(tenants, {
+    fields: [activities.actorTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type Activity = typeof activities.$inferSelect;
+export type NewActivity = typeof activities.$inferInsert;
+
+// COMMENTS - Comments on boards, ideas, or articles
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Target entity (polymorphic)
+    targetType: text("target_type").notNull(), // "board", "idea", "article"
+    targetId: text("target_id").notNull(), // UUID for board/idea, slug for article
+
+    // Content
+    content: text("content").notNull(),
+
+    // Threading
+    parentId: uuid("parent_id"), // For replies
+
+    // Moderation
+    isHidden: boolean("is_hidden").default(false).notNull(),
+    reportCount: integer("report_count").default(0).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("comments_tenant_idx").on(table.tenantId),
+    targetIdx: index("comments_target_idx").on(table.targetType, table.targetId),
+    parentIdx: index("comments_parent_idx").on(table.parentId),
+  })
+);
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [comments.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type Comment = typeof comments.$inferSelect;
+export type NewComment = typeof comments.$inferInsert;
+
+// REACTIONS - Like/heart reactions
+export const reactions = pgTable(
+  "reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Target entity (polymorphic)
+    targetType: text("target_type").notNull(), // "board", "idea", "article", "comment"
+    targetId: text("target_id").notNull(),
+
+    // Reaction type (for future expansion)
+    type: text("type").notNull().default("heart"), // "heart", "inspire", "love"
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Unique constraint: one reaction per tenant per target per type
+    tenantTargetIdx: uniqueIndex("reactions_tenant_target_idx").on(
+      table.tenantId,
+      table.targetType,
+      table.targetId,
+      table.type
+    ),
+  })
+);
+
+export const reactionsRelations = relations(reactions, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [reactions.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type Reaction = typeof reactions.$inferSelect;
+export type NewReaction = typeof reactions.$inferInsert;
+
+// CONVERSATIONS - Direct messaging between couples
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    participant1Id: uuid("participant_1_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    participant2Id: uuid("participant_2_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    participant1Idx: index("conversations_participant1_idx").on(table.participant1Id),
+    participant2Idx: index("conversations_participant2_idx").on(table.participant2Id),
+  })
+);
+
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  participant1: one(tenants, {
+    fields: [conversations.participant1Id],
+    references: [tenants.id],
+    relationName: "participant1",
+  }),
+  participant2: one(tenants, {
+    fields: [conversations.participant2Id],
+    references: [tenants.id],
+    relationName: "participant2",
+  }),
+  messages: many(messages),
+}));
+
+export type Conversation = typeof conversations.$inferSelect;
+export type NewConversation = typeof conversations.$inferInsert;
+
+// MESSAGES - Individual messages in conversations
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderTenantId: uuid("sender_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    content: text("content").notNull(),
+
+    // Read status
+    readAt: timestamp("read_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    conversationIdx: index("messages_conversation_idx").on(table.conversationId),
+    senderIdx: index("messages_sender_idx").on(table.senderTenantId),
+  })
+);
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(tenants, {
+    fields: [messages.senderTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
+
+// VENDOR PROFILES - For vendor discovery
+export const vendorProfiles = pgTable(
+  "vendor_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // Basic info
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    category: text("category").notNull(), // "photographer", "venue", "florist", "catering", etc.
+
+    // Location
+    city: text("city"),
+    state: text("state"),
+    region: text("region"),
+    serviceArea: jsonb("service_area").default([]), // Array of regions/cities they serve
+
+    // Contact
+    email: text("email"),
+    phone: text("phone"),
+    website: text("website"),
+    instagram: text("instagram"),
+
+    // Profile content
+    bio: text("bio"),
+    description: text("description"),
+    profileImage: text("profile_image"),
+    coverImage: text("cover_image"),
+
+    // Pricing
+    priceRange: text("price_range"), // "$", "$$", "$$$", "$$$$"
+    startingPrice: integer("starting_price"), // in cents
+
+    // Portfolio
+    portfolioImages: jsonb("portfolio_images").default([]), // Array of image URLs
+    featuredBoardId: uuid("featured_board_id"), // Link to a showcase board
+
+    // Stats
+    reviewCount: integer("review_count").default(0),
+    averageRating: integer("average_rating"), // 1-5 scaled to 10-50
+    saveCount: integer("save_count").default(0),
+
+    // Verification
+    isVerified: boolean("is_verified").default(false).notNull(),
+    isFeatured: boolean("is_featured").default(false).notNull(),
+
+    // Claimed by tenant (if vendor creates account)
+    claimedByTenantId: uuid("claimed_by_tenant_id").references(() => tenants.id, {
+      onDelete: "set null",
+    }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("vendor_profiles_slug_idx").on(table.slug),
+    categoryIdx: index("vendor_profiles_category_idx").on(table.category),
+    regionIdx: index("vendor_profiles_region_idx").on(table.state, table.city),
+  })
+);
+
+export const vendorProfilesRelations = relations(vendorProfiles, ({ one }) => ({
+  claimedBy: one(tenants, {
+    fields: [vendorProfiles.claimedByTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type VendorProfile = typeof vendorProfiles.$inferSelect;
+export type NewVendorProfile = typeof vendorProfiles.$inferInsert;
+
+// BOARD ARTICLES - Link articles to boards
+export const boardArticles = pgTable(
+  "board_articles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    articleSlug: text("article_slug").notNull(),
+
+    // Custom notes for this save
+    notes: text("notes"),
+
+    position: integer("position").default(0),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    boardIdx: index("board_articles_board_idx").on(table.boardId),
+    uniqueSaveIdx: uniqueIndex("board_articles_unique_idx").on(
+      table.boardId,
+      table.articleSlug
+    ),
+  })
+);
+
+export const boardArticlesRelations = relations(boardArticles, ({ one }) => ({
+  board: one(boards, {
+    fields: [boardArticles.boardId],
+    references: [boards.id],
+  }),
+}));
+
+export type BoardArticle = typeof boardArticles.$inferSelect;
+export type NewBoardArticle = typeof boardArticles.$inferInsert;
+
+// CONTENT REPORTS - For moderation
+export const contentReports = pgTable("content_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  reporterTenantId: uuid("reporter_tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+
+  // Target
+  targetType: text("target_type").notNull(), // "board", "idea", "comment", "message", "tenant"
+  targetId: text("target_id").notNull(),
+
+  reason: text("reason").notNull(), // "spam", "inappropriate", "harassment", "other"
+  details: text("details"),
+
+  // Resolution
+  status: text("status").default("pending").notNull(), // "pending", "reviewed", "action_taken", "dismissed"
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: uuid("reviewed_by"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contentReportsRelations = relations(contentReports, ({ one }) => ({
+  reporter: one(tenants, {
+    fields: [contentReports.reporterTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type ContentReport = typeof contentReports.$inferSelect;
+export type NewContentReport = typeof contentReports.$inferInsert;
+
+// USER BLOCKS - Block other users
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    blockerTenantId: uuid("blocker_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    blockedTenantId: uuid("blocked_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.blockerTenantId, table.blockedTenantId] }),
+  })
+);
+
+export const userBlocksRelations = relations(userBlocks, ({ one }) => ({
+  blocker: one(tenants, {
+    fields: [userBlocks.blockerTenantId],
+    references: [tenants.id],
+    relationName: "blocker",
+  }),
+  blocked: one(tenants, {
+    fields: [userBlocks.blockedTenantId],
+    references: [tenants.id],
+    relationName: "blocked",
+  }),
+}));
+
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type NewUserBlock = typeof userBlocks.$inferInsert;

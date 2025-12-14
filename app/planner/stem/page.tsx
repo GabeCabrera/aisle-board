@@ -1,22 +1,24 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth/config";
-import { getPublicBoards } from "@/lib/data/inspo";
-import { ExploreFeed } from "@/components/tools/inspo-tool/ExploreFeed";
+import { getMyBoards } from "@/lib/data/stem";
+import MyBoardsTool from "@/components/tools/MyBoardsTool";
 
-export default async function ExplorePage() {
+export default async function StemPage() {
   const session = await getServerSession(authOptions);
   
   if (!session) {
     redirect("/login");
   }
 
-  const publicBoards = await getPublicBoards();
+  const initialBoards = session.user.tenantId 
+    ? await getMyBoards(session.user.tenantId)
+    : [];
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <ExploreFeed initialBoards={publicBoards} />
+        <MyBoardsTool initialBoards={initialBoards} />
       </div>
     </div>
   );

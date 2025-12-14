@@ -96,8 +96,8 @@ export const tools: ToolDefinition[] = [
     shadow: "rgba(99, 102, 241, 0.4)",
   },
   {
-    id: "inspo",
-    label: "Inspo",
+    id: "stem",
+    label: "Stem",
     icon: Sparkles,
     gradient: "linear-gradient(135deg, #EC4899 0%, #DB2777 100%)",
     shadow: "rgba(236, 72, 153, 0.4)",

@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth/config";
-import { getPublicProfile } from "@/lib/data/inspo";
-import { UserProfile } from "@/components/tools/inspo-tool/UserProfile";
+import { getPublicProfile } from "@/lib/data/stem";
+import { UserProfile } from "@/components/tools/stem/UserProfile";
 
 interface PageProps {
   params: {

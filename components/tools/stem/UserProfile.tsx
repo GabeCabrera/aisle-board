@@ -93,7 +93,7 @@ export function UserProfile({ profile }: UserProfileProps) {
       {/* Navigation */}
       <Button 
         variant="ghost" 
-        onClick={() => router.push("/planner/inspo/explore")}
+        onClick={() => router.push("/planner/stem/explore")}
         className="pl-0 hover:pl-2 transition-all"
       >
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Explore
@@ -204,7 +204,7 @@ export function UserProfile({ profile }: UserProfileProps) {
                 <div key={board.id} className="mb-6">
                   <Card 
                     className="cursor-pointer rounded-3xl overflow-hidden shadow-soft transition-all duration-300 hover:translate-y-[-4px] hover:shadow-medium group bg-white border-border"
-                    onClick={() => router.push(`/planner/inspo/board/${board.id}`)}
+                    onClick={() => router.push(`/planner/stem/board/${board.id}`)}
                   >
                     {/* Collage Preview */}
                     <div className="aspect-[4/3] bg-muted relative grid grid-cols-2 grid-rows-2 gap-0.5">

@@ -51,7 +51,7 @@ export function ToolContent({ toolId }: { toolId: string }) {
           case "checklist":
             mod = await import("@/components/tools/ChecklistTool");
             break;
-          case "inspo":
+          case "stem":
             mod = await import("@/components/tools/MyBoardsTool");
             break;
           case "blog":

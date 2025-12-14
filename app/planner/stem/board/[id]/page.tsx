@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth/config";
-import { getBoard } from "@/lib/data/inspo";
-import { BoardDetail } from "@/components/tools/inspo-tool/BoardDetail";
+import { getBoard } from "@/lib/data/stem";
+import { BoardDetail } from "@/components/tools/stem/BoardDetail";
 
 interface PageProps {
   params: {
@@ -28,7 +28,7 @@ export default async function BoardPage({ params }: PageProps) {
   if (!boardData.isPublic && !isOwner) {
     // If private and not owner, redirect or 404
     // We'll redirect to explore to keep it friendly
-    redirect("/planner/inspo/explore");
+    redirect("/planner/stem/explore");
   }
 
   return (

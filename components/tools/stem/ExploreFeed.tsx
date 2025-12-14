@@ -108,7 +108,7 @@ export function ExploreFeed({ initialBoards }: ExploreFeedProps) {
                 {searchResults.map((idea) => (
                   <div key={idea.id} className="mb-6">
                     {/* Placeholder for IdeaCard, assuming it exists */}
-                    <Card onClick={() => router.push(`/planner/inspo/board/${idea.board.id}`)} className="cursor-pointer rounded-3xl h-full shadow-soft transition-all duration-200 hover:translate-y-[-4px] hover:shadow-medium">
+                    <Card onClick={() => router.push(`/planner/stem/board/${idea.board.id}`)} className="cursor-pointer rounded-3xl h-full shadow-soft transition-all duration-200 hover:translate-y-[-4px] hover:shadow-medium">
                         <img 
                           src={idea.imageUrl} 
                           alt={idea.title || idea.description || "Idea"} 
@@ -142,7 +142,7 @@ export function ExploreFeed({ initialBoards }: ExploreFeedProps) {
                   <div key={board.id} className="mb-6">
                     <PublicBoardCard 
                       board={board} 
-                      onClick={() => router.push(`/planner/inspo/board/${board.id}`)} 
+                      onClick={() => router.push(`/planner/stem/board/${board.id}`)} 
                     />
                   </div>
                 ))}

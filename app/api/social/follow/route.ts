@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-import { followTenant, unfollowTenant } from "@/lib/data/inspo";
+import { followTenant, unfollowTenant } from "@/lib/data/stem";
 import { z } from "zod";
 
 const followSchema = z.object({

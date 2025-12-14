@@ -20,7 +20,7 @@ jest.mock('sonner', () => ({
 }));
 
 // Mock IdeaList sub-component to avoid complex nested rendering
-jest.mock('../inspo-tool/IdeaList', () => ({
+jest.mock('../stem/IdeaList', () => ({
   IdeaList: ({ board }: { board: any }) => (
     <div data-testid="idea-list">
       Idea List for {board.name}
@@ -33,8 +33,8 @@ const fetchMock = global.fetch as jest.Mock;
 
 describe('MyBoardsTool', () => {
   const mockInitialBoards = [
-    { id: '1', name: 'Wedding Dress', isPublic: false, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 0, viewCount: 0 },
-    { id: '2', name: 'Venue Ideas', isPublic: true, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 1, viewCount: 0 },
+    { id: '1', name: 'Wedding Dress', isPublic: false, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 0, viewCount: 0, boardType: 'standard', reactionCount: 0, commentCount: 0, linkedVendorId: null },
+    { id: '2', name: 'Venue Ideas', isPublic: true, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 1, viewCount: 0, boardType: 'standard', reactionCount: 0, commentCount: 0, linkedVendorId: null },
   ];
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('MyBoardsTool', () => {
     const exploreBtn = screen.getByText('Explore Ideas');
     fireEvent.click(exploreBtn);
     
-    expect(mockPush).toHaveBeenCalledWith('/planner/inspo/explore');
+    expect(mockPush).toHaveBeenCalledWith('/planner/stem/explore');
   });
 
   it('switches active board when tab is clicked', () => {
