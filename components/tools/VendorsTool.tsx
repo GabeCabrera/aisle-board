@@ -19,9 +19,10 @@ import VendorCard from "./vendors-tool/VendorCard";
 
 interface VendorsToolProps {
   initialData?: PlannerData;
+  hideHeader?: boolean;
 }
 
-export default function VendorsTool({ initialData }: VendorsToolProps) {
+export default function VendorsTool({ initialData, hideHeader = false }: VendorsToolProps) {
   const router = useRouter();
   const { data, loading, refetch, isFetching } = usePlannerData(["vendors", "kernel"], { initialData });
   const [filter, setFilter] = useState<"all" | "booked" | "researching">("all");
@@ -72,30 +73,32 @@ export default function VendorsTool({ initialData }: VendorsToolProps) {
   }, {} as Record<string, Vendor[]>);
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-8 px-6 space-y-8 animate-fade-up">
+    <div className={cn("w-full max-w-5xl mx-auto space-y-8", !hideHeader && "py-8 px-6 animate-fade-up")}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-5xl md:text-6xl text-foreground tracking-tight">
-            Vendors
-          </h1>
-          <p className="text-xl text-muted-foreground mt-2 font-light">
-            Track your wedding vendors and contacts
-          </p>
+      {!hideHeader && (
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-5xl md:text-6xl text-foreground tracking-tight">
+              Vendors
+            </h1>
+            <p className="text-xl text-muted-foreground mt-2 font-light">
+              Track your wedding vendors and contacts
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
+              onClick={handleRefresh}
+              disabled={isFetching}
+            >
+              <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
+              {isFetching ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full h-8 px-3 border-border hover:bg-white hover:text-primary"
-            onClick={handleRefresh}
-            disabled={isFetching}
-          >
-            <RefreshCw className={cn("h-3 w-3 mr-2", isFetching && "animate-spin")} />
-            {isFetching ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
-      </div>
+      )}
 
       {!hasData ? (
         /* Empty state */

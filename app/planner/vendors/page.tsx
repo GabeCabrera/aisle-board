@@ -1,20 +1,58 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { getPlannerData } from "@/lib/data/planner";
-import VendorsTool from "@/components/tools/VendorsTool";
+import {
+  getVendorsWithSearch,
+  getVendorCategories,
+  getVendorStates,
+  getSavedVendors,
+  getWeddingLocation,
+  getVendorsForLocation,
+} from "@/lib/data/stem";
+import { UnifiedVendorPage } from "@/components/tools/UnifiedVendorPage";
 
 export default async function VendorsPage() {
   const session = await getServerSession(authOptions);
-  
-  const data = session?.user?.tenantId 
-    ? await getPlannerData(session.user.tenantId, ["vendors", "kernel"])
-    : null;
+  const tenantId = session?.user?.tenantId;
+
+  // Fetch wedding location if logged in
+  const weddingLocation = tenantId ? await getWeddingLocation(tenantId) : null;
+
+  // Fetch all data in parallel
+  const [
+    plannerData,
+    vendors,
+    categories,
+    states,
+    savedVendors,
+    recommendedVendors,
+  ] = await Promise.all([
+    // My vendors data
+    tenantId ? getPlannerData(tenantId, ["vendors", "kernel"]) : Promise.resolve(null),
+    // Directory data
+    getVendorsWithSearch({ sortBy: "featured" }),
+    getVendorCategories(),
+    getVendorStates(),
+    tenantId ? getSavedVendors(tenantId) : Promise.resolve([]),
+    // Recommended vendors based on location
+    weddingLocation?.state
+      ? getVendorsForLocation({ state: weddingLocation.state, city: weddingLocation.city, limit: 8 })
+      : Promise.resolve([]),
+  ]);
+
+  const savedVendorIds = savedVendors.map((v) => v.id);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto">
-        <VendorsTool initialData={data ?? undefined} />
-      </div>
-    </div>
+    <UnifiedVendorPage
+      // My vendors props
+      plannerData={plannerData ?? undefined}
+      // Directory props
+      initialVendors={vendors}
+      initialCategories={categories}
+      initialStates={states}
+      savedVendorIds={savedVendorIds}
+      recommendedVendors={recommendedVendors}
+      weddingLocation={weddingLocation}
+    />
   );
 }

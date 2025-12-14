@@ -36,6 +36,7 @@ interface VendorFeedProps {
   savedVendorIds?: string[];
   recommendedVendors?: VendorWithLocation[];
   weddingLocation?: WeddingLocation | null;
+  hideHeader?: boolean;
 }
 
 export function VendorFeed({
@@ -45,6 +46,7 @@ export function VendorFeed({
   savedVendorIds = [],
   recommendedVendors = [],
   weddingLocation,
+  hideHeader = false,
 }: VendorFeedProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -215,14 +217,16 @@ export function VendorFeed({
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-up">
       {/* Header */}
-      <div className="border-b border-border/50 pb-8">
-        <h1 className="font-serif text-5xl md:text-7xl text-foreground tracking-tight">
-          Vendors
-        </h1>
-        <p className="text-xl text-muted-foreground mt-4 font-light max-w-lg">
-          Discover trusted wedding professionals. Save your favorites and connect directly.
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="border-b border-border/50 pb-8">
+          <h1 className="font-serif text-5xl md:text-7xl text-foreground tracking-tight">
+            Vendors
+          </h1>
+          <p className="text-xl text-muted-foreground mt-4 font-light max-w-lg">
+            Discover trusted wedding professionals. Save your favorites and connect directly.
+          </p>
+        </div>
+      )}
 
       {/* Recommended for Your Area */}
       {!hasActiveFilters && recommendedVendors.length > 0 && weddingLocation?.state && (
