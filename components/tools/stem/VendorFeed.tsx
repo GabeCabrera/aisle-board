@@ -5,15 +5,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { VendorCard } from "./VendorCard";
 import { VendorFilters } from "./VendorFilters";
-import { Loader2 } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import type { VendorProfile } from "@/lib/db/schema";
+import type { LocationMatch, WeddingLocation } from "@/lib/data/stem";
+
+type VendorWithLocation = VendorProfile & { locationMatch?: LocationMatch };
 
 interface VendorFeedProps {
   initialVendors: VendorProfile[];
   initialCategories: string[];
   initialStates: string[];
   savedVendorIds?: string[];
+  recommendedVendors?: VendorWithLocation[];
+  weddingLocation?: WeddingLocation | null;
 }
 
 export function VendorFeed({
@@ -21,6 +26,8 @@ export function VendorFeed({
   initialCategories,
   initialStates,
   savedVendorIds = [],
+  recommendedVendors = [],
+  weddingLocation,
 }: VendorFeedProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,12 +36,15 @@ export function VendorFeed({
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set(savedVendorIds));
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filter state from URL params
+  // Filter state from URL params (use wedding location state as default)
   const [category, setCategory] = useState(searchParams.get("category") || undefined);
   const [state, setState] = useState(searchParams.get("state") || undefined);
   const [priceRange, setPriceRange] = useState(searchParams.get("priceRange") || undefined);
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "featured");
+
+  // Track if any filters are active (to hide recommended section)
+  const hasActiveFilters = !!(category || state || priceRange || search);
 
   // Update URL when filters change
   const updateUrl = useCallback((params: Record<string, string | undefined>) => {
@@ -137,6 +147,30 @@ export function VendorFeed({
         </p>
       </div>
 
+      {/* Recommended for Your Area */}
+      {!hasActiveFilters && recommendedVendors.length > 0 && weddingLocation?.state && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-primary" />
+            <h2 className="font-serif text-2xl text-foreground">
+              Recommended Near {weddingLocation.city || weddingLocation.state}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recommendedVendors.slice(0, 4).map((vendor) => (
+              <VendorCard
+                key={vendor.id}
+                vendor={vendor}
+                isSaved={savedIds.has(vendor.id)}
+                onSaveToggle={handleSaveToggle}
+                locationMatch={vendor.locationMatch}
+                compact
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <VendorFilters
         categories={initialCategories}
@@ -152,6 +186,7 @@ export function VendorFeed({
         onSearchChange={setSearch}
         onSortChange={setSortBy}
         onClearFilters={handleClearFilters}
+        defaultState={weddingLocation?.state}
       />
 
       {/* Vendor Grid */}

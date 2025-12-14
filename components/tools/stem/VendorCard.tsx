@@ -11,16 +11,26 @@ import {
   Heart,
   BadgeCheck,
   Sparkles,
-  ImageIcon
+  ImageIcon,
+  Navigation,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VendorProfile } from "@/lib/db/schema";
+import type { LocationMatch } from "@/lib/data/stem";
 
 interface VendorCardProps {
   vendor: VendorProfile;
   isSaved?: boolean;
   onSaveToggle?: (vendorId: string, currentlySaved: boolean) => void;
+  locationMatch?: LocationMatch;
+  compact?: boolean;
 }
+
+const LOCATION_MATCH_LABELS: Record<string, string> = {
+  city: "In Your City",
+  state: "Near You",
+  serviceArea: "Serves Your Area",
+};
 
 const PRICE_LABELS: Record<string, string> = {
   "$": "$",
@@ -46,13 +56,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   transportation: "Transportation",
 };
 
-export function VendorCard({ vendor, isSaved = false, onSaveToggle }: VendorCardProps) {
+export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatch, compact = false }: VendorCardProps) {
   const router = useRouter();
 
   const coverImage = vendor.coverImage || vendor.profileImage;
   const categoryLabel = CATEGORY_LABELS[vendor.category] || vendor.category;
   const priceLabel = vendor.priceRange ? PRICE_LABELS[vendor.priceRange] : null;
   const location = [vendor.city, vendor.state].filter(Boolean).join(", ");
+  const locationMatchLabel = locationMatch ? LOCATION_MATCH_LABELS[locationMatch] : null;
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,7 +76,7 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle }: VendorCard
       onClick={() => router.push(`/planner/stem/vendors/${vendor.slug}`)}
     >
       {/* Cover Image */}
-      <div className="h-48 relative bg-muted">
+      <div className={cn("relative bg-muted", compact ? "h-36" : "h-48")}>
         {coverImage ? (
           <Image
             src={coverImage}
@@ -85,13 +96,19 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle }: VendorCard
 
         {/* Top badges */}
         <div className="absolute top-3 left-3 flex gap-2">
-          {vendor.isVerified && (
+          {locationMatchLabel && (
+            <Badge className="bg-emerald-500/90 text-white backdrop-blur-sm gap-1">
+              <Navigation className="h-3 w-3" />
+              {locationMatchLabel}
+            </Badge>
+          )}
+          {vendor.isVerified && !compact && (
             <Badge className="bg-white/90 text-primary backdrop-blur-sm gap-1">
               <BadgeCheck className="h-3 w-3" />
               Verified
             </Badge>
           )}
-          {vendor.isFeatured && (
+          {vendor.isFeatured && !compact && (
             <Badge className="bg-amber-500/90 text-white backdrop-blur-sm gap-1">
               <Sparkles className="h-3 w-3" />
               Featured

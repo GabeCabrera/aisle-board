@@ -21,6 +21,7 @@ interface VendorFiltersProps {
   selectedPriceRange?: string;
   searchQuery?: string;
   sortBy?: string;
+  defaultState?: string | null;
   onCategoryChange: (category: string | undefined) => void;
   onStateChange: (state: string | undefined) => void;
   onPriceRangeChange: (priceRange: string | undefined) => void;
@@ -69,6 +70,7 @@ export function VendorFilters({
   selectedPriceRange,
   searchQuery = "",
   sortBy = "featured",
+  defaultState: _defaultState,
   onCategoryChange,
   onStateChange,
   onPriceRangeChange,

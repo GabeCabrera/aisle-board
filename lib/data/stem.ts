@@ -15,6 +15,7 @@ import {
   vendorQuestions,
   boardArticles,
   userBlocks,
+  weddingKernels,
 } from "@/lib/db/schema";
 import { eq, and, desc, or, inArray, not, sql, ilike, asc } from "drizzle-orm";
 
@@ -877,6 +878,127 @@ export async function getVendorsWithSearch(options: {
   });
 
   return vendors;
+}
+
+// =============================================================================
+// LOCATION-BASED VENDOR RECOMMENDATIONS
+// =============================================================================
+
+export type LocationMatch = "city" | "state" | "serviceArea" | null;
+
+export interface WeddingLocation {
+  city: string | null;
+  state: string | null;
+  region: string | null;
+  raw: string | null;
+}
+
+export async function getWeddingLocation(tenantId: string): Promise<WeddingLocation> {
+  const kernel = await db.query.weddingKernels.findFirst({
+    where: eq(weddingKernels.tenantId, tenantId),
+    columns: { location: true, region: true },
+  });
+
+  if (!kernel?.location && !kernel?.region) {
+    return { city: null, state: null, region: null, raw: null };
+  }
+
+  // Parse location string (format: "City, State" or just "City" or "State")
+  let city: string | null = null;
+  let state: string | null = null;
+
+  if (kernel.location) {
+    const parts = kernel.location.split(",").map((p) => p.trim());
+    if (parts.length >= 2) {
+      city = parts[0];
+      state = parts[1];
+    } else if (parts.length === 1) {
+      // Could be just a city or state - try to determine
+      state = parts[0];
+    }
+  }
+
+  // Use region as state fallback
+  if (!state && kernel.region) {
+    state = kernel.region;
+  }
+
+  return {
+    city,
+    state,
+    region: kernel.region,
+    raw: kernel.location,
+  };
+}
+
+export async function getVendorsForLocation(options: {
+  state?: string | null;
+  city?: string | null;
+  category?: string;
+  limit?: number;
+  excludeIds?: string[];
+}) {
+  const conditions = [];
+
+  // Must have a state or city to filter
+  if (!options.state && !options.city) {
+    return [];
+  }
+
+  // Match by state
+  if (options.state) {
+    conditions.push(
+      or(
+        ilike(vendorProfiles.state, options.state),
+        ilike(vendorProfiles.region, options.state)
+      )
+    );
+  }
+
+  // Filter by category if provided
+  if (options.category) {
+    conditions.push(eq(vendorProfiles.category, options.category));
+  }
+
+  // Exclude specific vendor IDs (useful to avoid duplicates)
+  if (options.excludeIds && options.excludeIds.length > 0) {
+    conditions.push(not(inArray(vendorProfiles.id, options.excludeIds)));
+  }
+
+  const vendors = await db.query.vendorProfiles.findMany({
+    where: conditions.length > 0 ? and(...conditions) : undefined,
+    orderBy: [desc(vendorProfiles.isFeatured), desc(vendorProfiles.averageRating), desc(vendorProfiles.saveCount)],
+    limit: options.limit ?? 12,
+  });
+
+  // Determine location match type for each vendor
+  return vendors.map((vendor) => {
+    let locationMatch: LocationMatch = null;
+
+    if (options.city && vendor.city?.toLowerCase() === options.city.toLowerCase()) {
+      locationMatch = "city";
+    } else if (options.state && (
+      vendor.state?.toLowerCase() === options.state.toLowerCase() ||
+      vendor.region?.toLowerCase() === options.state.toLowerCase()
+    )) {
+      locationMatch = "state";
+    } else {
+      // Check service area
+      const serviceArea = (vendor.serviceArea as string[]) || [];
+      const matchesServiceArea = serviceArea.some((area) => {
+        const areaLower = area.toLowerCase();
+        return (
+          (options.city && areaLower.includes(options.city.toLowerCase())) ||
+          (options.state && areaLower.includes(options.state.toLowerCase()))
+        );
+      });
+      if (matchesServiceArea) {
+        locationMatch = "serviceArea";
+      }
+    }
+
+    return { ...vendor, locationMatch };
+  });
 }
 
 export async function getVendorBySlugWithStatus(slug: string, viewerTenantId?: string) {
