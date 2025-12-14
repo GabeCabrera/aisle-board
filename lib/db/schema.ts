@@ -1007,3 +1007,40 @@ export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
 
 export type OAuthAccount = typeof oauthAccounts.$inferSelect;
 export type NewOAuthAccount = typeof oauthAccounts.$inferInsert;
+
+// ============================================================================
+// SAVED ARTICLES - Blog articles saved by users
+// ============================================================================
+export const savedArticles = pgTable(
+  "saved_articles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Article reference (slug from MDX files)
+    slug: text("slug").notNull(),
+
+    // When they saved it
+    savedAt: timestamp("saved_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    // Each tenant can only save an article once
+    tenantSlugIdx: uniqueIndex("saved_articles_tenant_slug_idx").on(
+      table.tenantId,
+      table.slug
+    ),
+    tenantIdx: index("saved_articles_tenant_idx").on(table.tenantId),
+  })
+);
+
+export const savedArticlesRelations = relations(savedArticles, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [savedArticles.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type SavedArticle = typeof savedArticles.$inferSelect;
+export type NewSavedArticle = typeof savedArticles.$inferInsert;

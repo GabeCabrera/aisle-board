@@ -68,6 +68,7 @@ import {
   Sparkles,
   Settings,
   Armchair,
+  BookOpen,
 } from "lucide-react";
 
 export interface ToolDefinition {
@@ -100,6 +101,13 @@ export const tools: ToolDefinition[] = [
     icon: Sparkles,
     gradient: "linear-gradient(135deg, #EC4899 0%, #DB2777 100%)",
     shadow: "rgba(236, 72, 153, 0.4)",
+  },
+  {
+    id: "blog",
+    label: "Learn",
+    icon: BookOpen,
+    gradient: "linear-gradient(135deg, #F97316 0%, #EA580C 100%)",
+    shadow: "rgba(249, 115, 22, 0.4)",
   },
   {
     id: "checklist",

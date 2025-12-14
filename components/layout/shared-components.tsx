@@ -54,6 +54,9 @@ export function ToolContent({ toolId }: { toolId: string }) {
           case "inspo":
             mod = await import("@/components/tools/MyBoardsTool");
             break;
+          case "blog":
+            mod = await import("@/components/tools/BlogTool");
+            break;
           case "settings":
             mod = await import("@/components/tools/SettingsTool");
             break;
