@@ -17,12 +17,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, MapPin, Search, Plus, ExternalLink } from "lucide-react";
+import { Loader2, MapPin, Search, Plus, Globe } from "lucide-react";
 import { toast } from "sonner";
 import type { VendorProfile } from "@/lib/db/schema";
 import type { LocationMatch, WeddingLocation } from "@/lib/data/stem";
 
-type VendorWithLocation = VendorProfile & { locationMatch?: LocationMatch };
+// Extended vendor type that can include web vendors
+type VendorWithWebFlag = VendorProfile & {
+  isFromWeb?: boolean;
+};
+
+type VendorWithLocation = VendorWithWebFlag & { locationMatch?: LocationMatch };
 
 interface VendorFeedProps {
   initialVendors: VendorProfile[];
@@ -44,9 +49,10 @@ export function VendorFeed({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [vendors, setVendors] = useState(initialVendors);
+  const [vendors, setVendors] = useState<VendorWithWebFlag[]>(initialVendors);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set(savedVendorIds));
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingWeb, setIsLoadingWeb] = useState(false);
 
   // Filter state from URL params (use wedding location state as default)
   const [category, setCategory] = useState(searchParams.get("category") || undefined);
@@ -156,22 +162,19 @@ export function VendorFeed({
   });
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
-  // Generate Google search URL based on current filters
-  const getGoogleSearchUrl = () => {
-    const parts = [];
-    if (category) parts.push(category.replace("-", " "));
-    if (search) parts.push(search);
-    if (state) parts.push(state);
-    if (weddingLocation?.city) parts.push(weddingLocation.city);
-
-    if (parts.length === 0) {
-      parts.push("wedding vendors");
-      if (weddingLocation?.state) parts.push(weddingLocation.state);
-    }
-
-    const query = encodeURIComponent(parts.join(" "));
-    return `https://www.google.com/search?q=${query}`;
+  // Handle requesting a web vendor to be added
+  const handleRequestWebVendor = (vendor: VendorWithWebFlag) => {
+    setRequestForm({
+      vendorName: vendor.name,
+      website: vendor.website || "",
+      notes: vendor.description || "",
+    });
+    setRequestDialogOpen(true);
   };
+
+  // Count web vendors in results
+  const webVendorCount = vendors.filter((v) => v.isFromWeb).length;
+  const directoryVendorCount = vendors.filter((v) => !v.isFromWeb).length;
 
   const handleSubmitRequest = async () => {
     if (!requestForm.vendorName.trim()) {
@@ -274,40 +277,43 @@ export function VendorFeed({
             <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
             <p className="text-lg font-medium text-foreground">No vendors found matching your criteria</p>
             <p className="text-sm mt-2 mb-6 max-w-md mx-auto">
-              Try adjusting your filters, or search Google for local vendors and request we add them!
+              Try adjusting your filters, or request a specific vendor you&apos;d like to see in our directory.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => window.open(getGoogleSearchUrl(), "_blank")}
-              >
-                <ExternalLink className="h-4 w-4" />
-                Search Google
-              </Button>
-              <Button
-                className="gap-2"
-                onClick={() => setRequestDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Request a Vendor
-              </Button>
-            </div>
+            <Button
+              className="gap-2"
+              onClick={() => setRequestDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Request a Vendor
+            </Button>
           </div>
         ) : (
-          <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 1100: 3 }}>
-            <Masonry gutter="24px">
-              {vendors.map((vendor) => (
-                <div key={vendor.id} className="mb-6">
-                  <VendorCard
-                    vendor={vendor}
-                    isSaved={savedIds.has(vendor.id)}
-                    onSaveToggle={handleSaveToggle}
-                  />
-                </div>
-              ))}
-            </Masonry>
-          </ResponsiveMasonry>
+          <>
+            {/* Web results indicator */}
+            {webVendorCount > 0 && (
+              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
+                <Globe className="h-4 w-4" />
+                <span>
+                  Showing {directoryVendorCount} from our directory
+                  {webVendorCount > 0 && ` + ${webVendorCount} from the web`}
+                </span>
+              </div>
+            )}
+            <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 1100: 3 }}>
+              <Masonry gutter="24px">
+                {vendors.map((vendor) => (
+                  <div key={vendor.id} className="mb-6">
+                    <VendorCard
+                      vendor={vendor}
+                      isSaved={!vendor.isFromWeb && savedIds.has(vendor.id)}
+                      onSaveToggle={vendor.isFromWeb ? undefined : handleSaveToggle}
+                      onRequestVendor={vendor.isFromWeb ? handleRequestWebVendor : undefined}
+                    />
+                  </div>
+                ))}
+              </Masonry>
+            </ResponsiveMasonry>
+          </>
         )}
       </div>
 

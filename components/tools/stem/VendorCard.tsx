@@ -13,15 +13,24 @@ import {
   Sparkles,
   ImageIcon,
   Navigation,
+  Globe,
+  Plus,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VendorProfile } from "@/lib/db/schema";
 import type { LocationMatch } from "@/lib/data/stem";
 
+// Extended vendor type that can include web vendors
+type VendorWithWebFlag = VendorProfile & {
+  isFromWeb?: boolean;
+};
+
 interface VendorCardProps {
-  vendor: VendorProfile;
+  vendor: VendorWithWebFlag;
   isSaved?: boolean;
   onSaveToggle?: (vendorId: string, currentlySaved: boolean) => void;
+  onRequestVendor?: (vendor: VendorWithWebFlag) => void;
   locationMatch?: LocationMatch;
   compact?: boolean;
   status?: string | null; // Tracking status for saved vendors
@@ -66,7 +75,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   transportation: "Transportation",
 };
 
-export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatch, compact = false, status }: VendorCardProps) {
+export function VendorCard({ vendor, isSaved = false, onSaveToggle, onRequestVendor, locationMatch, compact = false, status }: VendorCardProps) {
   const router = useRouter();
 
   const coverImage = vendor.coverImage || vendor.profileImage;
@@ -75,16 +84,35 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatc
   const statusInfo = status ? STATUS_LABELS[status] : null;
   const location = [vendor.city, vendor.state].filter(Boolean).join(", ");
   const locationMatchLabel = locationMatch ? LOCATION_MATCH_LABELS[locationMatch] : null;
+  const isWebVendor = vendor.isFromWeb === true;
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSaveToggle?.(vendor.id, isSaved);
   };
 
+  const handleRequestClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRequestVendor?.(vendor);
+  };
+
+  const handleCardClick = () => {
+    if (isWebVendor && vendor.website) {
+      // Open external website for web vendors
+      window.open(vendor.website, "_blank", "noopener,noreferrer");
+    } else {
+      // Navigate to internal vendor page for directory vendors
+      router.push(`/planner/stem/vendors/${vendor.slug}`);
+    }
+  };
+
   return (
     <Card
-      className="cursor-pointer rounded-3xl h-full shadow-soft transition-all duration-300 hover:translate-y-[-4px] hover:shadow-lifted overflow-hidden group"
-      onClick={() => router.push(`/planner/stem/vendors/${vendor.slug}`)}
+      className={cn(
+        "cursor-pointer rounded-3xl h-full shadow-soft transition-all duration-300 hover:translate-y-[-4px] hover:shadow-lifted overflow-hidden group",
+        isWebVendor && "ring-1 ring-blue-200/50"
+      )}
+      onClick={handleCardClick}
     >
       {/* Cover Image */}
       <div className={cn("relative bg-muted", compact ? "h-36" : "h-48")}>
@@ -107,6 +135,12 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatc
 
         {/* Top badges */}
         <div className="absolute top-3 left-3 flex gap-2">
+          {isWebVendor && (
+            <Badge className="bg-blue-500/90 text-white backdrop-blur-sm gap-1">
+              <Globe className="h-3 w-3" />
+              From Web
+            </Badge>
+          )}
           {statusInfo && (
             <Badge className={cn(statusInfo.color, "text-white backdrop-blur-sm")}>
               {statusInfo.label}
@@ -118,13 +152,13 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatc
               {locationMatchLabel}
             </Badge>
           )}
-          {vendor.isVerified && !compact && (
+          {vendor.isVerified && !compact && !isWebVendor && (
             <Badge className="bg-white/90 text-primary backdrop-blur-sm gap-1">
               <BadgeCheck className="h-3 w-3" />
               Verified
             </Badge>
           )}
-          {vendor.isFeatured && !compact && (
+          {vendor.isFeatured && !compact && !isWebVendor && (
             <Badge className="bg-amber-500/90 text-white backdrop-blur-sm gap-1">
               <Sparkles className="h-3 w-3" />
               Featured
@@ -132,19 +166,33 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatc
           )}
         </div>
 
-        {/* Save button */}
-        {onSaveToggle && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "absolute top-3 right-3 h-9 w-9 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all",
-              isSaved && "text-rose-500 hover:text-rose-600"
-            )}
-            onClick={handleSaveClick}
-          >
-            <Heart className={cn("h-4 w-4", isSaved && "fill-current")} />
-          </Button>
+        {/* Save button / Request button */}
+        {isWebVendor ? (
+          onRequestVendor && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-3 right-3 h-8 px-3 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white transition-all text-xs font-medium gap-1"
+              onClick={handleRequestClick}
+            >
+              <Plus className="h-3 w-3" />
+              Request
+            </Button>
+          )
+        ) : (
+          onSaveToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "absolute top-3 right-3 h-9 w-9 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-all",
+                isSaved && "text-rose-500 hover:text-rose-600"
+              )}
+              onClick={handleSaveClick}
+            >
+              <Heart className={cn("h-4 w-4", isSaved && "fill-current")} />
+            </Button>
+          )
         )}
 
         {/* Category badge on image */}
@@ -166,8 +214,9 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatc
 
       <CardContent className="p-4">
         {/* Vendor name */}
-        <h3 className="font-serif text-xl leading-tight mb-1 text-foreground group-hover:text-primary transition-colors">
+        <h3 className="font-serif text-xl leading-tight mb-1 text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
           {vendor.name}
+          {isWebVendor && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
         </h3>
 
         {/* Location */}
