@@ -24,6 +24,9 @@ import {
   ideas,  // Renamed from sparks
   knowledgeBase,
   weddingDecisions,
+  thankYouNotes,
+  vendorReviews,
+  vendorProfiles,
   type CalendarEvent
 } from "@/lib/db/schema";
 import { eq, and, sql, desc, like, ilike, or } from "drizzle-orm";
@@ -274,6 +277,16 @@ export async function executeToolCall(
         return await assignGuestSeat(parameters, context);
       case "get_seating_chart":
         return await getSeatingChart(parameters, context);
+
+      // Post-wedding tools
+      case "add_gift":
+        return await addGift(parameters, context);
+      case "mark_thank_you_sent":
+        return await markThankYouSent(parameters, context);
+      case "get_thank_you_stats":
+        return await getThankYouStats(parameters, context);
+      case "get_pending_reviews":
+        return await getPendingReviews(parameters, context);
 
       // External tools
       case "web_search":
@@ -3470,6 +3483,214 @@ async function getSeatingChart(
     message,
     data: { chart, unseated }
   };
+}
+
+// ============================================================================
+// POST-WEDDING TOOLS
+// ============================================================================
+
+async function addGift(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const guestName = params.guestName as string;
+  const giftDescription = params.giftDescription as string;
+  const guestEmail = params.guestEmail as string | undefined;
+  const notes = params.notes as string | undefined;
+
+  if (!guestName || !giftDescription) {
+    return {
+      success: false,
+      message: "I need a guest name and gift description to record this gift."
+    };
+  }
+
+  try {
+    await db.insert(thankYouNotes).values({
+      tenantId: context.tenantId,
+      guestName,
+      giftDescription,
+      guestEmail: guestEmail || null,
+      notes: notes || null,
+      giftReceivedAt: new Date(),
+    });
+
+    return {
+      success: true,
+      message: `Recorded gift from ${guestName}: ${giftDescription}. I'll track this so you can send a thank you note later.`
+    };
+  } catch (error) {
+    logger.error("Failed to add gift", error instanceof Error ? error : undefined);
+    return {
+      success: false,
+      message: "Sorry, I wasn't able to record that gift. Please try again."
+    };
+  }
+}
+
+async function markThankYouSent(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const guestName = params.guestName as string;
+  const method = (params.method as string) || "card";
+
+  if (!guestName) {
+    return {
+      success: false,
+      message: "I need to know which guest you sent the thank you to."
+    };
+  }
+
+  try {
+    // Find the thank you note entry for this guest
+    const existing = await db.query.thankYouNotes.findFirst({
+      where: and(
+        eq(thankYouNotes.tenantId, context.tenantId),
+        ilike(thankYouNotes.guestName, `%${guestName}%`)
+      ),
+    });
+
+    if (!existing) {
+      return {
+        success: false,
+        message: `I don't have a gift recorded from "${guestName}". Would you like me to add one first?`
+      };
+    }
+
+    await db
+      .update(thankYouNotes)
+      .set({
+        thankYouSentAt: new Date(),
+        thankYouMethod: method,
+        updatedAt: new Date(),
+      })
+      .where(eq(thankYouNotes.id, existing.id));
+
+    return {
+      success: true,
+      message: `Marked thank you as sent to ${existing.guestName}. One down!`
+    };
+  } catch (error) {
+    logger.error("Failed to mark thank you sent", error instanceof Error ? error : undefined);
+    return {
+      success: false,
+      message: "Sorry, I wasn't able to update that. Please try again."
+    };
+  }
+}
+
+async function getThankYouStats(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  try {
+    const notes = await db.query.thankYouNotes.findMany({
+      where: eq(thankYouNotes.tenantId, context.tenantId),
+      orderBy: [desc(thankYouNotes.createdAt)],
+    });
+
+    const total = notes.length;
+    const thanked = notes.filter(n => n.thankYouSentAt !== null).length;
+    const pending = total - thanked;
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: "No gifts recorded yet. When you receive gifts, let me know and I'll help you track thank yous."
+      };
+    }
+
+    let message = `**Thank You Progress**\n\n`;
+    message += `- **Total gifts recorded:** ${total}\n`;
+    message += `- **Thank yous sent:** ${thanked}\n`;
+    message += `- **Still to send:** ${pending}\n\n`;
+
+    if (pending > 0) {
+      const pendingNotes = notes.filter(n => n.thankYouSentAt === null).slice(0, 5);
+      message += `**Pending thank yous:**\n`;
+      pendingNotes.forEach(n => {
+        message += `- ${n.guestName}: ${n.giftDescription}\n`;
+      });
+      if (pending > 5) {
+        message += `\n...and ${pending - 5} more`;
+      }
+    } else {
+      message += "All thank yous sent! Great job!";
+    }
+
+    return {
+      success: true,
+      message,
+      data: { total, thanked, pending, notes }
+    };
+  } catch (error) {
+    logger.error("Failed to get thank you stats", error instanceof Error ? error : undefined);
+    return {
+      success: false,
+      message: "Sorry, I wasn't able to retrieve the thank you stats."
+    };
+  }
+}
+
+async function getPendingReviews(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  try {
+    // Get vendors from the guest list page (booked vendors)
+    const { fields } = await getOrCreatePage(context.tenantId, "vendor-list");
+    const vendors = (fields.vendors as Array<{ name: string; category: string; status?: string }>) || [];
+    const bookedVendors = vendors.filter(v => v.status === "booked" || v.status === "hired");
+
+    if (bookedVendors.length === 0) {
+      return {
+        success: true,
+        message: "No booked vendors found. Once you've booked vendors, I can help you track reviews for them."
+      };
+    }
+
+    // Check which vendors already have reviews (join with vendorProfiles to get names)
+    const existingReviews = await db
+      .select({
+        vendorId: vendorReviews.vendorId,
+        vendorName: vendorProfiles.name,
+      })
+      .from(vendorReviews)
+      .innerJoin(vendorProfiles, eq(vendorReviews.vendorId, vendorProfiles.id))
+      .where(eq(vendorReviews.tenantId, context.tenantId));
+
+    const reviewedVendorNames = new Set(existingReviews.map(r => r.vendorName?.toLowerCase()));
+    const pendingReviews = bookedVendors.filter(v => !reviewedVendorNames.has(v.name.toLowerCase()));
+
+    if (pendingReviews.length === 0) {
+      return {
+        success: true,
+        message: "You've reviewed all your booked vendors! Thank you for helping other couples."
+      };
+    }
+
+    let message = `**Vendors You Could Review**\n\n`;
+    message += `You have ${pendingReviews.length} vendor${pendingReviews.length > 1 ? "s" : ""} without reviews:\n\n`;
+
+    pendingReviews.forEach(v => {
+      message += `- **${v.name}** (${v.category})\n`;
+    });
+
+    message += `\nReviews really help other couples find great vendors. Would you like to write a review for any of these?`;
+
+    return {
+      success: true,
+      message,
+      data: { bookedVendors, pendingReviews, existingReviews: existingReviews.length }
+    };
+  } catch (error) {
+    logger.error("Failed to get pending reviews", error instanceof Error ? error : undefined);
+    return {
+      success: false,
+      message: "Sorry, I wasn't able to check your vendor reviews."
+    };
+  }
 }
 
 // ============================================================================

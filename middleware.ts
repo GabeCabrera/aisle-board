@@ -5,14 +5,18 @@ import { getToken } from "next-auth/jwt";
 // Routes that don't require authentication
 const publicRoutes = [
   "/",
-  "/login", 
+  "/login",
   "/register",
-  "/forgot-password", 
+  "/forgot-password",
   "/reset-password",
   "/rsvp", // Public RSVP forms
   "/privacy", // Privacy policy
   "/terms", // Terms of service
   "/unsubscribe", // Email unsubscribe
+  "/vendor/signup", // Vendor self-service signup
+  "/invite/accept", // Partner invite acceptance
+  "/vendors", // Public vendor directory
+  "/claim", // Vendor claim flow
 ];
 
 // Routes that require auth but should bypass other checks
@@ -122,6 +126,21 @@ export async function middleware(request: NextRequest) {
   // Check if user must change password
   if (token.mustChangePassword && pathname !== "/change-password") {
     return NextResponse.redirect(new URL("/change-password", request.url));
+  }
+
+  // Account type routing: vendors vs couples
+  const accountType = (token as { accountType?: string }).accountType || "couple";
+
+  if (accountType === "vendor") {
+    // Vendor trying to access couple routes -> redirect to vendor dashboard
+    if (pathname.startsWith("/planner") && !pathname.startsWith("/planner/stem/vendors")) {
+      return NextResponse.redirect(new URL("/vendor/dashboard", request.url));
+    }
+  } else {
+    // Couple trying to access vendor dashboard -> redirect to planner
+    if (pathname.startsWith("/vendor/dashboard")) {
+      return NextResponse.redirect(new URL("/planner", request.url));
+    }
   }
 
   return addSecurityHeaders(NextResponse.next());

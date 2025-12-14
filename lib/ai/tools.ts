@@ -1411,6 +1411,73 @@ export const tools: ToolDefinition[] = [
   },
 
   // ----------------------------------------
+  // POST-WEDDING TOOLS
+  // ----------------------------------------
+  {
+    name: "add_gift",
+    description: "Record a gift received from a guest. Use this when the couple mentions receiving a gift after the wedding.",
+    parameters: {
+      type: "object",
+      properties: {
+        guestName: {
+          type: "string",
+          description: "Name of the guest who gave the gift"
+        },
+        giftDescription: {
+          type: "string",
+          description: "Description of the gift (e.g., 'KitchenAid mixer', 'Cash $100')"
+        },
+        guestEmail: {
+          type: "string",
+          description: "Email address for the guest (optional, for sending thank you)"
+        },
+        notes: {
+          type: "string",
+          description: "Any additional notes about the gift"
+        }
+      },
+      required: ["guestName", "giftDescription"]
+    }
+  },
+  {
+    name: "mark_thank_you_sent",
+    description: "Mark that a thank you note has been sent to a guest for their gift.",
+    parameters: {
+      type: "object",
+      properties: {
+        guestName: {
+          type: "string",
+          description: "Name of the guest to mark as thanked"
+        },
+        method: {
+          type: "string",
+          description: "How the thank you was sent",
+          enum: ["card", "email", "in_person"]
+        }
+      },
+      required: ["guestName"]
+    }
+  },
+  {
+    name: "get_thank_you_stats",
+    description: "Get a summary of gifts received and thank you notes sent. Shows progress on post-wedding thank yous.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "get_pending_reviews",
+    description: "Get a list of vendors the couple booked but hasn't reviewed yet. Helps with post-wedding vendor reviews.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+
+  // ----------------------------------------
   // EXTERNAL TOOLS
   // ----------------------------------------
   {

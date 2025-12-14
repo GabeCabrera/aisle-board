@@ -34,7 +34,16 @@ import {
   Loader2,
   Save,
   UserPlus,
+  Check,
+  Mail,
+  RefreshCw,
 } from "lucide-react";
+
+interface PartnerStatus {
+  hasPartner: boolean;
+  partner: { name: string; email: string } | null;
+  pendingInvite: { email: string; createdAt: string; expiresAt: string } | null;
+}
 
 export default function SettingsTool() {
   const { data: session } = useSession();
@@ -43,6 +52,13 @@ export default function SettingsTool() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+
+  // Partner invite state
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [partnerEmail, setPartnerEmail] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
+  const [partnerStatus, setPartnerStatus] = useState<PartnerStatus | null>(null);
+  const [isLoadingPartnerStatus, setIsLoadingPartnerStatus] = useState(true);
 
   // Profile form state
   const [displayName, setDisplayName] = useState("");
@@ -59,12 +75,105 @@ export default function SettingsTool() {
     }
   }, [session]);
 
+  // Load partner status
+  useEffect(() => {
+    async function loadPartnerStatus() {
+      try {
+        const response = await fetch("/api/partner/invite");
+        if (response.ok) {
+          const data = await response.json();
+          setPartnerStatus(data);
+        }
+      } catch (error) {
+        console.error("Failed to load partner status:", error);
+      } finally {
+        setIsLoadingPartnerStatus(false);
+      }
+    }
+
+    if (session?.user) {
+      loadPartnerStatus();
+    }
+  }, [session]);
+
   const userInitial = session?.user?.name?.charAt(0).toUpperCase() || session?.user?.email?.charAt(0).toUpperCase();
 
-  const handleInvitePartner = () => {
-    const inviteLink = `https://scribeandstem.com/invite/${session?.user?.id || "unique-id"}`;
-    navigator.clipboard.writeText(inviteLink);
-    toast.success("Invitation link copied to clipboard!");
+  const handleInvitePartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!partnerEmail) {
+      toast.error("Please enter your partner's email");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(partnerEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsInviting(true);
+
+    try {
+      const response = await fetch("/api/partner/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: partnerEmail }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send invitation");
+      }
+
+      toast.success("Invitation sent successfully!");
+      setIsInviteDialogOpen(false);
+      setPartnerEmail("");
+
+      // Refresh partner status
+      const statusResponse = await fetch("/api/partner/invite");
+      if (statusResponse.ok) {
+        setPartnerStatus(await statusResponse.json());
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send invitation");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleResendInvite = async () => {
+    if (!partnerStatus?.pendingInvite?.email) return;
+
+    setIsInviting(true);
+
+    try {
+      const response = await fetch("/api/partner/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: partnerStatus.pendingInvite.email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to resend invitation");
+      }
+
+      toast.success("Invitation resent successfully!");
+
+      // Refresh partner status
+      const statusResponse = await fetch("/api/partner/invite");
+      if (statusResponse.ok) {
+        setPartnerStatus(await statusResponse.json());
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to resend invitation");
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   const handleProfileSave = async (e: React.FormEvent) => {
@@ -253,17 +362,124 @@ export default function SettingsTool() {
           <CardTitle className="font-serif text-xl text-foreground">Partner Collaboration</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="font-medium text-lg text-foreground">Invite Partner</p>
-              <p className="text-sm text-muted-foreground">
-                Share your board and plan together in real-time.
+          {isLoadingPartnerStatus ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Loading...</span>
+            </div>
+          ) : partnerStatus?.hasPartner ? (
+            // Partner already joined
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">{partnerStatus.partner?.name || "Partner"}</p>
+                  <p className="text-sm text-muted-foreground">{partnerStatus.partner?.email}</p>
+                </div>
+              </div>
+              <span className="text-sm text-green-600 font-medium">Connected</span>
+            </div>
+          ) : partnerStatus?.pendingInvite ? (
+            // Pending invite
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">Invitation Pending</p>
+                    <p className="text-sm text-muted-foreground">{partnerStatus.pendingInvite.email}</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleResendInvite}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={isInviting}
+                >
+                  {isInviting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Resend
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Invitation expires {new Date(partnerStatus.pendingInvite.expiresAt).toLocaleDateString()}
               </p>
             </div>
-            <Button onClick={handleInvitePartner} className="rounded-full shadow-soft bg-secondary hover:bg-secondary/90 text-white">
-              <UserPlus className="h-4 w-4 mr-2" /> Invite
-            </Button>
-          </div>
+          ) : (
+            // No partner, show invite option
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-medium text-lg text-foreground">Invite Partner</p>
+                <p className="text-sm text-muted-foreground">
+                  Share your board and plan together in real-time.
+                </p>
+              </div>
+              <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="rounded-full shadow-soft bg-secondary hover:bg-secondary/90 text-white">
+                    <UserPlus className="h-4 w-4 mr-2" /> Invite
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] rounded-xl">
+                  <DialogHeader>
+                    <DialogTitle className="font-serif text-2xl">Invite Your Partner</DialogTitle>
+                    <DialogDescription>
+                      Send an invitation to your partner's email. They'll receive a link to create their account and join your wedding planner.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleInvitePartner} className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="partnerEmail">Partner's Email</Label>
+                      <Input
+                        id="partnerEmail"
+                        type="email"
+                        placeholder="partner@example.com"
+                        value={partnerEmail}
+                        onChange={(e) => setPartnerEmail(e.target.value)}
+                        className="rounded-lg h-10"
+                        disabled={isInviting}
+                        required
+                      />
+                    </div>
+                    <DialogFooter className="mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsInviteDialogOpen(false)}
+                        disabled={isInviting}
+                        className="rounded-full"
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isInviting} className="rounded-full shadow-soft">
+                        {isInviting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Send Invitation
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -18,6 +18,7 @@ declare module "next-auth" {
       tenantSlug: string;
       mustChangePassword: boolean;
       onboardingComplete: boolean;
+      accountType: "couple" | "vendor";
     };
   }
 
@@ -29,6 +30,7 @@ declare module "next-auth" {
     tenantSlug: string;
     mustChangePassword: boolean;
     onboardingComplete: boolean;
+    accountType: "couple" | "vendor";
   }
 }
 
@@ -39,6 +41,7 @@ declare module "next-auth/jwt" {
     tenantSlug: string;
     mustChangePassword: boolean;
     onboardingComplete: boolean;
+    accountType: "couple" | "vendor";
   }
 }
 
@@ -114,6 +117,7 @@ export const authOptions: NextAuthOptions = {
           tenantSlug: tenant.slug,
           mustChangePassword: user.mustChangePassword,
           onboardingComplete: tenant.onboardingComplete ?? false,
+          accountType: (tenant.accountType as "couple" | "vendor") || "couple",
         };
       },
     }),
@@ -225,6 +229,7 @@ export const authOptions: NextAuthOptions = {
             token.tenantSlug = tenant?.slug ?? "";
             token.mustChangePassword = false;
             token.onboardingComplete = tenant?.onboardingComplete ?? false;
+            token.accountType = (tenant?.accountType as "couple" | "vendor") || "couple";
           }
         } else {
           // Credentials login
@@ -233,6 +238,7 @@ export const authOptions: NextAuthOptions = {
           token.tenantSlug = user.tenantSlug;
           token.mustChangePassword = user.mustChangePassword;
           token.onboardingComplete = user.onboardingComplete;
+          token.accountType = user.accountType || "couple";
         }
       }
 
@@ -258,6 +264,7 @@ export const authOptions: NextAuthOptions = {
         tenantSlug: token.tenantSlug,
         mustChangePassword: token.mustChangePassword,
         onboardingComplete: token.onboardingComplete,
+        accountType: token.accountType || "couple",
       };
       return session;
     },

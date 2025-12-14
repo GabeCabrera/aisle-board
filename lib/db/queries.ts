@@ -11,6 +11,7 @@ import {
   calendarSyncLog,
   scheduledEmails,
   promoCodes,
+  partnerInviteTokens,
   type Tenant,
   type User,
   type Planner,
@@ -596,6 +597,79 @@ export async function getTenantByUserId(userId: string): Promise<Tenant | null> 
 export async function upgradeTenantByUserEmail(email: string): Promise<Tenant | null> {
   const user = await getUserByEmail(email);
   if (!user) return null;
-  
+
   return upgradeTenantToComplete(user.tenantId);
+}
+
+// ============================================================================
+// PARTNER INVITE QUERIES
+// ============================================================================
+
+export async function createPartnerInviteToken(
+  tenantId: string,
+  invitedByUserId: string,
+  email: string,
+  token: string,
+  expiresAt: Date
+) {
+  // Expire any existing pending invites for this email in this tenant
+  await db
+    .update(partnerInviteTokens)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(partnerInviteTokens.tenantId, tenantId),
+        eq(partnerInviteTokens.email, email.toLowerCase()),
+        eq(partnerInviteTokens.status, "pending")
+      )
+    );
+
+  const [invite] = await db
+    .insert(partnerInviteTokens)
+    .values({
+      tenantId,
+      invitedByUserId,
+      email: email.toLowerCase(),
+      token,
+      expiresAt,
+    })
+    .returning();
+
+  return invite;
+}
+
+export async function getPartnerInviteByToken(token: string) {
+  const result = await db.query.partnerInviteTokens.findFirst({
+    where: eq(partnerInviteTokens.token, token),
+  });
+  return result ?? null;
+}
+
+export async function getPendingPartnerInviteByTenant(tenantId: string) {
+  const result = await db.query.partnerInviteTokens.findFirst({
+    where: and(
+      eq(partnerInviteTokens.tenantId, tenantId),
+      eq(partnerInviteTokens.status, "pending")
+    ),
+  });
+  return result ?? null;
+}
+
+export async function markPartnerInviteAccepted(token: string) {
+  const [invite] = await db
+    .update(partnerInviteTokens)
+    .set({
+      status: "accepted",
+      acceptedAt: new Date(),
+    })
+    .where(eq(partnerInviteTokens.token, token))
+    .returning();
+  return invite ?? null;
+}
+
+export async function expirePartnerInvite(token: string) {
+  await db
+    .update(partnerInviteTokens)
+    .set({ status: "expired" })
+    .where(eq(partnerInviteTokens.token, token));
 }

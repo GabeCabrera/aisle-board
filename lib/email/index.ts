@@ -29,7 +29,8 @@ export type EmailTemplate =
   | "vendor_claim_verification"
   | "vendor_claim_approved"
   | "vendor_claim_rejected"
-  | "admin_claim_notification";
+  | "admin_claim_notification"
+  | "partner_invite";
 
 interface SendEmailOptions {
   to: string;
@@ -46,6 +47,9 @@ interface SendEmailOptions {
     registrationUrl?: string;
     claimEmail?: string;
     adminNotes?: string;
+    // Partner invite email fields
+    inviterName?: string;
+    acceptUrl?: string;
   };
 }
 
@@ -843,6 +847,86 @@ function getAdminClaimNotificationEmail(vendorName: string, claimEmail: string) 
 }
 
 // ============================================================================
+// PARTNER INVITE EMAIL
+// ============================================================================
+
+function getPartnerInviteEmail(inviterName: string, acceptUrl: string) {
+  return {
+    subject: `${inviterName} invited you to plan your wedding on Stem`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Georgia, 'Times New Roman', serif; background-color: #faf9f7; color: #5c5147;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf9f7; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border: 1px solid #e8e4df; max-width: 100%;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 60px; height: 1px; background-color: #c9b99a; margin: 0 auto 20px;"></div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; color: #5c5147;">
+                STEM
+              </h1>
+              <p style="margin: 8px 0 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9a8d7f;">
+                Wedding Planner
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px 40px;">
+              <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 300; color: #5c5147; text-align: center;">
+                You're Invited to Plan Together
+              </h2>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                <strong>${inviterName}</strong> has invited you to join them on Stem to plan your wedding together.
+              </p>
+
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #6b6157;">
+                With a shared account, you can both:
+              </p>
+
+              <ul style="margin: 0 0 30px; padding-left: 20px; font-size: 16px; line-height: 1.8; color: #6b6157;">
+                <li>Track budget and expenses together</li>
+                <li>Manage your guest list in real-time</li>
+                <li>Coordinate with vendors as a team</li>
+                <li>Share inspiration and make decisions</li>
+              </ul>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${acceptUrl}" style="display: inline-block; padding: 16px 32px; background-color: #8b7355; color: #ffffff; text-decoration: none; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">
+                  Accept Invitation
+                </a>
+              </div>
+
+              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #9a8d7f;">
+                This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
+              </p>
+
+              <p style="margin: 30px 0 0; font-size: 12px; line-height: 1.6; color: #9a8d7f; border-top: 1px solid #e8e4df; padding-top: 20px;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${acceptUrl}" style="color: #8b7355; word-break: break-all;">${acceptUrl}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+}
+
+// ============================================================================
 // SEND EMAIL FUNCTION
 // ============================================================================
 
@@ -898,6 +982,12 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
       }
       emailContent = getAdminClaimNotificationEmail(data.vendorName, data.claimEmail);
       break;
+    case "partner_invite":
+      if (!data.inviterName || !data.acceptUrl) {
+        return { success: false, error: "Inviter name and accept URL required" };
+      }
+      emailContent = getPartnerInviteEmail(data.inviterName, data.acceptUrl);
+      break;
     default:
       return { success: false, error: "Unknown template" };
   }
@@ -916,7 +1006,8 @@ export async function sendEmail({ to, template, data }: SendEmailOptions) {
       template === "vendor_claim_verification" ||
       template === "vendor_claim_approved" ||
       template === "vendor_claim_rejected" ||
-      template === "admin_claim_notification";
+      template === "admin_claim_notification" ||
+      template === "partner_invite";
 
     const emailOptions: Parameters<typeof client.emails.send>[0] = {
       from: FROM_EMAIL,

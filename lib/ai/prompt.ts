@@ -328,6 +328,82 @@ Only include fields you JUST learned in this message. Leave everything else as n
 `;
 
 // ============================================================================
+// POST-WEDDING MODE
+// ============================================================================
+
+const POST_WEDDING_INTRO = `
+POST-WEDDING MODE:
+
+Congratulations are in order! The wedding has happened. Your role now shifts from planning to post-wedding support.
+
+Your new priorities:
+1. **Celebrate first** - Ask how it went! Show genuine interest in their big day. Let them share stories, highlights, and even the hiccups.
+
+2. **Be available, not pushy** - They may just want to chat, decompress, or share memories. Don't immediately pivot to tasks.
+
+3. **Gently suggest post-wedding tasks** when appropriate:
+   - Writing thank you notes for gifts received
+   - Leaving reviews for vendors who did great work
+   - Exporting their wedding planning data as a keepsake
+   - Name change logistics if relevant
+
+4. **Help with honeymoon** if they haven't gone yet or are still planning it.
+
+5. **Be the friend who remembers everything** - You know their vendors, their guest list, their budget. Use that knowledge to help with follow-up tasks.
+`;
+
+function buildPostWeddingSection(kernel: WeddingKernel): string {
+  if (!kernel.weddingDate) return '';
+
+  const weddingDate = new Date(kernel.weddingDate);
+  const now = new Date();
+  const daysSinceWedding = Math.floor((now.getTime() - weddingDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Only show post-wedding mode if wedding has passed
+  if (daysSinceWedding < 0) return '';
+
+  let timeContext = '';
+  if (daysSinceWedding === 0) {
+    timeContext = "today";
+  } else if (daysSinceWedding === 1) {
+    timeContext = "yesterday";
+  } else if (daysSinceWedding < 7) {
+    timeContext = `${daysSinceWedding} days ago`;
+  } else if (daysSinceWedding < 14) {
+    timeContext = "about a week ago";
+  } else if (daysSinceWedding < 30) {
+    timeContext = `${Math.floor(daysSinceWedding / 7)} weeks ago`;
+  } else if (daysSinceWedding < 60) {
+    timeContext = "about a month ago";
+  } else {
+    timeContext = `${Math.floor(daysSinceWedding / 30)} months ago`;
+  }
+
+  return `
+${POST_WEDDING_INTRO}
+
+WEDDING STATUS: The wedding was ${timeContext} (${weddingDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}).
+
+POST-WEDDING TOOLS AVAILABLE:
+- get_pending_reviews: See which vendors they booked but haven't reviewed yet
+- get_thank_you_stats: See gift tracking and thank you note progress
+- add_gift: Record a gift received from a guest
+- mark_thank_you_sent: Mark that a thank you note was sent
+- export_data: Help them export their wedding planning data
+
+POST-WEDDING CONVERSATION STARTERS (use naturally, not all at once):
+${daysSinceWedding < 7 ? `- "How did the big day go?! I'd love to hear about it."
+- "Now that the wedding is done, how are you feeling?"` : ''}
+${daysSinceWedding >= 7 && daysSinceWedding < 30 ? `- "How's life as a newlywed treating you?"
+- "Have you had a chance to catch your breath after the wedding?"` : ''}
+${daysSinceWedding >= 30 ? `- "It's been a bit since the wedding - hope married life is treating you well!"
+- "Any vendors from your wedding you'd recommend? Reviews really help other couples."` : ''}
+- "Want help tracking thank you notes? I still have your guest list."
+- "Need to export any of your wedding planning data before you forget?"
+`;
+}
+
+// ============================================================================
 // BUILD FULL PROMPT
 // ============================================================================
 
@@ -339,6 +415,8 @@ export function buildSystemPrompt(
 ): string {
   const kernelContext = buildKernelContext(kernel);
   const profileContext = buildProfileContext(userProfile);
+  const postWeddingContext = kernel ? buildPostWeddingSection(kernel) : '';
+  const isPostWedding = kernel?.weddingDate && new Date(kernel.weddingDate) < new Date();
 
   return `${CORE_IDENTITY}
 
@@ -350,6 +428,8 @@ ${kernelContext}
 THEIR COMMUNICATION STYLE:
 ${profileContext}
 
+${postWeddingContext}
+
 ${MIRRORING_RULES}
 
 ${FORMATTING_RULES}
@@ -360,7 +440,7 @@ ${HONESTY_RULES}
 
 ${KNOWLEDGE_CALIBRATION}
 
-${ONBOARDING_APPROACH}
+${isPostWedding ? '' : ONBOARDING_APPROACH}
 
 ${TOOL_USAGE}
 
@@ -371,9 +451,9 @@ ${sanityContext ? buildSanitySection(sanityContext) : ''}`;
 
 function buildKernelContext(kernel: WeddingKernel | null): string {
   if (!kernel) return "This is a new conversation. You don't know anything about them yet.";
-  
+
   const parts: string[] = [];
-  
+
   if (kernel.names && kernel.names.length > 0) {
     parts.push(`Names: ${kernel.names.join(" & ")}`);
   }
@@ -383,13 +463,22 @@ function buildKernelContext(kernel: WeddingKernel | null): string {
   }
   if (kernel.howTheyMet) parts.push(`How they met: ${kernel.howTheyMet}`);
   if (kernel.engagementStory) parts.push(`Engagement: ${kernel.engagementStory}`);
-  
+
   if (kernel.weddingDate) {
     const date = new Date(kernel.weddingDate);
-    const daysUntil = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    parts.push(`Wedding: ${date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (${daysUntil} days away)`);
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) {
+      parts.push(`Wedding: ${date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (${diffDays} days away)`);
+    } else if (diffDays === 0) {
+      parts.push(`Wedding: TODAY! ${date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`);
+    } else {
+      parts.push(`Wedding: ${date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (${Math.abs(diffDays)} days ago - married!)`);
+    }
   }
-  if (kernel.guestCount) parts.push(`Expected guests: ~${kernel.guestCount}`);
+  if (kernel.guestCount) parts.push(`Guest count: ~${kernel.guestCount}`);
   if (kernel.budgetTotal) parts.push(`Budget: $${(kernel.budgetTotal / 100).toLocaleString()}`);
   if (kernel.vibe && kernel.vibe.length > 0) parts.push(`Vibe: ${kernel.vibe.join(", ")}`);
   if (kernel.colorPalette && kernel.colorPalette.length > 0) parts.push(`Colors: ${kernel.colorPalette.join(", ")}`);
@@ -403,7 +492,7 @@ function buildKernelContext(kernel: WeddingKernel | null): string {
   if (kernel.stressors && kernel.stressors.length > 0) {
     parts.push(`Stressors: ${kernel.stressors.join(", ")}`);
   }
-  
+
   return parts.length > 0 ? parts.join("\n") : "This is a new conversation. You don't know anything about them yet.";
 }
 
@@ -515,6 +604,25 @@ export function getFirstMessagePrompt(): string {
 export function getReturningUserPrompt(kernel: WeddingKernel): string {
   const hasName = kernel.names && kernel.names.length > 0;
   const name = hasName ? kernel.names![0] : null;
-  
+
+  // Check if wedding has passed
+  if (kernel.weddingDate) {
+    const weddingDate = new Date(kernel.weddingDate);
+    const now = new Date();
+    const daysSinceWedding = Math.floor((now.getTime() - weddingDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceWedding >= 0 && daysSinceWedding < 7) {
+      // Just married (within a week)
+      return `[${name ? `${name} is` : "The user is"} back after their wedding! The wedding was ${daysSinceWedding === 0 ? "today" : daysSinceWedding === 1 ? "yesterday" : `${daysSinceWedding} days ago`}. Welcome them warmly and ask how it went! Be genuinely excited to hear about their big day. Remember: no emojis, no emdashes, max one exclamation point.]`;
+    } else if (daysSinceWedding >= 7 && daysSinceWedding < 30) {
+      // Newlywed (1-4 weeks)
+      return `[${name ? `${name} is` : "The user is"} back as a newlywed! Welcome them warmly. They might want to share memories, need help with thank you notes, or want to leave vendor reviews. Be supportive and let them lead. Remember: no emojis, no emdashes, max one exclamation point.]`;
+    } else if (daysSinceWedding >= 30) {
+      // Post-honeymoon phase
+      return `[${name ? `${name} is` : "The user is"} back! Their wedding was about ${Math.floor(daysSinceWedding / 30)} month${Math.floor(daysSinceWedding / 30) > 1 ? "s" : ""} ago. Welcome them casually and see what brings them back. They might need help with thank yous, vendor reviews, or just want to chat. Remember: no emojis, no emdashes, max one exclamation point.]`;
+    }
+  }
+
+  // Pre-wedding returning user
   return `[${name ? `${name} is` : "The user is"} back. Welcome them casually and pick up naturally. Maybe reference something you know about their planning, or ask what's on their mind today. Keep it brief and warm. Remember: no emojis, no emdashes, max one exclamation point.]`;
 }

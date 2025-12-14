@@ -2213,3 +2213,89 @@ export const sanityHistoryRelations = relations(sanityHistory, ({ one }) => ({
 
 export type SanityHistory = typeof sanityHistory.$inferSelect;
 export type NewSanityHistory = typeof sanityHistory.$inferInsert;
+
+// ============================================================================
+// PARTNER INVITE TOKENS - Invite partner to share wedding workspace
+// ============================================================================
+export const partnerInviteTokens = pgTable(
+  "partner_invite_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    invitedByUserId: uuid("invited_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    token: text("token").notNull().unique(),
+    status: text("status").notNull().default("pending"), // "pending" | "accepted" | "expired"
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tokenIdx: uniqueIndex("partner_invite_tokens_token_idx").on(table.token),
+    tenantIdx: index("partner_invite_tokens_tenant_idx").on(table.tenantId),
+    emailIdx: index("partner_invite_tokens_email_idx").on(table.email),
+  })
+);
+
+export const partnerInviteTokensRelations = relations(partnerInviteTokens, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [partnerInviteTokens.tenantId],
+    references: [tenants.id],
+  }),
+  invitedBy: one(users, {
+    fields: [partnerInviteTokens.invitedByUserId],
+    references: [users.id],
+  }),
+}));
+
+export type PartnerInviteToken = typeof partnerInviteTokens.$inferSelect;
+export type NewPartnerInviteToken = typeof partnerInviteTokens.$inferInsert;
+
+// ============================================================================
+// THANK YOU NOTES - Track gifts received and thank you notes sent
+// ============================================================================
+export const thankYouNotes = pgTable(
+  "thank_you_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Guest info
+    guestName: text("guest_name").notNull(),
+    guestEmail: text("guest_email"),
+
+    // Gift details
+    giftDescription: text("gift_description"),
+    giftReceivedAt: timestamp("gift_received_at", { withTimezone: true }),
+
+    // Thank you tracking
+    thankYouSentAt: timestamp("thank_you_sent_at", { withTimezone: true }),
+    thankYouMethod: text("thank_you_method"), // "card" | "email" | "in_person"
+
+    // Notes
+    notes: text("notes"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("thank_you_notes_tenant_idx").on(table.tenantId),
+    guestNameIdx: index("thank_you_notes_guest_name_idx").on(table.guestName),
+  })
+);
+
+export const thankYouNotesRelations = relations(thankYouNotes, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [thankYouNotes.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type ThankYouNote = typeof thankYouNotes.$inferSelect;
+export type NewThankYouNote = typeof thankYouNotes.$inferInsert;
