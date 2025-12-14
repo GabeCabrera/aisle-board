@@ -1,8 +1,18 @@
 import { MetadataRoute } from 'next';
+import { getAllPosts } from '@/lib/blog/mdx';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://scribeandstem.com';
   const now = new Date();
+
+  // Get all blog posts
+  const posts = getAllPosts();
+  const blogPages = posts.map((post) => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: new Date(post.date),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }));
 
   return [
     // Landing page - highest priority
@@ -25,6 +35,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.7,
     },
+    // Blog
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
+    ...blogPages,
     // Auth pages
     {
       url: `${baseUrl}/register`,

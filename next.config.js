@@ -26,6 +26,16 @@ const nextConfig = {
   // Disable powered by header
   poweredByHeader: false,
 
+  // Image optimization configuration
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+    ],
+  },
+
   // Enable experimental features for better performance
   experimental: {
     // Improve cold start times and build performance
