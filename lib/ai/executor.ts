@@ -587,34 +587,32 @@ async function setTotalBudget(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId } = await getOrCreatePage(context.tenantId, "budget"); // Only need pageId here
-  // Store as string in CENTS
-  const amount = params.amount as number;
-  const amountInCents = String(amount * 100);
+  // Use withPageLock to properly handle the budget page update
+  return withPageLock(context.tenantId, "budget", async (tx, { pageId, fields }) => {
+    const amount = params.amount as number;
+    const amountInCents = amount * 100;
 
-  // Directly update the totalBudget within the fields JSONB using jsonb_set
-  await db.update(pages)
-    .set({
-      fields: sql`jsonb_set(
-        COALESCE(${pages.fields}, '{}'::jsonb), -- Start with existing fields or an empty object
-        ${['totalBudget']}::text[],
-        ${sql`${amountInCents}::jsonb`}, -- New value for totalBudget
-        true -- create_if_missing
-      )`,
-      updatedAt: new Date()
-    })
-    .where(eq(pages.id, pageId));
+    // Update the fields with the new totalBudget
+    const updatedFields = {
+      ...fields,
+      totalBudget: amountInCents
+    };
 
-  // Also update kernel (kernel uses cents for historical reasons)
-  await db.update(weddingKernels)
-    .set({ budgetTotal: amount * 100, updatedAt: new Date() })
-    .where(eq(weddingKernels.tenantId, context.tenantId));
+    await tx.update(pages)
+      .set({ fields: updatedFields, updatedAt: new Date() })
+      .where(eq(pages.id, pageId));
 
-  return {
-    success: true,
-    message: `Total budget set to $${amount.toLocaleString()}`,
-    data: { totalBudget: amount }
-  };
+    // Also update kernel (kernel uses cents for historical reasons)
+    await tx.update(weddingKernels)
+      .set({ budgetTotal: amountInCents, updatedAt: new Date() })
+      .where(eq(weddingKernels.tenantId, context.tenantId));
+
+    return {
+      success: true,
+      message: `Total budget set to $${amount.toLocaleString()}`,
+      data: { totalBudget: amount }
+    };
+  });
 }
 
 // ============================================================================ 
