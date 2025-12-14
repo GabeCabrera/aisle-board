@@ -1,24 +1,44 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePlannerData, formatCurrency, PlannerData } from "@/lib/hooks/usePlannerData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { calculateSanityScore } from "@/lib/algorithms/sanity-engine";
-import { 
-  RefreshCw, 
-  AlertTriangle, 
-  Info, 
-  CheckCircle, 
-  CheckSquare, 
-  CreditCard, 
-  Users, 
-  Store, 
+import {
+  RefreshCw,
+  AlertTriangle,
+  Info,
+  CheckCircle,
+  CheckSquare,
+  CreditCard,
+  Users,
+  Store,
   ArrowRight,
   BrainCircuit,
-  Activity
+  Activity,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from "lucide-react";
+
+interface SanityData {
+  context: {
+    currentScore: number;
+    stressCategory: string;
+    inferredFamilyFriction: number;
+    trend: { change7Days: number; direction: string } | null;
+    statusMessage: string;
+    primaryStressors: string[];
+  };
+  history: Array<{ date: string; score: number }>;
+  benchmark: {
+    percentile: number;
+    averageAtStage: number;
+    topStressorAtStage: string;
+  };
+}
 
 interface DashboardToolProps {
   initialData?: PlannerData;
@@ -30,7 +50,31 @@ export default function DashboardTool({ initialData }: DashboardToolProps) {
     "summary", "budget", "guests", "vendors", "decisions", "kernel"
   ], { initialData });
   const router = useRouter();
-  const [familyFriction, setFamilyFriction] = useState(1);
+
+  // Sanity data from API
+  const [sanityApiData, setSanityApiData] = useState<SanityData | null>(null);
+  const [sanityLoading, setSanityLoading] = useState(true);
+
+  // Fetch sanity data
+  useEffect(() => {
+    async function fetchSanityData() {
+      try {
+        const response = await fetch("/api/sanity");
+        if (response.ok) {
+          const data = await response.json();
+          setSanityApiData(data);
+        }
+      } catch (error) {
+        console.error("Error fetching sanity data:", error);
+      } finally {
+        setSanityLoading(false);
+      }
+    }
+    fetchSanityData();
+  }, []);
+
+  // Use API sanity data if available, fall back to calculated
+  const familyFriction = sanityApiData?.context?.inferredFamilyFriction ?? 2;
 
   const handleRefresh = () => {
     refetch();
@@ -248,33 +292,71 @@ export default function DashboardTool({ initialData }: DashboardToolProps) {
                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Sanity</span>
              </div>
           </div>
-          
+
           <div className="flex-1 space-y-4 w-full">
             <div className="flex items-center gap-2 mb-2">
               <Activity className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-medium text-lg">System Status</h3>
+              <h3 className="font-medium text-lg">Planning Status</h3>
             </div>
-            
-            <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Family Friction Index</span>
-                  <span className="font-medium">{familyFriction}/10</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="10" 
-                  step="1"
-                  value={familyFriction}
-                  onChange={(e) => setFamilyFriction(parseInt(e.target.value))}
-                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+
+            {/* Trend indicator */}
+            {sanityApiData?.context?.trend && (
+              <div className="flex items-center gap-2 text-sm">
+                {sanityApiData.context.trend.direction === "improving" ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : sanityApiData.context.trend.direction === "worsening" ? (
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                ) : (
+                  <Minus className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className={cn(
+                  "font-medium",
+                  sanityApiData.context.trend.direction === "improving" && "text-green-600",
+                  sanityApiData.context.trend.direction === "worsening" && "text-red-600",
+                  sanityApiData.context.trend.direction === "stable" && "text-muted-foreground"
+                )}>
+                  {sanityApiData.context.trend.direction === "improving"
+                    ? `↑ ${Math.abs(sanityApiData.context.trend.change7Days)} pts this week`
+                    : sanityApiData.context.trend.direction === "worsening"
+                    ? `↓ ${Math.abs(sanityApiData.context.trend.change7Days)} pts this week`
+                    : "Stable this week"}
+                </span>
+              </div>
+            )}
+
+            {/* Family dynamics (auto-inferred) */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Family Dynamics</span>
+                <span className="font-medium">{familyFriction}/10</span>
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full transition-all duration-500",
+                    familyFriction <= 3 ? "bg-green-500" :
+                    familyFriction <= 6 ? "bg-amber-500" : "bg-red-500"
+                  )}
+                  style={{ width: `${familyFriction * 10}%` }}
                 />
+              </div>
+              <p className="text-xs text-muted-foreground">Based on your conversations</p>
             </div>
-             <p className="text-sm text-muted-foreground">
-              {sanityData.score > 80 ? "Systems nominal. You are in a state of Zen." : 
-               sanityData.score > 50 ? "Minor logistical turbulence detected." : 
-               "Logistical entropy is high. Immediate intervention recommended."}
+
+            {/* Status message */}
+            <p className="text-sm text-muted-foreground">
+              {sanityApiData?.context?.statusMessage ||
+                (sanityData.score > 80 ? "Systems nominal. You are in a state of Zen." :
+                sanityData.score > 50 ? "Minor logistical turbulence detected." :
+                "Logistical entropy is high. Immediate intervention recommended.")}
             </p>
+
+            {/* Benchmark */}
+            {sanityApiData?.benchmark && (
+              <p className="text-xs text-muted-foreground/70">
+                Calmer than {sanityApiData.benchmark.percentile}% of couples at this stage
+              </p>
+            )}
           </div>
         </div>
       </div>

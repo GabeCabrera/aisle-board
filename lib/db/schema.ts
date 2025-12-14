@@ -1690,3 +1690,45 @@ export const vendorQuestionsRelations = relations(vendorQuestions, ({ one }) => 
 
 export type VendorQuestion = typeof vendorQuestions.$inferSelect;
 export type NewVendorQuestion = typeof vendorQuestions.$inferInsert;
+
+// ============================================================================
+// SANITY HISTORY - Track stress/sanity snapshots over time
+// ============================================================================
+export const sanityHistory = pgTable(
+  "sanity_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Score snapshot
+    sanityScore: integer("sanity_score").notNull(), // 0-100 (100 = calm)
+    inferredFamilyFriction: integer("inferred_family_friction"), // 0-10
+
+    // Signal breakdown (StressSignals object)
+    signals: jsonb("signals"),
+
+    // What triggered this snapshot
+    triggerType: text("trigger_type").notNull(), // "message" | "daily" | "activity_spike" | "milestone"
+
+    // Primary stressors at this point
+    primaryStressors: jsonb("primary_stressors").default([]),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("sanity_history_tenant_idx").on(table.tenantId),
+    createdIdx: index("sanity_history_created_idx").on(table.createdAt),
+  })
+);
+
+export const sanityHistoryRelations = relations(sanityHistory, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sanityHistory.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type SanityHistory = typeof sanityHistory.$inferSelect;
+export type NewSanityHistory = typeof sanityHistory.$inferInsert;

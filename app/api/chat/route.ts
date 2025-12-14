@@ -9,7 +9,8 @@ import { getAnthropicTools } from "@/lib/ai/tools";
 import { executeToolCall, ToolResult } from "@/lib/ai/executor";
 import { buildSystemPrompt, getFirstMessagePrompt, getReturningUserPrompt } from "@/lib/ai/prompt";
 import { updateKernelFromExtraction, WeddingKernel } from "@/lib/ai/kernel-updates";
-import { analyzeUserMessage, buildUserProfileFromKernel, UserProfile } from "@/lib/ai/user-profiling"; // Import from new file
+import { analyzeUserMessage, buildUserProfileFromKernel, UserProfile } from "@/lib/ai/user-profiling";
+import { getSanityContext, recordSanitySnapshot } from "@/lib/data/sanity";
 
 /**
  * Aisle Chat API
@@ -119,11 +120,25 @@ export async function POST(request: NextRequest) {
       history.push({ role: "user" as const, content: message });
     }
 
-    // Build prompt
-    const today = new Date().toLocaleDateString('en-US', { 
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    // Build prompt with sanity context
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
-    const systemPrompt = buildSystemPrompt(kernel as unknown as Parameters<typeof buildSystemPrompt>[0], userProfile, today);
+
+    // Get sanity context for proactive support (non-blocking)
+    let sanityContext = null;
+    try {
+      sanityContext = await getSanityContext(tenantId);
+    } catch (e) {
+      console.error("Error getting sanity context:", e);
+    }
+
+    const systemPrompt = buildSystemPrompt(
+      kernel as unknown as Parameters<typeof buildSystemPrompt>[0],
+      userProfile,
+      today,
+      sanityContext
+    );
 
     // Handle first message vs returning user
     const isFirstMessage = history.length === 0;
@@ -233,13 +248,19 @@ export async function POST(request: NextRequest) {
       ? [...existingMessages, { role: "user", content: message }, { role: "assistant", content: cleanMessage }]
       : [...existingMessages, { role: "assistant", content: cleanMessage }];
 
-        await db.update(scribeConversations)
-          .set({
-            messages: newMessages,
-            updatedAt: new Date(),
-          })
-          .where(eq(scribeConversations.id, conversation.id));
-    return NextResponse.json({ 
+    await db.update(scribeConversations)
+      .set({
+        messages: newMessages,
+        updatedAt: new Date(),
+      })
+      .where(eq(scribeConversations.id, conversation.id));
+
+    // Record sanity snapshot after conversation (non-blocking)
+    recordSanitySnapshot(tenantId, "message").catch((e) => {
+      console.error("Error recording sanity snapshot:", e);
+    });
+
+    return NextResponse.json({
       message: cleanMessage,
       conversationId: conversation.id,
       toolResults: toolResults.length > 0 ? toolResults : undefined,

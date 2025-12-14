@@ -24,6 +24,7 @@ interface WeddingKernel {
   decisions?: Record<string, unknown>;
   vendorsBooked?: string[];
   planningPhase?: string;
+  tone?: "excited" | "anxious" | "overwhelmed" | "calm" | "frustrated";
 }
 
 interface UserProfile {
@@ -32,6 +33,15 @@ interface UserProfile {
   messageLength: "short" | "medium" | "long";
   knowledgeLevel: "beginner" | "intermediate" | "experienced";
   communicationStyle: "casual" | "balanced" | "formal";
+}
+
+interface SanityContext {
+  currentScore: number;
+  stressCategory: string;
+  inferredFamilyFriction: number;
+  trend: { change7Days: number; direction: string } | null;
+  statusMessage: string;
+  primaryStressors: string[];
 }
 
 // ============================================================================
@@ -299,9 +309,20 @@ After your response, include any NEW information you learned in this exact forma
   "biggestConcern": "concern" or null,
   "knowledgeLevel": "beginner" | "intermediate" | "experienced" or null,
   "usesEmojis": true | false or null,
-  "usesSwearing": true | false or null
+  "usesSwearing": true | false or null,
+  "inferredStressLevel": 1-5 or null,
+  "familyMentions": ["mom", "in-laws", etc] or null,
+  "emotionalMarkers": ["frustrated", "overwhelmed", "excited", etc] or null,
+  "tone": "excited" | "anxious" | "overwhelmed" | "calm" | "frustrated" or null
 }
 </extract>
+
+STRESS INFERENCE GUIDELINES (for inferredStressLevel):
+1 (Calm): Positive language, emojis, short decisive messages
+2 (Mild): Neutral tone, asking for simple information
+3 (Moderate): Multiple questions, some uncertainty, longer messages
+4 (Elevated): Repeated topics, frustration words, concern about timing
+5 (High): Overwhelmed language, all caps, mentions of being stressed/anxious
 
 Only include fields you JUST learned in this message. Leave everything else as null.
 `;
@@ -310,10 +331,15 @@ Only include fields you JUST learned in this message. Leave everything else as n
 // BUILD FULL PROMPT
 // ============================================================================
 
-export function buildSystemPrompt(kernel: WeddingKernel | null, userProfile: UserProfile | null, today: string): string {
+export function buildSystemPrompt(
+  kernel: WeddingKernel | null,
+  userProfile: UserProfile | null,
+  today: string,
+  sanityContext?: SanityContext | null
+): string {
   const kernelContext = buildKernelContext(kernel);
   const profileContext = buildProfileContext(userProfile);
-  
+
   return `${CORE_IDENTITY}
 
 TODAY'S DATE: ${today}
@@ -338,7 +364,9 @@ ${ONBOARDING_APPROACH}
 
 ${TOOL_USAGE}
 
-${EXTRACTION_INSTRUCTIONS}`;
+${EXTRACTION_INSTRUCTIONS}
+
+${sanityContext ? buildSanitySection(sanityContext) : ''}`;
 }
 
 function buildKernelContext(kernel: WeddingKernel | null): string {
@@ -417,6 +445,59 @@ function buildProfileContext(profile: UserProfile | null): string {
   }
   
   return parts.length > 0 ? parts.join("\n") : "Adapt to their style as you learn it.";
+}
+
+function buildSanitySection(sanity: SanityContext): string {
+  const parts: string[] = [];
+
+  // Current status
+  parts.push(`Current: ${sanity.currentScore}/100 (${sanity.stressCategory})`);
+
+  // Trend
+  if (sanity.trend) {
+    const arrow = sanity.trend.direction === "improving" ? "↑" :
+      sanity.trend.direction === "worsening" ? "↓" : "→";
+    parts.push(`Trend: ${arrow}${Math.abs(sanity.trend.change7Days)} points this week`);
+  }
+
+  // Family dynamics
+  parts.push(`Family dynamics (inferred): ${sanity.inferredFamilyFriction}/10`);
+
+  // Top concerns
+  if (sanity.primaryStressors.length > 0) {
+    const stressorNames: Record<string, string> = {
+      budget: "budget",
+      family: "family",
+      contracts: "contracts",
+      rsvp_anxiety: "RSVPs",
+      decision_paralysis: "decisions",
+      sleep_disruption: "sleep",
+      frantic_planning: "activity",
+      disengagement: "engagement",
+      vendor_indecision: "vendors",
+      overdue_decisions: "deadlines",
+      emotional_stress: "overwhelm",
+      declining_mood: "energy",
+    };
+    const readable = sanity.primaryStressors
+      .map(s => stressorNames[s] || s)
+      .slice(0, 3);
+    if (readable.length > 0) {
+      parts.push(`Top concerns: ${readable.join(", ")}`);
+    }
+  }
+
+  return `
+PROACTIVE SUPPORT (Internal Reference - DO NOT mention explicitly):
+${parts.join("\n")}
+
+PROACTIVE SUPPORT RULES:
+- If they seem stressed, be calming. Acknowledge before jumping to solutions.
+- If family friction is high (>6), be extra supportive and patient about family topics.
+- If they're asking the same question repeatedly, offer to simplify: "Let's break this down into smaller pieces."
+- If sanity dropped significantly, gently acknowledge: "I know there's a lot going on. Let's tackle one thing at a time."
+- NEVER explicitly mention "sanity score," "stress level," or that you're monitoring their wellbeing.
+- Focus on being supportive through actions and tone, not by talking about stress.`;
 }
 
 // ============================================================================
