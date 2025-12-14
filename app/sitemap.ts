@@ -1,7 +1,10 @@
 import { MetadataRoute } from 'next';
 import { getAllPosts } from '@/lib/blog/mdx';
+import { db } from '@/lib/db';
+import { vendorProfiles } from '@/lib/db/schema';
+import { desc } from 'drizzle-orm';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://scribeandstem.com';
   const now = new Date();
 
@@ -10,6 +13,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const blogPages = posts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
     lastModified: new Date(post.date),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }));
+
+  // Get all vendors for sitemap
+  const vendors = await db
+    .select({
+      slug: vendorProfiles.slug,
+      updatedAt: vendorProfiles.updatedAt,
+    })
+    .from(vendorProfiles)
+    .orderBy(desc(vendorProfiles.updatedAt));
+
+  const vendorPages = vendors.map((vendor) => ({
+    url: `${baseUrl}/vendors/${vendor.slug}`,
+    lastModified: vendor.updatedAt || now,
     changeFrequency: 'weekly' as const,
     priority: 0.7,
   }));
@@ -43,6 +62,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     ...blogPages,
+    // Vendor Directory
+    {
+      url: `${baseUrl}/vendors`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
+    ...vendorPages,
     // Auth pages
     {
       url: `${baseUrl}/register`,

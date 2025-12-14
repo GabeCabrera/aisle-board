@@ -172,10 +172,11 @@ export default function RootLayout({
               url: 'https://scribeandstem.com',
               offers: {
                 '@type': 'Offer',
-                price: '29.99',
+                price: '12.00',
                 priceCurrency: 'USD',
-                billingDuration: 'P1M',
-                category: 'Subscription'
+                priceValidUntil: '2025-12-31',
+                availability: 'https://schema.org/InStock',
+                description: 'Monthly subscription - Stem tier with unlimited AI access'
               },
               featureList: [
                 'Sanity Score Calculator',

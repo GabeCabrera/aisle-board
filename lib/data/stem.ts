@@ -1953,3 +1953,126 @@ export async function saveVendorFromDirectory(
 
   return saved;
 }
+
+// =============================================================================
+// PUBLIC VENDOR QUERIES (for SEO - no authentication required)
+// =============================================================================
+
+/**
+ * Get all vendor slugs for sitemap/static generation
+ */
+export async function getAllVendorSlugs(): Promise<string[]> {
+  const vendors = await db
+    .select({ slug: vendorProfiles.slug })
+    .from(vendorProfiles)
+    .orderBy(vendorProfiles.slug);
+
+  return vendors.map((v) => v.slug);
+}
+
+/**
+ * Get public vendor by slug (no auth required)
+ */
+export async function getPublicVendorBySlug(slug: string) {
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.slug, slug),
+  });
+
+  if (!vendor) return null;
+
+  // Get reviews for this vendor
+  const reviews = await db.query.vendorReviews.findMany({
+    where: and(
+      eq(vendorReviews.vendorId, vendor.id),
+      eq(vendorReviews.isHidden, false)
+    ),
+    with: {
+      tenant: {
+        columns: { id: true, displayName: true, profileImage: true },
+      },
+    },
+    orderBy: [desc(vendorReviews.createdAt)],
+    limit: 5,
+  });
+
+  return {
+    ...vendor,
+    reviews,
+  };
+}
+
+/**
+ * Get public vendors with filters (no auth required)
+ */
+export async function getPublicVendors(options: {
+  category?: string;
+  state?: string;
+  city?: string;
+  priceRange?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sortBy?: "featured" | "rating" | "reviews" | "saves" | "newest";
+}) {
+  const conditions = [];
+
+  if (options.category) {
+    conditions.push(eq(vendorProfiles.category, options.category));
+  }
+  if (options.state) {
+    conditions.push(eq(vendorProfiles.state, options.state));
+  }
+  if (options.city) {
+    conditions.push(ilike(vendorProfiles.city, `%${options.city}%`));
+  }
+  if (options.priceRange) {
+    conditions.push(eq(vendorProfiles.priceRange, options.priceRange));
+  }
+  if (options.search) {
+    conditions.push(
+      or(
+        ilike(vendorProfiles.name, `%${options.search}%`),
+        ilike(vendorProfiles.description, `%${options.search}%`),
+        ilike(vendorProfiles.city, `%${options.search}%`)
+      )
+    );
+  }
+
+  let orderBy;
+  switch (options.sortBy) {
+    case "rating":
+      orderBy = [desc(vendorProfiles.averageRating), desc(vendorProfiles.reviewCount)];
+      break;
+    case "reviews":
+      orderBy = [desc(vendorProfiles.reviewCount)];
+      break;
+    case "saves":
+      orderBy = [desc(vendorProfiles.saveCount)];
+      break;
+    case "newest":
+      orderBy = [desc(vendorProfiles.createdAt)];
+      break;
+    case "featured":
+    default:
+      orderBy = [desc(vendorProfiles.isFeatured), desc(vendorProfiles.averageRating), desc(vendorProfiles.saveCount)];
+  }
+
+  const vendors = await db.query.vendorProfiles.findMany({
+    where: conditions.length > 0 ? and(...conditions) : undefined,
+    orderBy,
+    limit: options.limit ?? 50,
+    offset: options.offset ?? 0,
+  });
+
+  return vendors;
+}
+
+/**
+ * Get vendor count for SEO pages
+ */
+export async function getVendorCount(): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(vendorProfiles);
+  return Number(result[0]?.count ?? 0);
+}
