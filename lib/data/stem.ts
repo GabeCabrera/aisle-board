@@ -54,7 +54,12 @@ export async function getPublicBoards() {
     where: eq(boards.isPublic, true),
     with: {
       tenant: {
-        columns: { displayName: true },
+        columns: { displayName: true, profileImage: true },
+      },
+      ideas: {
+        columns: { id: true, imageUrl: true },
+        limit: 4,
+        orderBy: [desc(ideas.createdAt)],
       },
     },
     orderBy: [desc(boards.updatedAt)],
