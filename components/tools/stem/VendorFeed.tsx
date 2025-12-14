@@ -5,7 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { VendorCard } from "./VendorCard";
 import { VendorFilters } from "./VendorFilters";
-import { Loader2, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, MapPin, Search, Plus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import type { VendorProfile } from "@/lib/db/schema";
 import type { LocationMatch, WeddingLocation } from "@/lib/data/stem";
@@ -135,6 +147,68 @@ export function VendorFeed({
     setSortBy("featured");
   };
 
+  // Vendor request dialog state
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestForm, setRequestForm] = useState({
+    vendorName: "",
+    website: "",
+    notes: "",
+  });
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+
+  // Generate Google search URL based on current filters
+  const getGoogleSearchUrl = () => {
+    const parts = [];
+    if (category) parts.push(category.replace("-", " "));
+    if (search) parts.push(search);
+    if (state) parts.push(state);
+    if (weddingLocation?.city) parts.push(weddingLocation.city);
+
+    if (parts.length === 0) {
+      parts.push("wedding vendors");
+      if (weddingLocation?.state) parts.push(weddingLocation.state);
+    }
+
+    const query = encodeURIComponent(parts.join(" "));
+    return `https://www.google.com/search?q=${query}`;
+  };
+
+  const handleSubmitRequest = async () => {
+    if (!requestForm.vendorName.trim()) {
+      toast.error("Please enter a vendor name");
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    try {
+      const response = await fetch("/api/vendors/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendorName: requestForm.vendorName,
+          category: category || "other",
+          city: weddingLocation?.city,
+          state: state || weddingLocation?.state,
+          website: requestForm.website,
+          notes: requestForm.notes,
+          searchQuery: search,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success("Vendor request submitted! We'll look into adding them.");
+        setRequestDialogOpen(false);
+        setRequestForm({ vendorName: "", website: "", notes: "" });
+      } else {
+        throw new Error("Failed to submit");
+      }
+    } catch (error) {
+      toast.error("Failed to submit request. Please try again.");
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-up">
       {/* Header */}
@@ -196,9 +270,29 @@ export function VendorFeed({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : vendors.length === 0 ? (
-          <div className="text-center py-24 text-muted-foreground border-2 border-dashed border-border/50 rounded-3xl bg-muted/5">
-            <p className="text-lg">No vendors found matching your criteria.</p>
-            <p className="text-sm mt-2">Try adjusting your filters or search terms.</p>
+          <div className="text-center py-16 text-muted-foreground border-2 border-dashed border-border/50 rounded-3xl bg-muted/5">
+            <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <p className="text-lg font-medium text-foreground">No vendors found matching your criteria</p>
+            <p className="text-sm mt-2 mb-6 max-w-md mx-auto">
+              Try adjusting your filters, or search Google for local vendors and request we add them!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => window.open(getGoogleSearchUrl(), "_blank")}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Search Google
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={() => setRequestDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Request a Vendor
+              </Button>
+            </div>
           </div>
         ) : (
           <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 1100: 3 }}>
@@ -216,6 +310,62 @@ export function VendorFeed({
           </ResponsiveMasonry>
         )}
       </div>
+
+      {/* Vendor Request Dialog */}
+      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request a Vendor</DialogTitle>
+            <DialogDescription>
+              Found a vendor you&apos;d like to see in our directory? Let us know and we&apos;ll reach out to them!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="vendorName">Vendor Name *</Label>
+              <Input
+                id="vendorName"
+                placeholder="e.g., The Potted Pansy"
+                value={requestForm.vendorName}
+                onChange={(e) => setRequestForm({ ...requestForm, vendorName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="website">Website (optional)</Label>
+              <Input
+                id="website"
+                placeholder="e.g., https://thepottedpansy.com"
+                value={requestForm.website}
+                onChange={(e) => setRequestForm({ ...requestForm, website: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                placeholder="Any details that might help us find them..."
+                value={requestForm.notes}
+                onChange={(e) => setRequestForm({ ...requestForm, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitRequest} disabled={isSubmittingRequest}>
+              {isSubmittingRequest ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1536,6 +1536,53 @@ export const customVendorsRelations = relations(customVendors, ({ one }) => ({
 export type CustomVendor = typeof customVendors.$inferSelect;
 export type NewCustomVendor = typeof customVendors.$inferInsert;
 
+// VENDOR REQUESTS - Track requested vendors to add to directory
+export const vendorRequests = pgTable(
+  "vendor_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Who requested it
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "set null" }),
+    // Vendor info
+    vendorName: text("vendor_name").notNull(),
+    category: text("category").notNull(),
+    city: text("city"),
+    state: text("state"),
+    website: text("website"),
+    notes: text("notes"),
+    // Search context
+    searchQuery: text("search_query"), // What they searched for
+    // Status tracking
+    status: text("status").default("pending"), // pending, contacted, added, declined
+    adminNotes: text("admin_notes"),
+    // If we added them, link to the profile
+    vendorProfileId: uuid("vendor_profile_id")
+      .references(() => vendorProfiles.id, { onDelete: "set null" }),
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    resolvedAt: timestamp("resolved_at"),
+  },
+  (table) => ({
+    statusIdx: index("vendor_requests_status_idx").on(table.status),
+    createdAtIdx: index("vendor_requests_created_at_idx").on(table.createdAt),
+  })
+);
+
+export const vendorRequestsRelations = relations(vendorRequests, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [vendorRequests.tenantId],
+    references: [tenants.id],
+  }),
+  vendorProfile: one(vendorProfiles, {
+    fields: [vendorRequests.vendorProfileId],
+    references: [vendorProfiles.id],
+  }),
+}));
+
+export type VendorRequest = typeof vendorRequests.$inferSelect;
+export type NewVendorRequest = typeof vendorRequests.$inferInsert;
+
 // VENDOR REVIEWS - Reviews and ratings for vendors
 export const vendorReviews = pgTable(
   "vendor_reviews",

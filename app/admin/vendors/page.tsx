@@ -16,6 +16,12 @@ import {
   Filter,
   MapPin,
   ExternalLink,
+  Inbox,
+  CheckCircle,
+  XCircle,
+  MessageSquare,
+  Clock,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +43,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { VendorProfile } from "@/lib/db/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { VendorProfile, VendorRequest } from "@/lib/db/schema";
 
 const CATEGORIES = [
   { value: "photographer", label: "Photographer" },
@@ -99,6 +106,18 @@ const emptyFormData: VendorFormData = {
   isFeatured: false,
 };
 
+type VendorRequestWithTenant = VendorRequest & {
+  tenant?: { displayName: string | null } | null;
+  vendorProfile?: { id: string; name: string; slug: string } | null;
+};
+
+const REQUEST_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
+  contacted: { label: "Contacted", color: "bg-blue-100 text-blue-800" },
+  added: { label: "Added", color: "bg-green-100 text-green-800" },
+  declined: { label: "Declined", color: "bg-red-100 text-red-800" },
+};
+
 export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,6 +131,11 @@ export default function AdminVendorsPage() {
   const [editingVendor, setEditingVendor] = useState<VendorProfile | null>(null);
   const [formData, setFormData] = useState<VendorFormData>(emptyFormData);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Vendor requests state
+  const [requests, setRequests] = useState<VendorRequestWithTenant[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [requestStatusFilter, setRequestStatusFilter] = useState<string>("pending");
 
   const fetchVendors = async () => {
     setIsLoading(true);
@@ -133,8 +157,24 @@ export default function AdminVendorsPage() {
     }
   };
 
+  const fetchRequests = async () => {
+    setIsLoadingRequests(true);
+    try {
+      const response = await fetch("/api/vendors/requests");
+      if (!response.ok) throw new Error("Failed to fetch requests");
+      const data = await response.json();
+      setRequests(data);
+    } catch (err) {
+      console.error("Failed to fetch vendor requests:", err);
+      toast.error("Failed to fetch vendor requests");
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
+
   useEffect(() => {
     fetchVendors();
+    fetchRequests();
   }, [categoryFilter]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -281,7 +321,52 @@ export default function AdminVendorsPage() {
     }
   };
 
+  // Request actions
+  const updateRequestStatus = async (requestId: string, status: string) => {
+    try {
+      const response = await fetch(`/api/vendors/requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update");
+
+      setRequests(
+        requests.map((r) =>
+          r.id === requestId
+            ? { ...r, status, resolvedAt: status === "added" || status === "declined" ? new Date() : null }
+            : r
+        )
+      );
+      toast.success(`Request marked as ${status}`);
+    } catch (err) {
+      toast.error("Failed to update request");
+    }
+  };
+
+  const deleteRequest = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/vendors/requests/${requestId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete");
+
+      setRequests(requests.filter((r) => r.id !== requestId));
+      toast.success("Request deleted");
+    } catch (err) {
+      toast.error("Failed to delete request");
+    }
+  };
+
+  // Filter requests by status
+  const filteredRequests = requestStatusFilter
+    ? requests.filter((r) => r.status === requestStatusFilter)
+    : requests;
+
   // Stats
+  const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
   const verifiedCount = vendors.filter((v) => v.isVerified).length;
   const featuredCount = vendors.filter((v) => v.isFeatured).length;
   const categoryCounts = vendors.reduce((acc, v) => {
@@ -308,7 +393,7 @@ export default function AdminVendorsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-5 gap-4 mb-8">
         <div className="bg-white border border-warm-200 p-4 rounded-lg">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -358,46 +443,76 @@ export default function AdminVendorsPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Filters & Search */}
-      <div className="bg-white border border-warm-200 rounded-lg mb-6">
-        <div className="p-4 flex items-center gap-4">
-          <form onSubmit={handleSearch} className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, city, or description..."
-                className="w-full pl-10 pr-4 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500"
-              />
+        <div className="bg-white border border-warm-200 p-4 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${pendingRequestsCount > 0 ? "bg-orange-100" : "bg-warm-100"}`}>
+              <Inbox className={`w-5 h-5 ${pendingRequestsCount > 0 ? "text-orange-600" : "text-warm-400"}`} />
             </div>
-          </form>
-
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-warm-400" />
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 text-sm"
-            >
-              <option value="">All Categories</option>
-              {CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
+            <div>
+              <p className="text-2xl font-light text-warm-800">{pendingRequestsCount}</p>
+              <p className="text-xs text-warm-500">Pending Requests</p>
+            </div>
           </div>
-
-          <Button variant="outline" size="sm" onClick={fetchVendors}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
         </div>
       </div>
+
+      <Tabs defaultValue="vendors" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="vendors" className="gap-2">
+            <Store className="w-4 h-4" />
+            Vendors
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="gap-2">
+            <Inbox className="w-4 h-4" />
+            Requests
+            {pendingRequestsCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
+                {pendingRequestsCount}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="vendors" className="space-y-6">
+          {/* Filters & Search */}
+          <div className="bg-white border border-warm-200 rounded-lg">
+            <div className="p-4 flex items-center gap-4">
+              <form onSubmit={handleSearch} className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by name, city, or description..."
+                    className="w-full pl-10 pr-4 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500"
+                  />
+                </div>
+              </form>
+
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-warm-400" />
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-3 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 text-sm"
+                >
+                  <option value="">All Categories</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button variant="outline" size="sm" onClick={fetchVendors}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+          </div>
 
       {/* Vendors Table */}
       <div className="bg-white border border-warm-200 rounded-lg overflow-hidden">
@@ -577,6 +692,217 @@ export default function AdminVendorsPage() {
           </tbody>
         </table>
       </div>
+        </TabsContent>
+
+        <TabsContent value="requests" className="space-y-6">
+          {/* Requests Filters */}
+          <div className="bg-white border border-warm-200 rounded-lg">
+            <div className="p-4 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-warm-400" />
+                <select
+                  value={requestStatusFilter}
+                  onChange={(e) => setRequestStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-warm-500 text-sm"
+                >
+                  <option value="">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="added">Added</option>
+                  <option value="declined">Declined</option>
+                </select>
+              </div>
+
+              <div className="flex-1" />
+
+              <Button variant="outline" size="sm" onClick={fetchRequests}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingRequests ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          {/* Requests Table */}
+          <div className="bg-white border border-warm-200 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-warm-50 border-b border-warm-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Vendor Info
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Location
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Requested By
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-warm-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-warm-100">
+                {isLoadingRequests ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-warm-400">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      Loading requests...
+                    </td>
+                  </tr>
+                ) : filteredRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-warm-400">
+                      <Inbox className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      No vendor requests found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRequests.map((request) => (
+                    <tr key={request.id} className="hover:bg-warm-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-warm-800">{request.vendorName}</p>
+                          {request.website && (
+                            <a
+                              href={request.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              <Globe className="w-3 h-3" />
+                              {request.website.replace(/^https?:\/\//, "")}
+                            </a>
+                          )}
+                          {request.notes && (
+                            <p className="text-xs text-warm-500 mt-1">{request.notes}</p>
+                          )}
+                          {request.searchQuery && (
+                            <p className="text-xs text-warm-400 mt-1">
+                              Searched: &quot;{request.searchQuery}&quot;
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="secondary">
+                          {CATEGORIES.find((c) => c.value === request.category)?.label ||
+                            request.category}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {request.city || request.state ? (
+                          <div className="flex items-center gap-1 text-sm text-warm-600">
+                            <MapPin className="w-3 h-3" />
+                            {[request.city, request.state].filter(Boolean).join(", ")}
+                          </div>
+                        ) : (
+                          <span className="text-warm-400 text-sm">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          {request.tenant?.displayName || (
+                            <span className="text-warm-400">Anonymous</span>
+                          )}
+                          <p className="text-xs text-warm-400">
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            {new Date(request.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            REQUEST_STATUS_LABELS[request.status || "pending"]?.color
+                          }`}
+                        >
+                          {REQUEST_STATUS_LABELS[request.status || "pending"]?.label}
+                        </span>
+                        {request.vendorProfile && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Linked to: {request.vendorProfile.name}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          {request.status === "pending" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateRequestStatus(request.id, "contacted")}
+                                title="Mark as contacted"
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateRequestStatus(request.id, "added")}
+                                className="text-green-600 hover:bg-green-50"
+                                title="Mark as added"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateRequestStatus(request.id, "declined")}
+                                className="text-red-600 hover:bg-red-50"
+                                title="Mark as declined"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          {request.status === "contacted" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateRequestStatus(request.id, "added")}
+                                className="text-green-600 hover:bg-green-50"
+                                title="Mark as added"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateRequestStatus(request.id, "declined")}
+                                className="text-red-600 hover:bg-red-50"
+                                title="Mark as declined"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteRequest(request.id)}
+                            className="text-warm-400 hover:text-red-600 hover:bg-red-50"
+                            title="Delete request"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Vendor Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
