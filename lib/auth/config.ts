@@ -53,7 +53,7 @@ const GOOGLE_SCOPES = [
 ].join(" ");
 
 export const authOptions: NextAuthOptions = {
-  debug: true, // Enable debugging to diagnose sign-in errors
+  debug: process.env.NODE_ENV === "development", // Only enable debugging in development
   session: {
     strategy: "jwt",
   },

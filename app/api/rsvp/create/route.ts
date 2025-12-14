@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { rsvpForms, pages, tenants, planners } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { rsvpFormSchema, sanitizeString } from "@/lib/validation";
+import { getTenantAccess, getPlanLimit } from "@/lib/subscription";
 
 type DrizzleTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -111,18 +112,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(updatedForm);
     }
 
+    // Check subscription limits before creating new form
+    const access = await getTenantAccess(session.user.tenantId);
+    if (!access) {
+      return NextResponse.json({ error: "Unable to verify account" }, { status: 403 });
+    }
+
+    const rsvpFormLimit = getPlanLimit(access.plan, "rsvpForms", access.isLegacy);
+
     // Generate cute slug from couple names
     const baseSlug = generateSlug(tenant.displayName);
 
     // Use transaction to prevent race conditions on slug creation
     const newForm = await db.transaction(async (tx) => {
-      // Limit RSVP forms per tenant (check first to avoid unnecessary slug logic)
+      // Limit RSVP forms per tenant based on subscription plan
       const existingFormsCount = await tx
         .select()
         .from(rsvpForms)
         .where(eq(rsvpForms.tenantId, session.user.tenantId));
 
-      if (existingFormsCount.length >= 10) {
+      if (existingFormsCount.length >= rsvpFormLimit) {
         throw new Error("LIMIT_REACHED");
       }
 
@@ -175,8 +184,11 @@ export async function POST(request: NextRequest) {
     // Handle specific error cases
     if (error instanceof Error && error.message === "LIMIT_REACHED") {
       return NextResponse.json(
-        { error: "Maximum RSVP forms limit reached" },
-        { status: 400 }
+        {
+          error: "You've reached your RSVP form limit on the free plan. Upgrade to Stem for unlimited RSVP forms!",
+          limitReached: true,
+        },
+        { status: 403 }
       );
     }
 

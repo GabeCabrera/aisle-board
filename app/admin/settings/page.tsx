@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Tag, 
+import {
+  Tag,
   Percent,
   DollarSign,
   Calendar,
@@ -17,8 +17,19 @@ import {
   UserPlus,
   Sparkles,
   X,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 interface PromoCode {
@@ -53,6 +64,7 @@ export default function SettingsPage() {
   // Upgrade user form
   const [upgradeEmail, setUpgradeEmail] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   const fetchPromoCodes = async () => {
     setIsLoading(true);
@@ -129,16 +141,16 @@ export default function SettingsPage() {
     }
   };
 
-  const handleUpgradeUser = async () => {
+  const handleUpgradeClick = () => {
     if (!upgradeEmail.trim()) {
       toast.error("Email is required");
       return;
     }
+    setShowUpgradeDialog(true);
+  };
 
-    if (!confirm(`Upgrade ${upgradeEmail} to the Complete plan for free?`)) {
-      return;
-    }
-
+  const confirmUpgradeUser = async () => {
+    setShowUpgradeDialog(false);
     setIsUpgrading(true);
     try {
       const res = await fetch("/api/admin/users/upgrade", {
@@ -234,12 +246,12 @@ export default function SettingsPage() {
               className="flex-1 px-4 py-2 border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
             <Button
-              onClick={handleUpgradeUser}
+              onClick={handleUpgradeClick}
               disabled={isUpgrading || !upgradeEmail.trim()}
               className="bg-green-600 hover:bg-green-700"
             >
               {isUpgrading ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Sparkles className="w-4 h-4 mr-2" />
               )}
@@ -251,6 +263,28 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
+
+      {/* Upgrade Confirmation Dialog */}
+      <AlertDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Upgrade User?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently upgrade <strong>{upgradeEmail}</strong> to the Complete plan for free. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmUpgradeUser}
+              className="rounded-full bg-green-600 hover:bg-green-700"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Confirm Upgrade
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* New Promo Code Form */}
       {showNewForm && (

@@ -10,8 +10,19 @@ import {
   AlertCircle,
   CheckCircle,
   AtSign,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 interface EmailStats {
@@ -38,6 +49,10 @@ export default function EmailManagementPage() {
   const [directContent, setDirectContent] = useState("");
   const [isSendingDirect, setIsSendingDirect] = useState(false);
 
+  // Confirmation dialogs
+  const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
+  const [showDirectDialog, setShowDirectDialog] = useState(false);
+
   const fetchStats = async () => {
     setIsLoading(true);
     try {
@@ -56,16 +71,16 @@ export default function EmailManagementPage() {
     fetchStats();
   }, []);
 
-  const handleSendBroadcast = async () => {
+  const handleBroadcastClick = () => {
     if (!subject.trim() || !content.trim()) {
       toast.error("Subject and content are required");
       return;
     }
+    setShowBroadcastDialog(true);
+  };
 
-    if (!confirm(`Are you sure you want to send this email to ${stats?.subscribedUsers || 0} subscribers?`)) {
-      return;
-    }
-
+  const confirmSendBroadcast = async () => {
+    setShowBroadcastDialog(false);
     setIsSending(true);
     setSendResult(null);
 
@@ -96,16 +111,16 @@ export default function EmailManagementPage() {
     }
   };
 
-  const handleSendDirect = async () => {
+  const handleDirectClick = () => {
     if (!directTo.trim() || !directSubject.trim() || !directContent.trim()) {
       toast.error("Recipient, subject, and content are required");
       return;
     }
+    setShowDirectDialog(true);
+  };
 
-    if (!confirm(`Send email to ${directTo}?`)) {
-      return;
-    }
-
+  const confirmSendDirect = async () => {
+    setShowDirectDialog(false);
     setIsSendingDirect(true);
 
     try {
@@ -268,13 +283,13 @@ Gabe & Sarah"
 
           <div className="flex items-center justify-end pt-4 border-t border-warm-100">
             <Button
-              onClick={handleSendDirect}
+              onClick={handleDirectClick}
               disabled={isSendingDirect || !directTo.trim() || !directSubject.trim() || !directContent.trim()}
               className="bg-warm-600 hover:bg-warm-700"
             >
               {isSendingDirect ? (
                 <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (
@@ -287,6 +302,28 @@ Gabe & Sarah"
           </div>
         </div>
       </div>
+
+      {/* Direct Email Confirmation Dialog */}
+      <AlertDialog open={showDirectDialog} onOpenChange={setShowDirectDialog}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Direct Email?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will send an email to <strong>{directTo}</strong> from GabeandSarah@scribeandstem.com.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSendDirect}
+              className="rounded-full bg-warm-600 hover:bg-warm-700"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Send Email
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Broadcast Form */}
       <div className="bg-white border border-warm-200 rounded-lg mb-8">
@@ -343,13 +380,13 @@ Keep it personal and helpful!"
               Will be sent to <strong className="text-warm-700">{stats?.subscribedUsers || 0}</strong> subscribers
             </div>
             <Button
-              onClick={handleSendBroadcast}
+              onClick={handleBroadcastClick}
               disabled={isSending || !subject.trim() || !content.trim() || !stats?.subscribedUsers}
               className="bg-warm-600 hover:bg-warm-700"
             >
               {isSending ? (
                 <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (
@@ -362,6 +399,28 @@ Keep it personal and helpful!"
           </div>
         </div>
       </div>
+
+      {/* Broadcast Confirmation Dialog */}
+      <AlertDialog open={showBroadcastDialog} onOpenChange={setShowBroadcastDialog}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Broadcast Email?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will send an email to <strong>{stats?.subscribedUsers || 0}</strong> subscribers. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSendBroadcast}
+              className="rounded-full bg-warm-600 hover:bg-warm-700"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Send to All Subscribers
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Send Result */}
       {sendResult && (

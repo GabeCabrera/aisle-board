@@ -29,7 +29,18 @@ import {
   Newspaper,
   Camera,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { VendorReviewCard } from "./VendorReviewCard";
 import { VendorReviewForm } from "./VendorReviewForm";
@@ -158,6 +169,8 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isLoadingShowcases, setIsLoadingShowcases] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
   // Fetch posts when switching to posts tab
   useEffect(() => {
@@ -316,6 +329,29 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || "Failed to submit answer");
+    }
+  };
+
+  const handleDeletePostClick = (postId: string) => {
+    setDeletePostId(postId);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deletePostId) return;
+    setIsDeletingPost(true);
+    try {
+      const response = await fetch(`/api/vendors/posts/${deletePostId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setPosts((prev) => prev.filter((p) => p.id !== deletePostId));
+        toast.success("Post deleted");
+      }
+    } catch (error) {
+      toast.error("Failed to delete post");
+    } finally {
+      setIsDeletingPost(false);
+      setDeletePostId(null);
     }
   };
 
@@ -676,21 +712,7 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
                       // Handle edit
                       console.log("Edit post", postId);
                     }}
-                    onDelete={async (postId) => {
-                      if (confirm("Are you sure you want to delete this post?")) {
-                        try {
-                          const response = await fetch(`/api/vendors/posts/${postId}`, {
-                            method: "DELETE",
-                          });
-                          if (response.ok) {
-                            setPosts((prev) => prev.filter((p) => p.id !== postId));
-                            toast.success("Post deleted");
-                          }
-                        } catch (error) {
-                          toast.error("Failed to delete post");
-                        }
-                      }
-                    }}
+                    onDelete={handleDeletePostClick}
                   />
                 ))}
               </div>
@@ -786,6 +808,40 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
         onOpenChange={setShowPostForm}
         onSuccess={fetchPosts}
       />
+
+      {/* Delete Post Confirmation Dialog */}
+      <AlertDialog open={!!deletePostId} onOpenChange={(open) => !open && setDeletePostId(null)}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-serif">Delete Post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" disabled={isDeletingPost}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeletePost}
+              disabled={isDeletingPost}
+              className="rounded-full bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingPost ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Delete Post
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

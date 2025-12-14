@@ -1,8 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, RotateCcw, X, Minimize2, Crown, ClipboardList, MessageCircle, StopCircle } from "lucide-react";
+import { Send, Sparkles, RotateCcw, X, Minimize2, Crown, ClipboardList, MessageCircle, StopCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
 import { AnimatedInput } from "@/components/ui/animated-input";
 import ReactMarkdown from 'react-markdown';
@@ -45,6 +55,7 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
   const [aiAccess, setAiAccess] = useState<AIAccess | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showClearDialog, setShowClearDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -171,9 +182,12 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
     }
   };
 
-  const clearConversation = async () => {
-    if (!confirm("Start a new conversation? Your current chat will be saved.")) return;
-    
+  const handleClearClick = () => {
+    setShowClearDialog(true);
+  };
+
+  const confirmClearConversation = async () => {
+    setShowClearDialog(false);
     try {
       await fetch("/api/scribe", { method: "DELETE" });
       setMessages([]);
@@ -250,13 +264,35 @@ export function ScribeChat({ isOpen, onClose, coupleNames, aiName = "Scribe", va
               </span>
             )}
             <button
-              onClick={clearConversation}
+              onClick={handleClearClick}
               className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400 hover:text-stone-600"
               title="Clear chat"
               aria-label="Clear chat history"
             >
               <RotateCcw className="w-4 h-4" aria-hidden="true" />
             </button>
+
+            {/* Clear Conversation Dialog */}
+            <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+              <AlertDialogContent className="rounded-xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="font-serif">Start New Conversation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Your current chat will be saved. You can start fresh with a new conversation.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={confirmClearConversation}
+                    className="rounded-full"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Start New Chat
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             {/* Only show Minimize/Close in overlay mode */}
             {variant === "overlay" && (

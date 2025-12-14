@@ -1,20 +1,17 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Box,
-  Typography,
-  Container,
-  Paper,
-  TextField,
-  Button,
-  CircularProgress,
-  Alert,
-} from "@mui/material";
-import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormError } from "@/components/ui/form-error";
+import { ArrowLeft, Loader2, CheckCircle, AlertCircle, Check } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -25,11 +22,23 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ password: false, confirmPassword: false });
+
+  // Real-time validation
+  const validation = useMemo(() => {
+    const minLength = password.length >= 8;
+    const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+    const isValid = minLength && passwordsMatch;
+    return { minLength, passwordsMatch, isValid };
+  }, [password, confirmPassword]);
 
   if (!token) {
     return (
-      <Alert severity="error">
-        Invalid or expired password reset link. Please request a new one.
+      <Alert variant="destructive" className="rounded-xl">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Invalid or expired password reset link. Please request a new one.
+        </AlertDescription>
       </Alert>
     );
   }
@@ -68,86 +77,141 @@ function ResetPasswordForm() {
 
   if (isSuccess) {
     return (
-      <Box sx={{ textAlign: 'center' }}>
-        <CheckCircleIcon color="success" sx={{ fontSize: 48, mb: 2 }} />
-        <Typography variant="h5" component="h1" gutterBottom>
-          Password Reset
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
+      <div className="text-center py-4">
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle className="h-8 w-8 text-green-600" />
+        </div>
+        <CardTitle className="font-serif text-2xl mb-2">Password Reset</CardTitle>
+        <CardDescription className="text-base mb-6">
           Your password has been successfully reset.
-        </Typography>
-        <Button variant="contained" component={Link} href="/login">
-          Sign In
+        </CardDescription>
+        <Button asChild className="rounded-full shadow-soft">
+          <Link href="/login">Sign In</Link>
         </Button>
-      </Box>
+      </div>
     );
   }
 
   return (
     <>
-      <Box sx={{ mb: 3, textAlign: 'center' }}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          Set a New Password
-        </Typography>
-        <Typography color="text.secondary">
+      <CardHeader className="text-center pb-2">
+        <CardTitle className="font-serif text-2xl">Set a New Password</CardTitle>
+        <CardDescription>
           Enter your new password below.
-        </Typography>
-      </Box>
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4 rounded-xl">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <TextField
-          id="password"
-          type="password"
-          label="New Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={isLoading}
-          helperText="At least 8 characters"
-        />
-        <TextField
-          id="confirmPassword"
-          type="password"
-          label="Confirm New Password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          disabled={isLoading}
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          fullWidth
-          disabled={isLoading}
-          sx={{ py: 1.5, mt: 1 }}
-        >
-          {isLoading ? <CircularProgress size={24} /> : "Reset Password"}
-        </Button>
-      </Box>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="password">New Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter new password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+              required
+              disabled={isLoading}
+              className={cn(
+                "rounded-xl h-11",
+                touched.password && !validation.minLength && "border-destructive focus-visible:ring-destructive"
+              )}
+            />
+            {/* Password requirements indicator */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <div
+                className={cn(
+                  "flex items-center gap-1 transition-colors",
+                  password.length === 0
+                    ? "text-muted-foreground"
+                    : validation.minLength
+                    ? "text-green-600"
+                    : "text-destructive"
+                )}
+              >
+                {validation.minLength ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <span className="h-3 w-3 rounded-full border border-current" />
+                )}
+                At least 8 characters
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, confirmPassword: true }))}
+              required
+              disabled={isLoading}
+              className={cn(
+                "rounded-xl h-11",
+                touched.confirmPassword && confirmPassword && !validation.passwordsMatch && "border-destructive focus-visible:ring-destructive"
+              )}
+            />
+            <FormError
+              message={
+                touched.confirmPassword && confirmPassword && !validation.passwordsMatch
+                  ? "Passwords do not match"
+                  : null
+              }
+            />
+          </div>
+          <Button
+            type="submit"
+            className="w-full rounded-full h-11 shadow-soft mt-2"
+            disabled={isLoading || !validation.isValid}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Resetting...
+              </>
+            ) : (
+              "Reset Password"
+            )}
+          </Button>
+        </form>
+      </CardContent>
     </>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Box sx={{ bgcolor: 'grey.50', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-      <Button
-        component={Link}
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Link
         href="/login"
-        startIcon={<ArrowBackIcon />}
-        sx={{ position: 'absolute', top: 24, left: 24, color: 'text.secondary' }}
+        className="absolute top-6 left-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
       >
+        <ArrowLeft className="h-4 w-4" />
         Back to Login
-      </Button>
-      <Container maxWidth="xs">
-        <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-          <Suspense fallback={<CircularProgress />}>
-            <ResetPasswordForm />
-          </Suspense>
-        </Paper>
-      </Container>
-    </Box>
+      </Link>
+
+      <Card className="w-full max-w-md rounded-3xl shadow-lifted border-border">
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          }
+        >
+          <ResetPasswordForm />
+        </Suspense>
+      </Card>
+    </div>
   );
 }

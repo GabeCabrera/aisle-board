@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -30,6 +40,9 @@ export default function SettingsTool() {
   const { data: session } = useSession();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   // Profile form state
   const [displayName, setDisplayName] = useState("");
@@ -84,6 +97,28 @@ export default function SettingsTool() {
       toast.error("Failed to save profile. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "DELETE") return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch("/api/settings/delete-account", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
+
+      toast.success("Account deleted. Goodbye!");
+      // Sign out and redirect to home
+      signOut({ callbackUrl: "/" });
+    } catch (error) {
+      toast.error("Failed to delete account. Please try again.");
+      setIsDeleting(false);
     }
   };
 
@@ -265,12 +300,78 @@ export default function SettingsTool() {
                 Permanently delete your account and all data
               </p>
             </div>
-            <Button variant="destructive" className="rounded-full shadow-soft">
+            <Button
+              variant="destructive"
+              className="rounded-full shadow-soft"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
               <AlertTriangle className="h-4 w-4 mr-2" /> Delete
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Account Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-serif text-xl text-destructive">
+              Delete Account Permanently
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                This action <strong>cannot be undone</strong>. This will permanently delete your
+                account and remove all your data from our servers, including:
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                <li>Your wedding planning data (budget, guests, vendors)</li>
+                <li>All boards and saved ideas</li>
+                <li>Your profile and social connections</li>
+                <li>Messages and conversation history</li>
+              </ul>
+              <p className="pt-2">
+                Type <strong className="text-foreground">DELETE</strong> to confirm:
+              </p>
+              <Input
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="rounded-lg h-10 mt-2"
+                disabled={isDeleting}
+              />
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-full"
+              onClick={() => {
+                setDeleteConfirmation("");
+                setIsDeleteDialogOpen(false);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmation !== "DELETE" || isDeleting}
+              className="rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Delete Account
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -2,16 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Box,
-  Typography,
-  Container,
-  Paper,
-  TextField,
-  Button,
-  CircularProgress,
-} from "@mui/material";
-import { ArrowBack as ArrowBackIcon, MarkEmailRead as MarkEmailReadIcon } from '@mui/icons-material';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ForgotPasswordPage() {
@@ -40,61 +35,68 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Box sx={{ bgcolor: 'grey.50', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-      <Button
-        component={Link}
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Link
         href="/login"
-        startIcon={<ArrowBackIcon />}
-        sx={{ position: 'absolute', top: 24, left: 24, color: 'text.secondary' }}
+        className="absolute top-6 left-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
       >
+        <ArrowLeft className="h-4 w-4" />
         Back to Login
-      </Button>
-      <Container maxWidth="xs">
-        <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
-          {isSubmitted ? (
-            <>
-              <MarkEmailReadIcon color="success" sx={{ fontSize: 48, mb: 2 }} />
-              <Typography variant="h5" component="h1" gutterBottom>
-                Check Your Email
-              </Typography>
-              <Typography color="text.secondary">
-                If an account exists for **{email}**, you&apos;ll receive a password reset link shortly.
-              </Typography>
-            </>
-          ) : (
-            <>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h5" component="h1" gutterBottom>
-                  Reset Password
-                </Typography>
-                <Typography color="text.secondary">
-                  Enter your email and we&apos;ll send you a link to reset your password.
-                </Typography>
-              </Box>
-              <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  id="email"
-                  type="email"
-                  label="Email Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
+      </Link>
+
+      <Card className="w-full max-w-md rounded-3xl shadow-lifted border-border">
+        {isSubmitted ? (
+          <CardContent className="pt-8 pb-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <MailCheck className="h-8 w-8 text-green-600" />
+            </div>
+            <CardTitle className="font-serif text-2xl mb-2">Check Your Email</CardTitle>
+            <CardDescription className="text-base">
+              If an account exists for <strong className="text-foreground">{email}</strong>, you&apos;ll receive a password reset link shortly.
+            </CardDescription>
+          </CardContent>
+        ) : (
+          <>
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="font-serif text-2xl">Reset Password</CardTitle>
+              <CardDescription>
+                Enter your email and we&apos;ll send you a link to reset your password.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="rounded-xl h-11"
+                  />
+                </div>
                 <Button
                   type="submit"
-                  variant="contained"
-                  fullWidth
+                  className="w-full rounded-full h-11 shadow-soft"
                   disabled={isLoading}
-                  sx={{ py: 1.5 }}
                 >
-                  {isLoading ? <CircularProgress size={24} /> : "Send Reset Link"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Reset Link"
+                  )}
                 </Button>
-              </Box>
-            </>
-          )}
-        </Paper>
-      </Container>
-    </Box>
+              </form>
+            </CardContent>
+          </>
+        )}
+      </Card>
+    </div>
   );
 }

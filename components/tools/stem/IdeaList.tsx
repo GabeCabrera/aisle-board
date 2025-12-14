@@ -3,7 +3,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Plus, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Loader2, AlertTriangle } from "lucide-react";
 import Masonry from 'react-responsive-masonry';
 import { toast } from "sonner";
 
@@ -37,6 +47,10 @@ export function IdeaList({ board, isOwner, myBoards }: IdeaListProps) { // Updat
     // Edit View
     const [editingIdea, setEditingIdea] = useState<IdeaWithTags | null>(null); // Updated variable names
     const [openEditDialog, setOpenEditDialog] = useState(false);
+
+    // Delete confirmation
+    const [deleteIdeaId, setDeleteIdeaId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchIdeas = useCallback(async () => { // Updated function name
         if (!board?.id) return; // Updated variable name
@@ -73,20 +87,28 @@ export function IdeaList({ board, isOwner, myBoards }: IdeaListProps) { // Updat
         setOpenDetailDialog(false); // Close detail if open
     };
     
-    const handleDeleteIdea = async (ideaId: string) => { // Updated function and parameter name
-        if (!confirm("Are you sure you want to delete this Idea?")) return; // Updated message
-        
+    const handleDeleteIdea = (ideaId: string) => {
+        setDeleteIdeaId(ideaId);
+    };
+
+    const confirmDeleteIdea = async () => {
+        if (!deleteIdeaId) return;
+        setIsDeleting(true);
+
         try {
-            const res = await fetch(`/api/ideas/${ideaId}`, { method: 'DELETE' }); // Updated API endpoint
+            const res = await fetch(`/api/ideas/${deleteIdeaId}`, { method: 'DELETE' });
             if (res.ok) {
-                toast.success("Idea deleted"); // Updated message
+                toast.success("Idea deleted");
                 fetchIdeas();
-                if (selectedIdea?.id === ideaId) setOpenDetailDialog(false); // Updated variable name
+                if (selectedIdea?.id === deleteIdeaId) setOpenDetailDialog(false);
             } else {
-                toast.error("Failed to delete idea"); // Updated message
+                toast.error("Failed to delete idea");
             }
         } catch (e) {
-            toast.error("Failed to delete idea"); // Updated message
+            toast.error("Failed to delete idea");
+        } finally {
+            setIsDeleting(false);
+            setDeleteIdeaId(null);
         }
     };
     
@@ -117,13 +139,47 @@ export function IdeaList({ board, isOwner, myBoards }: IdeaListProps) { // Updat
                 onSave={handleSaveIdea} // Updated function name
             />
 
-            <EditIdeaDialog 
-                open={openEditDialog} 
-                onClose={() => setOpenEditDialog(false)} 
+            <EditIdeaDialog
+                open={openEditDialog}
+                onClose={() => setOpenEditDialog(false)}
                 idea={editingIdea} // Updated variable name
                 onUpdate={fetchIdeas} // Updated function name
             />
-            
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!deleteIdeaId} onOpenChange={(open) => !open && setDeleteIdeaId(null)}>
+                <AlertDialogContent className="rounded-xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="font-serif">Delete Idea</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this idea? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full" disabled={isDeleting}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmDeleteIdea}
+                            disabled={isDeleting}
+                            className="rounded-full bg-destructive hover:bg-destructive/90"
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <AlertTriangle className="h-4 w-4 mr-2" />
+                                    Delete
+                                </>
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div className="flex justify-end mb-4">
                 {isOwner && (
                     <Button variant="default" onClick={() => setOpenAddIdeaDialog(true)} className="rounded-full shadow-soft">
