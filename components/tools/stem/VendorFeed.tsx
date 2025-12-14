@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { VendorCard } from "./VendorCard";
 import { VendorFilters } from "./VendorFilters";
@@ -49,12 +49,13 @@ export function VendorFeed({
   hideHeader = false,
 }: VendorFeedProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isInitialMount = useRef(true);
 
   const [vendors, setVendors] = useState<VendorWithWebFlag[]>(initialVendors);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set(savedVendorIds));
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingWeb, setIsLoadingWeb] = useState(false);
 
   // Filter state from URL params (use wedding location state as default)
   const [category, setCategory] = useState(searchParams.get("category") || undefined);
@@ -66,8 +67,14 @@ export function VendorFeed({
   // Track if any filters are active (to hide recommended section)
   const hasActiveFilters = !!(category || state || priceRange || search);
 
-  // Update vendors when filters change
+  // Update vendors when filters change (skip initial mount - we already have data from props)
   useEffect(() => {
+    // Skip the initial mount since we already have initialVendors
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const timer = setTimeout(() => {
       // Fetch vendors
       setIsLoading(true);
@@ -87,7 +94,7 @@ export function VendorFeed({
         .catch((error) => console.error("Error fetching vendors:", error))
         .finally(() => setIsLoading(false));
 
-      // Update URL (without triggering re-render loop)
+      // Update URL using current pathname (not hardcoded path)
       const newParams = new URLSearchParams();
       if (category) newParams.set("category", category);
       if (state) newParams.set("state", state);
@@ -95,7 +102,7 @@ export function VendorFeed({
       if (search) newParams.set("search", search);
       if (sortBy) newParams.set("sortBy", sortBy);
       const queryString = newParams.toString();
-      router.replace(`/planner/stem/vendors${queryString ? `?${queryString}` : ""}`, { scroll: false });
+      router.replace(`${pathname}${queryString ? `?${queryString}` : ""}`, { scroll: false });
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
