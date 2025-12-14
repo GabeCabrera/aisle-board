@@ -51,6 +51,7 @@ export default async function VendorsPage() {
       initialCategories={categories}
       initialStates={states}
       savedVendorIds={savedVendorIds}
+      savedVendors={savedVendors}
       recommendedVendors={recommendedVendors}
       weddingLocation={weddingLocation}
     />
