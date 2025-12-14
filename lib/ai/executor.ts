@@ -28,6 +28,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, sql, desc, like, ilike, or } from "drizzle-orm";
 import logger from "@/lib/logger";
+import { getTenantAccess, isWithinLimit, getPlanLimit, getRemainingCapacity, type PlanType } from "@/lib/subscription";
 
 // ============================================================================ 
 // TYPES
@@ -644,8 +645,26 @@ async function addGuest(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
+  // Check subscription limits before adding
+  const access = await getTenantAccess(context.tenantId);
+  if (!access) {
+    return { success: false, message: "Unable to verify account access." };
+  }
+
   const result = await withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
     const guests = (fields.guests as GuestData[]) || [];
+
+    // Check guest limit for free users
+    const guestLimit = getPlanLimit(access.plan, "guests", access.isLegacy);
+    if (guests.length >= guestLimit) {
+      const remaining = getRemainingCapacity(access.plan, "guests", guests.length, access.isLegacy);
+      return {
+        success: false,
+        message: `You've reached your guest list limit of ${guestLimit} guests on the free plan. Upgrade to Stem for unlimited guests!`,
+        data: { limitReached: true, currentCount: guests.length, limit: guestLimit, remaining },
+        guestCount: guests.length
+      };
+    }
 
     // Check if guest already exists (by name)
     const existingGuest = guests.find(
@@ -910,17 +929,43 @@ async function addGuestGroup(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
+  // Check subscription limits before adding
+  const access = await getTenantAccess(context.tenantId);
+  if (!access) {
+    return { success: false, message: "Unable to verify account access." };
+  }
+
   return withPageLock(context.tenantId, "guest-list", async (tx, { pageId, fields }) => {
     const guests = (fields.guests as GuestData[]) || [];
     const guestNames = params.guests as string[];
     const newGuests: GuestData[] = [];
     const skipped: string[] = [];
 
+    // Check guest limit for free users
+    const guestLimit = getPlanLimit(access.plan, "guests", access.isLegacy);
+    const availableSlots = guestLimit === Infinity ? Infinity : guestLimit - guests.length;
+
+    if (availableSlots <= 0) {
+      return {
+        success: false,
+        message: `You've reached your guest list limit of ${guestLimit} guests on the free plan. Upgrade to Stem for unlimited guests!`,
+        data: { limitReached: true, currentCount: guests.length, limit: guestLimit }
+      };
+    }
+
+    const limitedOut: string[] = [];
+
     for (const name of guestNames) {
       // Check if guest already exists
       const exists = guests.some(g => g.name?.toLowerCase() === name.toLowerCase());
       if (exists) {
         skipped.push(name);
+        continue;
+      }
+
+      // Check if we've hit the limit
+      if (guestLimit !== Infinity && guests.length >= guestLimit) {
+        limitedOut.push(name);
         continue;
       }
 
@@ -945,6 +990,14 @@ async function addGuestGroup(
       newGuests.push(newGuest);
     }
 
+    if (newGuests.length === 0 && limitedOut.length > 0) {
+      return {
+        success: false,
+        message: `You've reached your guest list limit of ${guestLimit} guests. Upgrade to Stem for unlimited guests!`,
+        data: { limitReached: true, currentCount: guests.length, limit: guestLimit, wouldHaveAdded: limitedOut }
+      };
+    }
+
     if (newGuests.length === 0) {
       return {
         success: false,
@@ -966,12 +1019,15 @@ async function addGuestGroup(
     if (skipped.length > 0) {
       message += `. Skipped ${skipped.length} (already on list): ${skipped.join(", ")}`;
     }
+    if (limitedOut.length > 0) {
+      message += `. Couldn't add ${limitedOut.length} guest${limitedOut.length > 1 ? "s" : ""} (${limitedOut.join(", ")}) — free plan limit of ${guestLimit} reached. Upgrade to Stem for unlimited guests!`;
+    }
     message += `. Total guests: ${guests.length}`;
 
     return {
       success: true,
       message,
-      data: { guests: newGuests, totalGuests: guests.length, skipped, pageId }
+      data: { guests: newGuests, totalGuests: guests.length, skipped, limitedOut, pageId }
     };
   });
 }
@@ -1274,6 +1330,12 @@ async function createRsvpLink(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
+  // Check subscription limits before creating
+  const access = await getTenantAccess(context.tenantId);
+  if (!access) {
+    return { success: false, message: "Unable to verify account access." };
+  }
+
   // Get the guest list page (RSVP forms are linked to guest list pages)
   const { pageId } = await getOrCreatePage(context.tenantId, "guest-list");
 
@@ -1330,6 +1392,22 @@ async function createRsvpLink(
       success: true,
       message: `Your RSVP link has been updated! Share this with your guests:\n\n**${link}**`,
       data: { slug: updatedForm.slug, link, fields, mealOptions }
+    };
+  }
+
+  // Check RSVP form limit for free users before creating new form
+  const rsvpFormLimit = getPlanLimit(access.plan, "rsvpForms", access.isLegacy);
+  const existingFormCount = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(rsvpForms)
+    .where(eq(rsvpForms.tenantId, context.tenantId));
+
+  const currentFormCount = Number(existingFormCount[0]?.count || 0);
+  if (currentFormCount >= rsvpFormLimit) {
+    return {
+      success: false,
+      message: `You've reached your RSVP form limit of ${rsvpFormLimit} form${rsvpFormLimit > 1 ? "s" : ""} on the free plan. Upgrade to Stem for unlimited RSVP forms!`,
+      data: { limitReached: true, currentCount: currentFormCount, limit: rsvpFormLimit }
     };
   }
 
@@ -1784,8 +1862,24 @@ async function addVendor(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
+  // Check subscription limits before adding
+  const access = await getTenantAccess(context.tenantId);
+  if (!access) {
+    return { success: false, message: "Unable to verify account access." };
+  }
+
   const result = await withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
     const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
+
+    // Check vendor limit for free users
+    const vendorLimit = getPlanLimit(access.plan, "vendors", access.isLegacy);
+    if (vendors.length >= vendorLimit) {
+      return {
+        success: false,
+        message: `You've reached your vendor limit of ${vendorLimit} vendors on the free plan. Upgrade to Stem for unlimited vendors!`,
+        data: { limitReached: true, currentCount: vendors.length, limit: vendorLimit }
+      };
+    }
 
     const newVendor = {
       id: crypto.randomUUID(),

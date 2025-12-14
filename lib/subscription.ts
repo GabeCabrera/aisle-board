@@ -5,6 +5,112 @@ import { eq } from "drizzle-orm";
 // Free tier AI message limit (per day)
 export const DAILY_FREE_AI_MESSAGE_LIMIT = 5;
 
+// =============================================================================
+// FEATURE GATING
+// =============================================================================
+
+// Features that can be gated by plan
+export type FeatureKey =
+  | "unlimited_ai"
+  | "seating_chart"
+  | "calendar_sync"
+  | "pdf_export"
+  | "unlimited_guests"
+  | "unlimited_vendors"
+  | "multiple_rsvp"
+  | "premium_templates"
+  | "vendor_contact_reveal"
+  | "priority_ai"
+  | "consultation"
+  | "curated_vendors";
+
+// Plan limits for free tier
+export const PLAN_LIMITS = {
+  free: {
+    guests: 50,
+    vendors: 10,
+    rsvpForms: 1,
+    aiMessages: DAILY_FREE_AI_MESSAGE_LIMIT,
+  },
+  stem: {
+    guests: Infinity,
+    vendors: Infinity,
+    rsvpForms: Infinity,
+    aiMessages: Infinity,
+  },
+  stemPlus: {
+    guests: Infinity,
+    vendors: Infinity,
+    rsvpForms: Infinity,
+    aiMessages: Infinity,
+  },
+} as const;
+
+// Features available per plan tier
+const FEATURE_ACCESS: Record<FeatureKey, ("free" | "stem" | "stemPlus")[]> = {
+  // Free tier features (empty means paid only)
+  unlimited_ai: ["stem", "stemPlus"],
+  seating_chart: ["stem", "stemPlus"],
+  calendar_sync: ["stem", "stemPlus"],
+  pdf_export: ["stem", "stemPlus"],
+  unlimited_guests: ["stem", "stemPlus"],
+  unlimited_vendors: ["stem", "stemPlus"],
+  multiple_rsvp: ["stem", "stemPlus"],
+  premium_templates: ["stem", "stemPlus"],
+  vendor_contact_reveal: ["stem", "stemPlus"],
+  // Premium-only features
+  priority_ai: ["stemPlus"],
+  consultation: ["stemPlus"],
+  curated_vendors: ["stemPlus"],
+};
+
+/**
+ * Map database plan types to tier names for feature checking
+ */
+function getPlanTier(plan: PlanType): "free" | "stem" | "stemPlus" {
+  if (plan === "premium_monthly" || plan === "premium_yearly") return "stemPlus";
+  if (plan === "monthly" || plan === "yearly") return "stem";
+  return "free";
+}
+
+/**
+ * Check if a plan has access to a specific feature
+ */
+export function canAccessFeature(plan: PlanType, feature: FeatureKey, hasLegacyAccess = false): boolean {
+  // Legacy users have full access to everything
+  if (hasLegacyAccess) return true;
+
+  const tier = getPlanTier(plan);
+  return FEATURE_ACCESS[feature].includes(tier);
+}
+
+/**
+ * Get the limit for a specific resource based on plan
+ */
+export function getPlanLimit(plan: PlanType, resource: keyof typeof PLAN_LIMITS.free, hasLegacyAccess = false): number {
+  if (hasLegacyAccess) return Infinity;
+
+  const tier = getPlanTier(plan);
+  return PLAN_LIMITS[tier][resource];
+}
+
+/**
+ * Check if a user is within their limit for a resource
+ */
+export function isWithinLimit(plan: PlanType, resource: keyof typeof PLAN_LIMITS.free, currentCount: number, hasLegacyAccess = false): boolean {
+  const limit = getPlanLimit(plan, resource, hasLegacyAccess);
+  return currentCount < limit;
+}
+
+/**
+ * Get remaining capacity for a resource
+ */
+export function getRemainingCapacity(plan: PlanType, resource: keyof typeof PLAN_LIMITS.free, currentCount: number, hasLegacyAccess = false): number | "unlimited" {
+  const limit = getPlanLimit(plan, resource, hasLegacyAccess);
+  if (limit === Infinity) return "unlimited";
+  return Math.max(0, limit - currentCount);
+}
+
 // Subscription prices (set these in Stripe dashboard and copy the IDs here)
 export const STRIPE_PRICES = {
   monthly: process.env.STRIPE_PRICE_MONTHLY,

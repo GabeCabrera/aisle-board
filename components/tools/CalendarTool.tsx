@@ -20,16 +20,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
-import { 
-  Loader2, 
-  RefreshCw, 
-  Calendar as CalendarIcon, 
+import {
+  Loader2,
+  RefreshCw,
+  Calendar as CalendarIcon,
   Plus,
   Monitor,
-  Download
+  Download,
+  Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { UpgradePrompt } from "@/components/ui/upgrade-prompt";
 
 // Types
 interface ApiCalendarEvent {
@@ -77,7 +80,8 @@ interface CalendarToolProps {
 export default function CalendarTool({ initialEvents }: CalendarToolProps) {
   const router = useRouter();
   const calendarRef = useRef<FullCalendar>(null);
-  
+  const { canAccess, openUpgrade } = useSubscription();
+
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [loading, setLoading] = useState(initialEvents.length === 0); // Only show loading if no initial events
   const [syncStatus, setSyncStatus] = useState<GoogleSyncStatus>({ connected: false });
@@ -86,6 +90,7 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
   const [isImporting, setIsImporting] = useState(false);
   const [view, setView] = useState("dayGridMonth");
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [newEvent, setNewEvent] = useState({
     title: "",
     date: new Date().toISOString().split('T')[0],
@@ -93,6 +98,9 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
     description: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check if user has access to Google Calendar sync
+  const hasCalendarSyncAccess = canAccess("calendar_sync");
 
   // Fetch Data
   const fetchData = useCallback(async () => {
@@ -158,6 +166,10 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
   };
 
   const handleConnectGoogle = () => {
+    if (!hasCalendarSyncAccess) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     window.location.href = "/api/calendar/google/connect";
   };
 
@@ -300,9 +312,9 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
 
           {syncStatus.connected ? (
-            <Button 
-              variant="outline" 
-              onClick={handleSyncNow} 
+            <Button
+              variant="outline"
+              onClick={handleSyncNow}
               disabled={isSyncing}
               className="gap-2"
             >
@@ -310,12 +322,16 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
               {isSyncing ? "Syncing..." : "Sync"}
             </Button>
           ) : (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleConnectGoogle}
               className="gap-2"
             >
-              <Monitor className="h-4 w-4" />
+              {hasCalendarSyncAccess ? (
+                <Monitor className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
               Connect Google
             </Button>
           )}
@@ -496,6 +512,16 @@ export default function CalendarTool({ initialEvents }: CalendarToolProps) {
           />
         </CardContent>
       </Card>
+
+      {/* Upgrade Prompt for Calendar Sync */}
+      <UpgradePrompt
+        variant="discovery"
+        featureName="Google Calendar Sync"
+        description="Sync your wedding events with Google Calendar for seamless scheduling across all your devices."
+        open={showUpgradePrompt}
+        onClose={() => setShowUpgradePrompt(false)}
+        requiredPlan="stem"
+      />
     </div>
   );
 }

@@ -2,8 +2,10 @@
 
 import React, { useState } from "react";
 import { usePlannerData, PlannerData, Guest } from "@/lib/hooks/usePlannerData";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LockedFeature } from "@/components/ui/locked-feature";
 import { cn } from "@/lib/utils";
 import {
   Loader2,
@@ -29,14 +31,18 @@ interface SeatingToolProps {
 
 export default function SeatingTool({ initialData }: SeatingToolProps) {
   const router = useRouter();
+  const { canAccess, openUpgrade, loading: subscriptionLoading } = useSubscription();
   // Request specific sections
   const { data, loading, refetch, isFetching } = usePlannerData(["seating", "guests", "kernel"], { initialData });
+
+  // Check if user has access to seating chart
+  const hasAccess = canAccess("seating_chart");
 
   const handleRefresh = async () => {
     refetch();
   };
 
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -51,7 +57,8 @@ export default function SeatingTool({ initialData }: SeatingToolProps) {
 
   const hasData = tables.length > 0;
 
-  return (
+  // Wrap content in LockedFeature for free users
+  const content = (
     <div className="w-full max-w-5xl mx-auto py-8 px-6 space-y-8 animate-fade-up">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -194,5 +201,18 @@ export default function SeatingTool({ initialData }: SeatingToolProps) {
         </>
       )}
     </div>
+  );
+
+  return (
+    <LockedFeature
+      isLocked={!hasAccess}
+      featureName="Seating Chart"
+      description="Create beautiful table arrangements with drag & drop. Assign guests to tables and manage your reception layout."
+      requiredPlan="stem"
+      onUpgrade={openUpgrade}
+      showPreview={true}
+    >
+      {content}
+    </LockedFeature>
   );
 }
