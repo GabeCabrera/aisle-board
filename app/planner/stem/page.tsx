@@ -1,24 +1,32 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth/config";
-import { getMyBoards } from "@/lib/data/stem";
-import MyBoardsTool from "@/components/tools/MyBoardsTool";
+import { getMyBoards, getPublicProfile } from "@/lib/data/stem";
+import { ProfileWithBoards } from "@/components/tools/stem/ProfileWithBoards";
 
 export default async function StemPage() {
   const session = await getServerSession(authOptions);
-  
-  if (!session) {
+
+  if (!session?.user?.tenantId) {
     redirect("/login");
   }
 
-  const initialBoards = session.user.tenantId 
-    ? await getMyBoards(session.user.tenantId)
-    : [];
+  const tenantId = session.user.tenantId;
+
+  // Fetch both profile and boards data
+  const [profileData, initialBoards] = await Promise.all([
+    getPublicProfile(tenantId),
+    getMyBoards(tenantId),
+  ]);
+
+  if (!profileData) {
+    redirect("/planner");
+  }
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        <MyBoardsTool initialBoards={initialBoards} />
+        <ProfileWithBoards profile={profileData as any} initialBoards={initialBoards} />
       </div>
     </div>
   );

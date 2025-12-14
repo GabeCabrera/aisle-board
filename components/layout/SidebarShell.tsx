@@ -21,7 +21,6 @@ import {
   Armchair,
   ChevronDown,
   Compass,
-  FolderHeart,
   User,
   Mail,
   Activity
@@ -65,8 +64,7 @@ const STEM_NAV: NavItemWithChildren = {
   href: "/planner/stem",
   children: [
     { id: "stem-explore", label: "Explore", icon: Compass, href: "/planner/stem/explore" },
-    { id: "stem-boards", label: "My Boards", icon: FolderHeart, href: "/planner/stem" },
-    { id: "stem-profile", label: "Profile", icon: User, href: "/planner/stem/profile" },
+    { id: "stem-profile", label: "Profile", icon: User, href: "/planner/stem" },
     { id: "stem-messages", label: "Messages", icon: Mail, href: "/planner/stem/messages" },
     { id: "stem-activity", label: "Activity", icon: Activity, href: "/planner/stem/activity" },
   ],
