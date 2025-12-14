@@ -33,16 +33,36 @@ export function UnifiedVendorPage({
   initialVendors,
   initialCategories,
   initialStates,
-  savedVendorIds = [],
-  savedVendors = [],
+  savedVendorIds: initialSavedVendorIds = [],
+  savedVendors: initialSavedVendors = [],
   recommendedVendors = [],
   weddingLocation,
 }: UnifiedVendorPageProps) {
   const [activeTab, setActiveTab] = useState("discover");
 
+  // Manage saved vendors as state for real-time updates
+  const [savedVendorsList, setSavedVendorsList] = useState<SavedVendor[]>(initialSavedVendors);
+  const savedVendorIds = savedVendorsList.map((v) => v.id);
+
+  // Handle save/unsave from VendorFeed
+  const handleSaveChange = (vendor: VendorProfile, saved: boolean) => {
+    setSavedVendorsList((prev) => {
+      if (saved) {
+        // Add vendor if not already in list
+        if (!prev.some((v) => v.id === vendor.id)) {
+          return [{ ...vendor, savedAt: new Date() }, ...prev];
+        }
+        return prev;
+      } else {
+        // Remove vendor from list
+        return prev.filter((v) => v.id !== vendor.id);
+      }
+    });
+  };
+
   // Count of tracked vendors + saved vendors
   const trackedCount = plannerData?.vendors?.list?.length || 0;
-  const savedCount = savedVendors.length;
+  const savedCount = savedVendorsList.length;
   const myVendorsCount = trackedCount + savedCount;
 
   return (
@@ -93,13 +113,14 @@ export function UnifiedVendorPage({
               recommendedVendors={recommendedVendors}
               weddingLocation={weddingLocation}
               hideHeader
+              onSaveChange={handleSaveChange}
             />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="my-vendors" className="mt-0">
           <div className="px-6">
-            <MyVendorsContent plannerData={plannerData} savedVendors={savedVendors} />
+            <MyVendorsContent plannerData={plannerData} savedVendors={savedVendorsList} />
           </div>
         </TabsContent>
       </Tabs>

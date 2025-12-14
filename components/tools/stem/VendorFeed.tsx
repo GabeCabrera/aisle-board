@@ -37,6 +37,7 @@ interface VendorFeedProps {
   recommendedVendors?: VendorWithLocation[];
   weddingLocation?: WeddingLocation | null;
   hideHeader?: boolean;
+  onSaveChange?: (vendor: VendorProfile, saved: boolean) => void;
 }
 
 export function VendorFeed({
@@ -47,6 +48,7 @@ export function VendorFeed({
   recommendedVendors = [],
   weddingLocation,
   hideHeader = false,
+  onSaveChange,
 }: VendorFeedProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -109,6 +111,10 @@ export function VendorFeed({
   }, [category, state, priceRange, search, sortBy]);
 
   const handleSaveToggle = async (vendorId: string, currentlySaved: boolean) => {
+    // Find the vendor object for the callback
+    const vendor = vendors.find((v) => v.id === vendorId) ||
+      recommendedVendors.find((v) => v.id === vendorId);
+
     // Optimistic update
     setSavedIds((prev) => {
       const next = new Set(prev);
@@ -119,6 +125,11 @@ export function VendorFeed({
       }
       return next;
     });
+
+    // Notify parent of optimistic update
+    if (vendor && onSaveChange) {
+      onSaveChange(vendor, !currentlySaved);
+    }
 
     try {
       const response = await fetch("/api/vendors/saves", {
@@ -143,6 +154,10 @@ export function VendorFeed({
         }
         return next;
       });
+      // Revert parent state
+      if (vendor && onSaveChange) {
+        onSaveChange(vendor, currentlySaved);
+      }
       toast.error("Failed to update saved vendors");
     }
   };
