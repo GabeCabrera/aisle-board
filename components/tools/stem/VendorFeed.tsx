@@ -230,11 +230,11 @@ export function VendorFeed({
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8 animate-fade-up">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8 animate-fade-up">
       {/* Header */}
       {!hideHeader && (
         <div className="border-b border-border/50 pb-8">
-          <h1 className="font-serif text-5xl md:text-7xl text-foreground tracking-tight">
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl text-foreground tracking-tight">
             Vendors
           </h1>
           <p className="text-xl text-muted-foreground mt-4 font-light max-w-lg">
@@ -252,7 +252,7 @@ export function VendorFeed({
               Recommended Near {weddingLocation.city || weddingLocation.state}
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 lg:gap-6">
             {recommendedVendors.slice(0, 4).map((vendor) => (
               <VendorCard
                 key={vendor.id}
@@ -318,7 +318,7 @@ export function VendorFeed({
                 </span>
               </div>
             )}
-            <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 1100: 3 }}>
+            <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 640: 2, 900: 3, 1280: 4 }}>
               <Masonry gutter="24px">
                 {vendors.map((vendor) => (
                   <div key={vendor.id} className="mb-6">

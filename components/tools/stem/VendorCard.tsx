@@ -115,7 +115,7 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, onRequestVen
       onClick={handleCardClick}
     >
       {/* Cover Image */}
-      <div className={cn("relative bg-muted", compact ? "h-36" : "h-48")}>
+      <div className={cn("relative bg-muted", compact ? "h-32 md:h-34 lg:h-36" : "h-40 md:h-44 lg:h-48")}>
         {coverImage ? (
           <Image
             src={coverImage}
@@ -214,7 +214,7 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, onRequestVen
 
       <CardContent className="p-4">
         {/* Vendor name */}
-        <h3 className="font-serif text-xl leading-tight mb-1 text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+        <h3 className="font-serif text-lg md:text-xl leading-tight mb-1 text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
           {vendor.name}
           {isWebVendor && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
         </h3>

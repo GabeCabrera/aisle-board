@@ -52,7 +52,7 @@ export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
       onClick={() => onClick(board)}
     >
       {/* Cover Image Mosaic */}
-      <div className="h-48 relative bg-muted">
+      <div className="h-40 md:h-44 lg:h-48 relative bg-muted">
         {ideas.length > 0 ? (
           <div className="absolute inset-0 grid grid-cols-2 gap-0.5">
             {ideas.slice(0, 4).map((idea) => (
@@ -87,7 +87,7 @@ export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
 
       <CardContent className="p-4">
         {/* Board name */}
-        <h3 className="font-serif text-xl leading-tight mb-2 text-foreground group-hover:text-primary transition-colors">
+        <h3 className="font-serif text-lg md:text-xl leading-tight mb-2 text-foreground group-hover:text-primary transition-colors">
           {board.name}
         </h3>
 

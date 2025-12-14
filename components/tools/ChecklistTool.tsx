@@ -158,7 +158,7 @@ export default function ChecklistTool({ initialData }: ChecklistToolProps) {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto py-8 px-6 space-y-8 animate-fade-up">
+    <div className="w-full max-w-5xl mx-auto py-6 md:py-8 px-4 md:px-6 lg:px-8 space-y-8 animate-fade-up">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>

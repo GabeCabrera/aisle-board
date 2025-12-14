@@ -128,11 +128,11 @@ export function ExploreFeed({ initialBoards }: ExploreFeedProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6 animate-fade-up">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6 animate-fade-up">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-border/50 pb-6">
         <div>
-          <h1 className="font-serif text-4xl md:text-5xl text-foreground tracking-tight">
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl text-foreground tracking-tight">
             Explore
           </h1>
           <p className="text-lg text-muted-foreground mt-2 font-light max-w-lg">
@@ -199,7 +199,7 @@ export function ExploreFeed({ initialBoards }: ExploreFeedProps) {
                   <p>No ideas found matching &quot;{searchQuery}&quot;.</p>
                 </div>
               ) : (
-                <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}>
+                <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 640: 2, 900: 3, 1280: 4 }}>
                   <Masonry gutter="20px">
                     {searchResults.map((idea) => (
                       <div key={idea.id} className="mb-4">
@@ -236,7 +236,7 @@ export function ExploreFeed({ initialBoards }: ExploreFeedProps) {
                 </div>
               ) : (
                 <>
-                  <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}>
+                  <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 640: 2, 900: 3, 1280: 4 }}>
                     <Masonry gutter="20px">
                       {boards.map((board) => (
                         <div key={board.id} className="mb-4">

@@ -234,7 +234,7 @@ export function ConversationView({
 
                   <div
                     className={cn(
-                      "max-w-[70%] rounded-2xl px-4 py-2.5",
+                      "max-w-[85%] md:max-w-[75%] lg:max-w-[70%] rounded-2xl px-4 py-2.5",
                       isOwn
                         ? "bg-primary text-primary-foreground rounded-br-md"
                         : "bg-muted text-foreground rounded-bl-md"

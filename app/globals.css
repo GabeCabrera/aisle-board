@@ -128,7 +128,7 @@
   .glass {
     @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-sm;
   }
-  
+
   .glass-dark {
     @apply bg-black/80 backdrop-blur-md border border-white/10 shadow-sm;
   }
@@ -137,10 +137,48 @@
   .transition-smooth {
     @apply transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)];
   }
-  
+
   /* Card hover lift */
   .hover-lift {
     @apply transition-smooth hover:-translate-y-1 hover:shadow-lifted;
+  }
+
+  /* ===================================
+     Responsive Design System Utilities
+     =================================== */
+
+  /* Responsive page container */
+  .page-container {
+    @apply w-full mx-auto px-4 md:px-6 lg:px-8;
+  }
+
+  /* Responsive card image heights */
+  .card-image {
+    @apply h-40 md:h-44 lg:h-48;
+  }
+
+  .card-image-compact {
+    @apply h-32 md:h-36;
+  }
+
+  /* Responsive card title */
+  .card-title-responsive {
+    @apply text-lg md:text-xl font-serif leading-tight;
+  }
+
+  /* Responsive page title */
+  .page-title-responsive {
+    @apply text-3xl md:text-4xl lg:text-5xl font-serif tracking-tight;
+  }
+
+  /* Responsive section spacing */
+  .section-spacing {
+    @apply space-y-6 md:space-y-8;
+  }
+
+  /* Responsive grid gap */
+  .grid-gap-responsive {
+    @apply gap-4 md:gap-5 lg:gap-6;
   }
 }
 

@@ -21,6 +21,9 @@ const config: Config = {
       },
     },
     extend: {
+      screens: {
+        'xs': '390px', // iPhone 14 minimum width
+      },
       fontFamily: {
         // The "Editorial" voice - sharp, high-contrast serif
         serif: ["var(--font-bodoni)", "serif"],

@@ -287,7 +287,7 @@ export function ProfileWithBoards({ profile, initialBoards }: ProfileWithBoardsP
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto py-8 px-6 space-y-8 animate-fade-up">
+    <div className="w-full max-w-6xl mx-auto py-6 md:py-8 px-4 md:px-6 lg:px-8 space-y-8 animate-fade-up">
       {/* New Board Dialog */}
       <Dialog open={openNewBoardDialog} onOpenChange={setOpenNewBoardDialog}>
         <DialogContent className="sm:max-w-[425px] rounded-xl">
@@ -574,7 +574,7 @@ export function ProfileWithBoards({ profile, initialBoards }: ProfileWithBoardsP
           {currentBoard && (
             <div className="rounded-3xl overflow-hidden border border-border bg-gradient-to-br from-white to-muted/20 shadow-soft">
               {/* Cover Image Mosaic */}
-              <div className="h-32 md:h-40 relative bg-muted">
+              <div className="h-28 md:h-36 lg:h-40 relative bg-muted">
                 {currentBoardIdeas.length > 0 ? (
                   <div className="absolute inset-0 grid grid-cols-4 gap-0.5">
                     {currentBoardIdeas.slice(0, 4).map((idea, i) => (
