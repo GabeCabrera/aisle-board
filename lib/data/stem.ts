@@ -10,10 +10,13 @@ import {
   conversations,
   messages,
   vendorProfiles,
+  vendorSaves,
+  vendorReviews,
+  vendorQuestions,
   boardArticles,
   userBlocks,
 } from "@/lib/db/schema";
-import { eq, and, desc, or, inArray, not, sql } from "drizzle-orm";
+import { eq, and, desc, or, inArray, not, sql, ilike, asc } from "drizzle-orm";
 
 // =============================================================================
 // BOARDS & IDEAS (renamed from inspo.ts)
@@ -810,4 +813,607 @@ export async function getVendorBySlug(slug: string) {
   return db.query.vendorProfiles.findFirst({
     where: eq(vendorProfiles.slug, slug),
   });
+}
+
+export async function getVendorsWithSearch(options: {
+  category?: string;
+  state?: string;
+  city?: string;
+  priceRange?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sortBy?: "featured" | "rating" | "reviews" | "saves" | "newest";
+}) {
+  const conditions = [];
+
+  if (options.category) {
+    conditions.push(eq(vendorProfiles.category, options.category));
+  }
+  if (options.state) {
+    conditions.push(eq(vendorProfiles.state, options.state));
+  }
+  if (options.city) {
+    conditions.push(eq(vendorProfiles.city, options.city));
+  }
+  if (options.priceRange) {
+    conditions.push(eq(vendorProfiles.priceRange, options.priceRange));
+  }
+  if (options.search) {
+    conditions.push(
+      or(
+        ilike(vendorProfiles.name, `%${options.search}%`),
+        ilike(vendorProfiles.description, `%${options.search}%`),
+        ilike(vendorProfiles.city, `%${options.search}%`)
+      )
+    );
+  }
+
+  // Determine sort order
+  let orderBy;
+  switch (options.sortBy) {
+    case "rating":
+      orderBy = [desc(vendorProfiles.averageRating), desc(vendorProfiles.reviewCount)];
+      break;
+    case "reviews":
+      orderBy = [desc(vendorProfiles.reviewCount)];
+      break;
+    case "saves":
+      orderBy = [desc(vendorProfiles.saveCount)];
+      break;
+    case "newest":
+      orderBy = [desc(vendorProfiles.createdAt)];
+      break;
+    case "featured":
+    default:
+      orderBy = [desc(vendorProfiles.isFeatured), desc(vendorProfiles.averageRating), desc(vendorProfiles.saveCount)];
+  }
+
+  const vendors = await db.query.vendorProfiles.findMany({
+    where: conditions.length > 0 ? and(...conditions) : undefined,
+    orderBy,
+    limit: options.limit ?? 50,
+    offset: options.offset ?? 0,
+  });
+
+  return vendors;
+}
+
+export async function getVendorBySlugWithStatus(slug: string, viewerTenantId?: string) {
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.slug, slug),
+  });
+
+  if (!vendor) return null;
+
+  const isSaved = viewerTenantId
+    ? await getVendorSaveStatus(viewerTenantId, vendor.id)
+    : false;
+
+  const userReview = viewerTenantId
+    ? await getUserReviewForVendor(viewerTenantId, vendor.id)
+    : null;
+
+  // Get claimed tenant info if vendor is claimed
+  let claimedTenant = null;
+  if (vendor.claimedByTenantId) {
+    claimedTenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, vendor.claimedByTenantId),
+      columns: { id: true, displayName: true, profileImage: true, messagingEnabled: true },
+    });
+  }
+
+  return {
+    ...vendor,
+    isSaved,
+    userReview,
+    claimedTenant,
+  };
+}
+
+// =============================================================================
+// VENDOR SAVES
+// =============================================================================
+
+export async function getVendorSaveStatus(tenantId: string, vendorId: string) {
+  const save = await db.query.vendorSaves.findFirst({
+    where: and(
+      eq(vendorSaves.tenantId, tenantId),
+      eq(vendorSaves.vendorId, vendorId)
+    ),
+  });
+  return !!save;
+}
+
+export async function saveVendor(tenantId: string, vendorId: string, notes?: string) {
+  await db
+    .insert(vendorSaves)
+    .values({ tenantId, vendorId, notes })
+    .onConflictDoNothing();
+
+  // Increment vendor save count
+  await db
+    .update(vendorProfiles)
+    .set({ saveCount: sql`${vendorProfiles.saveCount} + 1` })
+    .where(eq(vendorProfiles.id, vendorId));
+
+  // Create activity
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, vendorId),
+    columns: { name: true, slug: true },
+  });
+
+  await createActivity({
+    actorTenantId: tenantId,
+    type: "vendor_saved",
+    targetType: "vendor",
+    targetId: vendorId,
+    metadata: { vendorName: vendor?.name, vendorSlug: vendor?.slug },
+  });
+}
+
+export async function unsaveVendor(tenantId: string, vendorId: string) {
+  const existing = await db.query.vendorSaves.findFirst({
+    where: and(
+      eq(vendorSaves.tenantId, tenantId),
+      eq(vendorSaves.vendorId, vendorId)
+    ),
+  });
+
+  if (!existing) return;
+
+  await db
+    .delete(vendorSaves)
+    .where(
+      and(
+        eq(vendorSaves.tenantId, tenantId),
+        eq(vendorSaves.vendorId, vendorId)
+      )
+    );
+
+  // Decrement vendor save count
+  await db
+    .update(vendorProfiles)
+    .set({ saveCount: sql`${vendorProfiles.saveCount} - 1` })
+    .where(eq(vendorProfiles.id, vendorId));
+}
+
+export async function getSavedVendors(tenantId: string) {
+  const saves = await db.query.vendorSaves.findMany({
+    where: eq(vendorSaves.tenantId, tenantId),
+    with: {
+      vendor: true,
+    },
+    orderBy: [desc(vendorSaves.savedAt)],
+  });
+
+  return saves.map((save) => ({
+    ...save.vendor,
+    savedAt: save.savedAt,
+    notes: save.notes,
+  }));
+}
+
+// =============================================================================
+// VENDOR REVIEWS
+// =============================================================================
+
+export async function createVendorReview(data: {
+  vendorId: string;
+  tenantId: string;
+  rating: number;
+  title?: string;
+  content?: string;
+  serviceDate?: Date;
+}) {
+  // Check for existing review
+  const existing = await db.query.vendorReviews.findFirst({
+    where: and(
+      eq(vendorReviews.tenantId, data.tenantId),
+      eq(vendorReviews.vendorId, data.vendorId)
+    ),
+  });
+
+  if (existing) {
+    throw new Error("You have already reviewed this vendor");
+  }
+
+  const [newReview] = await db
+    .insert(vendorReviews)
+    .values({
+      vendorId: data.vendorId,
+      tenantId: data.tenantId,
+      rating: data.rating,
+      title: data.title,
+      content: data.content,
+      serviceDate: data.serviceDate,
+    })
+    .returning();
+
+  // Update vendor's review count and average rating
+  await updateVendorRatingStats(data.vendorId);
+
+  // Create activity
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, data.vendorId),
+    columns: { name: true, slug: true },
+  });
+
+  await createActivity({
+    actorTenantId: data.tenantId,
+    type: "vendor_reviewed",
+    targetType: "vendor",
+    targetId: data.vendorId,
+    metadata: {
+      vendorName: vendor?.name,
+      vendorSlug: vendor?.slug,
+      rating: data.rating,
+    },
+  });
+
+  return newReview;
+}
+
+export async function getVendorReviews(
+  vendorId: string,
+  options: { limit?: number; offset?: number; sortBy?: "newest" | "highest" | "lowest" | "helpful" } = {}
+) {
+  let orderBy;
+  switch (options.sortBy) {
+    case "highest":
+      orderBy = [desc(vendorReviews.rating), desc(vendorReviews.createdAt)];
+      break;
+    case "lowest":
+      orderBy = [asc(vendorReviews.rating), desc(vendorReviews.createdAt)];
+      break;
+    case "helpful":
+      orderBy = [desc(vendorReviews.helpfulCount), desc(vendorReviews.createdAt)];
+      break;
+    case "newest":
+    default:
+      orderBy = [desc(vendorReviews.createdAt)];
+  }
+
+  const reviews = await db.query.vendorReviews.findMany({
+    where: and(
+      eq(vendorReviews.vendorId, vendorId),
+      eq(vendorReviews.isHidden, false)
+    ),
+    with: {
+      tenant: {
+        columns: { id: true, displayName: true, profileImage: true, slug: true },
+      },
+    },
+    orderBy,
+    limit: options.limit ?? 20,
+    offset: options.offset ?? 0,
+  });
+
+  return reviews;
+}
+
+export async function getUserReviewForVendor(tenantId: string, vendorId: string) {
+  return db.query.vendorReviews.findFirst({
+    where: and(
+      eq(vendorReviews.tenantId, tenantId),
+      eq(vendorReviews.vendorId, vendorId)
+    ),
+  });
+}
+
+export async function updateVendorReview(
+  reviewId: string,
+  tenantId: string,
+  data: { rating?: number; title?: string; content?: string; serviceDate?: Date }
+) {
+  const review = await db.query.vendorReviews.findFirst({
+    where: eq(vendorReviews.id, reviewId),
+  });
+
+  if (!review || review.tenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  const [updated] = await db
+    .update(vendorReviews)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(vendorReviews.id, reviewId))
+    .returning();
+
+  // Update vendor stats if rating changed
+  if (data.rating !== undefined) {
+    await updateVendorRatingStats(review.vendorId);
+  }
+
+  return updated;
+}
+
+export async function deleteVendorReview(reviewId: string, tenantId: string) {
+  const review = await db.query.vendorReviews.findFirst({
+    where: eq(vendorReviews.id, reviewId),
+  });
+
+  if (!review || review.tenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.delete(vendorReviews).where(eq(vendorReviews.id, reviewId));
+
+  // Update vendor stats
+  await updateVendorRatingStats(review.vendorId);
+}
+
+export async function markReviewHelpful(reviewId: string, tenantId: string) {
+  // For now, just increment - could add a separate table for tracking who marked helpful
+  await db
+    .update(vendorReviews)
+    .set({ helpfulCount: sql`${vendorReviews.helpfulCount} + 1` })
+    .where(eq(vendorReviews.id, reviewId));
+}
+
+async function updateVendorRatingStats(vendorId: string) {
+  // Calculate new average rating and count
+  const stats = await db
+    .select({
+      avgRating: sql<number>`COALESCE(AVG(${vendorReviews.rating}), 0)`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(vendorReviews)
+    .where(
+      and(
+        eq(vendorReviews.vendorId, vendorId),
+        eq(vendorReviews.isHidden, false)
+      )
+    );
+
+  const avgRating = Number(stats[0]?.avgRating ?? 0);
+  const count = Number(stats[0]?.count ?? 0);
+
+  await db
+    .update(vendorProfiles)
+    .set({
+      averageRating: Math.round(avgRating * 10), // Store as integer 10-50 (e.g., 4.5 = 45)
+      reviewCount: count,
+    })
+    .where(eq(vendorProfiles.id, vendorId));
+}
+
+// =============================================================================
+// VENDOR QUESTIONS (Q&A)
+// =============================================================================
+
+export async function createVendorQuestion(data: {
+  vendorId: string;
+  tenantId: string;
+  question: string;
+}) {
+  const [newQuestion] = await db
+    .insert(vendorQuestions)
+    .values({
+      vendorId: data.vendorId,
+      tenantId: data.tenantId,
+      question: data.question,
+    })
+    .returning();
+
+  // Update vendor question count
+  await updateVendorQuestionStats(data.vendorId);
+
+  // Create activity
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, data.vendorId),
+    columns: { name: true, slug: true },
+  });
+
+  await createActivity({
+    actorTenantId: data.tenantId,
+    type: "vendor_question",
+    targetType: "vendor",
+    targetId: data.vendorId,
+    metadata: {
+      vendorName: vendor?.name,
+      vendorSlug: vendor?.slug,
+    },
+  });
+
+  return newQuestion;
+}
+
+export async function getVendorQuestions(
+  vendorId: string,
+  options: {
+    limit?: number;
+    offset?: number;
+    sortBy?: "newest" | "unanswered" | "helpful";
+  } = {}
+) {
+  let orderBy;
+  switch (options.sortBy) {
+    case "unanswered":
+      // Unanswered first, then by date
+      orderBy = [sql`${vendorQuestions.answeredAt} IS NOT NULL`, desc(vendorQuestions.createdAt)];
+      break;
+    case "helpful":
+      orderBy = [desc(vendorQuestions.helpfulCount), desc(vendorQuestions.createdAt)];
+      break;
+    case "newest":
+    default:
+      orderBy = [desc(vendorQuestions.createdAt)];
+  }
+
+  const questions = await db.query.vendorQuestions.findMany({
+    where: and(
+      eq(vendorQuestions.vendorId, vendorId),
+      eq(vendorQuestions.isHidden, false)
+    ),
+    with: {
+      tenant: {
+        columns: { id: true, displayName: true, profileImage: true, slug: true },
+      },
+      answeredBy: {
+        columns: { id: true, displayName: true, profileImage: true },
+      },
+    },
+    orderBy,
+    limit: options.limit ?? 20,
+    offset: options.offset ?? 0,
+  });
+
+  return questions;
+}
+
+export async function answerVendorQuestion(
+  questionId: string,
+  tenantId: string,
+  answer: string
+) {
+  // Get the question to verify vendor ownership
+  const question = await db.query.vendorQuestions.findFirst({
+    where: eq(vendorQuestions.id, questionId),
+    with: {
+      vendor: {
+        columns: { claimedByTenantId: true },
+      },
+    },
+  });
+
+  if (!question) {
+    throw new Error("Question not found");
+  }
+
+  // Verify the answerer owns the vendor
+  if (question.vendor.claimedByTenantId !== tenantId) {
+    throw new Error("Only the vendor owner can answer questions");
+  }
+
+  // Update the question with the answer
+  const [updated] = await db
+    .update(vendorQuestions)
+    .set({
+      answer,
+      answeredByTenantId: tenantId,
+      answeredAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(vendorQuestions.id, questionId))
+    .returning();
+
+  return updated;
+}
+
+export async function markQuestionHelpful(questionId: string, tenantId: string) {
+  await db
+    .update(vendorQuestions)
+    .set({ helpfulCount: sql`${vendorQuestions.helpfulCount} + 1` })
+    .where(eq(vendorQuestions.id, questionId));
+}
+
+async function updateVendorQuestionStats(vendorId: string) {
+  const stats = await db
+    .select({
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(vendorQuestions)
+    .where(
+      and(
+        eq(vendorQuestions.vendorId, vendorId),
+        eq(vendorQuestions.isHidden, false)
+      )
+    );
+
+  const count = Number(stats[0]?.count ?? 0);
+
+  await db
+    .update(vendorProfiles)
+    .set({ questionCount: count })
+    .where(eq(vendorProfiles.id, vendorId));
+}
+
+// =============================================================================
+// VENDOR ADMIN
+// =============================================================================
+
+export async function createVendor(data: {
+  name: string;
+  slug: string;
+  category: string;
+  description?: string;
+  city?: string;
+  state?: string;
+  priceRange?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  instagram?: string;
+  profileImage?: string;
+  coverImage?: string;
+  portfolioImages?: string[];
+  isVerified?: boolean;
+  isFeatured?: boolean;
+}) {
+  const [vendor] = await db
+    .insert(vendorProfiles)
+    .values(data)
+    .returning();
+
+  return vendor;
+}
+
+export async function updateVendor(
+  vendorId: string,
+  data: Partial<{
+    name: string;
+    slug: string;
+    category: string;
+    description: string;
+    city: string;
+    state: string;
+    priceRange: string;
+    email: string;
+    phone: string;
+    website: string;
+    instagram: string;
+    profileImage: string;
+    coverImage: string;
+    portfolioImages: string[];
+    isVerified: boolean;
+    isFeatured: boolean;
+  }>
+) {
+  const [updated] = await db
+    .update(vendorProfiles)
+    .set(data)
+    .where(eq(vendorProfiles.id, vendorId))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteVendor(vendorId: string) {
+  await db.delete(vendorProfiles).where(eq(vendorProfiles.id, vendorId));
+}
+
+export async function getVendorById(vendorId: string) {
+  return db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, vendorId),
+  });
+}
+
+export async function getVendorCategories() {
+  const result = await db
+    .selectDistinct({ category: vendorProfiles.category })
+    .from(vendorProfiles)
+    .orderBy(vendorProfiles.category);
+
+  return result.map((r) => r.category);
+}
+
+export async function getVendorStates() {
+  const result = await db
+    .selectDistinct({ state: vendorProfiles.state })
+    .from(vendorProfiles)
+    .where(not(sql`${vendorProfiles.state} IS NULL`))
+    .orderBy(vendorProfiles.state);
+
+  return result.map((r) => r.state).filter(Boolean) as string[];
 }

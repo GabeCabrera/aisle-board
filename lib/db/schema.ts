@@ -1308,6 +1308,7 @@ export const vendorProfiles = pgTable(
     reviewCount: integer("review_count").default(0),
     averageRating: integer("average_rating"), // 1-5 scaled to 10-50
     saveCount: integer("save_count").default(0),
+    questionCount: integer("question_count").default(0),
 
     // Verification
     isVerified: boolean("is_verified").default(false).notNull(),
@@ -1328,11 +1329,14 @@ export const vendorProfiles = pgTable(
   })
 );
 
-export const vendorProfilesRelations = relations(vendorProfiles, ({ one }) => ({
+export const vendorProfilesRelations = relations(vendorProfiles, ({ one, many }) => ({
   claimedBy: one(tenants, {
     fields: [vendorProfiles.claimedByTenantId],
     references: [tenants.id],
   }),
+  saves: many(vendorSaves),
+  reviews: many(vendorReviews),
+  questions: many(vendorQuestions),
 }));
 
 export type VendorProfile = typeof vendorProfiles.$inferSelect;
@@ -1439,3 +1443,149 @@ export const userBlocksRelations = relations(userBlocks, ({ one }) => ({
 
 export type UserBlock = typeof userBlocks.$inferSelect;
 export type NewUserBlock = typeof userBlocks.$inferInsert;
+
+// VENDOR SAVES - Track saved/favorited vendors
+export const vendorSaves = pgTable(
+  "vendor_saves",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+    notes: text("notes"),
+    savedAt: timestamp("saved_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantVendorIdx: uniqueIndex("vendor_saves_tenant_vendor_idx").on(
+      table.tenantId,
+      table.vendorId
+    ),
+    tenantIdx: index("vendor_saves_tenant_idx").on(table.tenantId),
+    vendorIdx: index("vendor_saves_vendor_idx").on(table.vendorId),
+  })
+);
+
+export const vendorSavesRelations = relations(vendorSaves, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [vendorSaves.tenantId],
+    references: [tenants.id],
+  }),
+  vendor: one(vendorProfiles, {
+    fields: [vendorSaves.vendorId],
+    references: [vendorProfiles.id],
+  }),
+}));
+
+export type VendorSave = typeof vendorSaves.$inferSelect;
+export type NewVendorSave = typeof vendorSaves.$inferInsert;
+
+// VENDOR REVIEWS - Reviews and ratings for vendors
+export const vendorReviews = pgTable(
+  "vendor_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Review content
+    rating: integer("rating").notNull(), // 1-5
+    title: text("title"),
+    content: text("content"),
+
+    // Service details
+    serviceDate: timestamp("service_date", { withTimezone: true }),
+
+    // Moderation
+    isHidden: boolean("is_hidden").default(false).notNull(),
+    reportCount: integer("report_count").default(0).notNull(),
+
+    // Helpful votes
+    helpfulCount: integer("helpful_count").default(0).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    vendorIdx: index("vendor_reviews_vendor_idx").on(table.vendorId),
+    tenantIdx: index("vendor_reviews_tenant_idx").on(table.tenantId),
+    // One review per tenant per vendor
+    tenantVendorIdx: uniqueIndex("vendor_reviews_tenant_vendor_idx").on(
+      table.tenantId,
+      table.vendorId
+    ),
+  })
+);
+
+export const vendorReviewsRelations = relations(vendorReviews, ({ one }) => ({
+  vendor: one(vendorProfiles, {
+    fields: [vendorReviews.vendorId],
+    references: [vendorProfiles.id],
+  }),
+  tenant: one(tenants, {
+    fields: [vendorReviews.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type VendorReview = typeof vendorReviews.$inferSelect;
+export type NewVendorReview = typeof vendorReviews.$inferInsert;
+
+// VENDOR QUESTIONS - Q&A for vendors
+export const vendorQuestions = pgTable(
+  "vendor_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Question content
+    question: text("question").notNull(),
+
+    // Answer (filled by vendor)
+    answer: text("answer"),
+    answeredByTenantId: uuid("answered_by_tenant_id").references(() => tenants.id),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+
+    // Moderation
+    isHidden: boolean("is_hidden").default(false).notNull(),
+
+    // Engagement
+    helpfulCount: integer("helpful_count").default(0).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    vendorIdx: index("vendor_questions_vendor_idx").on(table.vendorId),
+    tenantIdx: index("vendor_questions_tenant_idx").on(table.tenantId),
+  })
+);
+
+export const vendorQuestionsRelations = relations(vendorQuestions, ({ one }) => ({
+  vendor: one(vendorProfiles, {
+    fields: [vendorQuestions.vendorId],
+    references: [vendorProfiles.id],
+  }),
+  tenant: one(tenants, {
+    fields: [vendorQuestions.tenantId],
+    references: [tenants.id],
+  }),
+  answeredBy: one(tenants, {
+    fields: [vendorQuestions.answeredByTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type VendorQuestion = typeof vendorQuestions.$inferSelect;
+export type NewVendorQuestion = typeof vendorQuestions.$inferInsert;

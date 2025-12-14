@@ -13,6 +13,7 @@ import {
   LogOut,
   Sparkles,
   Image,
+  Store,
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -44,6 +45,12 @@ const navItems: NavItem[] = [
     href: "/admin/users",
     icon: Users,
     description: "Manage customers",
+  },
+  {
+    label: "Vendors",
+    href: "/admin/vendors",
+    icon: Store,
+    description: "Manage vendor directory",
   },
   {
     label: "Email",
