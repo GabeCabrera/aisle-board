@@ -29,6 +29,17 @@ import {
 import { eq, and, sql, desc, like, ilike, or } from "drizzle-orm";
 import logger from "@/lib/logger";
 import { getTenantAccess, isWithinLimit, getPlanLimit, getRemainingCapacity, type PlanType } from "@/lib/subscription";
+import {
+  getMyVendors,
+  updateSavedVendorStatus,
+  updateCustomVendor,
+  addCustomVendor,
+  deleteMyVendor,
+  searchVendorDirectory,
+  findVendorInDirectory,
+  saveVendorFromDirectory,
+  type MyVendor,
+} from "@/lib/data/stem";
 
 // ============================================================================ 
 // TYPES
@@ -47,6 +58,7 @@ export interface ToolResult {
     type: string;
     data: unknown;
   };
+  requiresConfirmation?: boolean;
 }
 
 // Type for database reference (used in operations)
@@ -198,6 +210,10 @@ export async function executeToolCall(
         return await getVendorList(parameters, context);
       case "delete_vendor":
         return await deleteVendor(parameters, context);
+      case "search_vendors":
+        return await searchVendors(parameters, context);
+      case "save_vendor":
+        return await saveVendor(parameters, context);
 
       // Task tools
       case "add_task":
@@ -1852,9 +1868,9 @@ async function addDayOfEvent(
   };
 }
 
-// ============================================================================ 
-// VENDOR TOOLS
-// ============================================================================ 
+// ============================================================================
+// VENDOR TOOLS (Unified with Stem Vendor Directory)
+// ============================================================================
 
 async function addVendor(
   params: Record<string, unknown>,
@@ -1866,63 +1882,91 @@ async function addVendor(
     return { success: false, message: "Unable to verify account access." };
   }
 
-  const result = await withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
-    const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-
-    // Check vendor limit for free users
-    const vendorLimit = getPlanLimit(access.plan, "vendors", access.isLegacy);
-    if (vendors.length >= vendorLimit) {
-      return {
-        success: false,
-        message: `You've reached your vendor limit of ${vendorLimit} vendors on the free plan. Upgrade to Stem for unlimited vendors!`,
-        data: { limitReached: true, currentCount: vendors.length, limit: vendorLimit }
-      };
-    }
-
-    const newVendor = {
-      id: crypto.randomUUID(),
-      category: params.category,
-      name: params.name,
-      contactName: params.contactName || "",
-      email: params.email || "",
-      phone: params.phone || "",
-      status: params.status || "researching",
-      price: params.price ? (params.price as number) * 100 : null,
-      notes: params.notes || "",
-      depositPaid: false,
-      contractSigned: false,
-      createdAt: new Date().toISOString()
-    };
-
-    vendors.push(newVendor);
-
-    await tx.update(pages)
-      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-      .where(eq(pages.id, pageId));
-
+  // Check vendor limit for free users
+  const existingVendors = await getMyVendors(context.tenantId);
+  const vendorLimit = getPlanLimit(access.plan, "vendors", access.isLegacy);
+  if (existingVendors.length >= vendorLimit) {
     return {
-      success: true,
-      message: `Added ${params.name} (${params.category}) to vendors`,
-      data: newVendor
+      success: false,
+      message: `You've reached your vendor limit of ${vendorLimit} vendors on the free plan. Upgrade to Stem for unlimited vendors!`,
+      data: { limitReached: true, currentCount: existingVendors.length, limit: vendorLimit }
     };
+  }
+
+  const vendorName = params.name as string;
+  const category = params.category as string;
+  const status = (params.status as string) || "researching";
+  const priceInCents = params.price ? (params.price as number) * 100 : undefined;
+
+  // Try to find a matching vendor in the directory
+  const directoryVendor = await findVendorInDirectory(vendorName, category);
+
+  let result: ToolResult;
+  let savedVendorId: string;
+  let savedCategory: string;
+
+  if (directoryVendor) {
+    // Found in directory - save it
+    const saved = await saveVendorFromDirectory(context.tenantId, directoryVendor.id, {
+      status,
+      notes: params.notes as string,
+      price: priceInCents,
+    });
+    savedVendorId = saved.id;
+    savedCategory = directoryVendor.category;
+    result = {
+      success: true,
+      message: `Added ${directoryVendor.name} (${directoryVendor.category}) from vendor directory. You can view their full profile in Stem > Vendors.`,
+      data: {
+        id: saved.id,
+        source: "directory",
+        vendorProfileId: directoryVendor.id,
+        name: directoryVendor.name,
+        category: directoryVendor.category,
+        status,
+      }
+    };
+  } else {
+    // Not in directory - create custom vendor
+    const custom = await addCustomVendor(context.tenantId, {
+      category,
+      name: vendorName,
+      contactName: params.contactName as string,
+      email: params.email as string,
+      phone: params.phone as string,
+      notes: params.notes as string,
+      status,
+      price: priceInCents,
+    });
+    savedVendorId = custom.id;
+    savedCategory = category;
+    result = {
+      success: true,
+      message: `Added ${vendorName} (${category}) to your vendor list.`,
+      data: {
+        id: custom.id,
+        source: "custom",
+        name: vendorName,
+        category,
+        status,
+      }
+    };
+  }
+
+  // Update kernel and checklist decisions (non-critical)
+  await updateKernelDecision(context.tenantId, savedCategory, {
+    status,
+    name: vendorName,
+    locked: status === "booked"
   });
 
-  // Update kernel and checklist decisions outside transaction (non-critical)
-  if (result.success) {
-    await updateKernelDecision(context.tenantId, params.category as string, {
-      status: params.status,
-      name: params.name,
-      locked: params.status === "booked"
+  const decisionName = getDecisionNameFromCategory(savedCategory);
+  if (decisionName) {
+    const decisionStatus = status === "booked" || status === "confirmed" ? "decided" : "researching";
+    await updateDecisionFn(context.tenantId, decisionName, {
+      status: decisionStatus,
+      choiceName: vendorName,
     });
-
-    const decisionName = getDecisionNameFromCategory(params.category as string);
-    if (decisionName) {
-      const decisionStatus = params.status === "booked" || params.status === "confirmed" ? "decided" : "researching";
-      await updateDecisionFn(context.tenantId, decisionName, {
-        status: decisionStatus,
-        choiceName: params.name as string,
-      });
-    }
   }
 
   return result;
@@ -1950,191 +1994,155 @@ async function updateVendor(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const result = await withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
-    const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-    let vendorIndex = -1;
+  // Get all vendors to find the one we're updating
+  const vendors = await getMyVendors(context.tenantId);
+  let vendor: MyVendor | undefined;
 
-    // Find by ID first
-    if (params.vendorId) {
-      vendorIndex = vendors.findIndex(v => v.id === params.vendorId);
-    }
-    // Fall back to name match (case insensitive)
-    else if (params.vendorName) {
-      const searchName = (params.vendorName as string).toLowerCase();
-      // Try exact match first
-      vendorIndex = vendors.findIndex(v =>
-        (v.name as string)?.toLowerCase() === searchName
+  // Find by ID first
+  if (params.vendorId) {
+    vendor = vendors.find(v => v.id === params.vendorId);
+  }
+  // Fall back to name match (case insensitive)
+  else if (params.vendorName) {
+    const searchName = (params.vendorName as string).toLowerCase();
+    // Try exact match first
+    vendor = vendors.find(v => v.name.toLowerCase() === searchName);
+    // Then try partial match
+    if (!vendor) {
+      vendor = vendors.find(v =>
+        v.name.toLowerCase().includes(searchName) ||
+        searchName.includes(v.name.toLowerCase())
       );
-      // Then try partial match
-      if (vendorIndex === -1) {
-        vendorIndex = vendors.findIndex(v =>
-          (v.name as string)?.toLowerCase().includes(searchName) ||
-          searchName.includes((v.name as string)?.toLowerCase() || "")
-        );
-      }
-    }
-
-    if (vendorIndex === -1) {
-      const vendorNames = vendors.slice(0, 5).map(v => v.name).join(", ");
-      return {
-        success: false,
-        message: `Vendor not found. Available vendors: ${vendorNames || "none"}${vendors.length > 5 ? `... and ${vendors.length - 5} more` : ""}`
-      };
-    }
-
-    const vendor = vendors[vendorIndex];
-    const changes: string[] = [];
-
-    // Update fields if provided
-    if (params.name !== undefined) {
-      vendor.name = params.name;
-      changes.push("name");
-    }
-    if (params.category !== undefined) {
-      vendor.category = params.category;
-      changes.push("category");
-    }
-    if (params.contactName !== undefined) {
-      vendor.contactName = params.contactName;
-      changes.push("contact info");
-    }
-    if (params.email !== undefined) {
-      vendor.email = params.email;
-      changes.push("email");
-    }
-    if (params.phone !== undefined) {
-      vendor.phone = params.phone;
-      changes.push("phone");
-    }
-    if (params.status !== undefined) {
-      vendor.status = params.status;
-      changes.push(`status to ${params.status}`);
-    }
-    if (params.price !== undefined) {
-      vendor.price = (params.price as number) * 100; // Convert to cents
-      changes.push(`price to $${params.price}`);
-    }
-    if (params.notes !== undefined) {
-      vendor.notes = params.notes;
-      changes.push("notes");
-    }
-    if (params.depositPaid !== undefined) {
-      vendor.depositPaid = params.depositPaid;
-      changes.push(params.depositPaid ? "deposit paid" : "deposit unpaid");
-    }
-    if (params.contractSigned !== undefined) {
-      vendor.contractSigned = params.contractSigned;
-      changes.push(params.contractSigned ? "contract signed" : "contract unsigned");
-    }
-
-    await tx.update(pages)
-      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-      .where(eq(pages.id, pageId));
-
-    return {
-      success: true,
-      message: `Updated ${vendor.name}: changed ${changes.join(", ")}`,
-      data: vendor,
-      _vendor: vendor // Pass vendor data for post-transaction updates
-    };
-  });
-
-  // Update kernel and checklist decisions outside transaction (non-critical)
-  if (result.success && (result as { _vendor?: Record<string, unknown> })._vendor) {
-    const vendor = (result as { _vendor: Record<string, unknown> })._vendor;
-
-    if (params.status || params.name) {
-      await updateKernelDecision(context.tenantId, vendor.category as string, {
-        status: vendor.status,
-        name: vendor.name,
-        locked: vendor.status === "booked"
-      });
-    }
-
-    const decisionName = getDecisionNameFromCategory(vendor.category as string);
-    if (decisionName && params.status) {
-      const decisionStatus = vendor.status === "booked" || vendor.status === "confirmed" ? "decided" : "researching";
-      await updateDecisionFn(context.tenantId, decisionName, {
-        status: decisionStatus,
-        choiceName: vendor.name as string,
-      });
     }
   }
 
-  return result;
+  if (!vendor) {
+    const vendorNames = vendors.slice(0, 5).map(v => v.name).join(", ");
+    return {
+      success: false,
+      message: `Vendor not found. Available vendors: ${vendorNames || "none"}${vendors.length > 5 ? `... and ${vendors.length - 5} more` : ""}`
+    };
+  }
+
+  const changes: string[] = [];
+  const updates: Record<string, unknown> = {};
+
+  // Build updates
+  if (params.status !== undefined) {
+    updates.status = params.status;
+    changes.push(`status to ${params.status}`);
+  }
+  if (params.price !== undefined) {
+    updates.price = (params.price as number) * 100;
+    changes.push(`price to $${params.price}`);
+  }
+  if (params.notes !== undefined) {
+    updates.notes = params.notes;
+    changes.push("notes");
+  }
+  if (params.depositPaid !== undefined) {
+    updates.depositPaid = params.depositPaid;
+    changes.push(params.depositPaid ? "deposit paid" : "deposit unpaid");
+  }
+  if (params.contractSigned !== undefined) {
+    updates.contractSigned = params.contractSigned;
+    changes.push(params.contractSigned ? "contract signed" : "contract unsigned");
+  }
+  if (params.priority !== undefined) {
+    updates.priority = params.priority;
+    changes.push(`priority to ${params.priority}`);
+  }
+
+  // For custom vendors, also allow updating name, category, contact info
+  if (vendor.source === "custom") {
+    if (params.name !== undefined) {
+      updates.name = params.name;
+      changes.push("name");
+    }
+    if (params.category !== undefined) {
+      updates.category = params.category;
+      changes.push("category");
+    }
+    if (params.contactName !== undefined) {
+      updates.contactName = params.contactName;
+      changes.push("contact info");
+    }
+    if (params.email !== undefined) {
+      updates.email = params.email;
+      changes.push("email");
+    }
+    if (params.phone !== undefined) {
+      updates.phone = params.phone;
+      changes.push("phone");
+    }
+  }
+
+  // Update based on source
+  if (vendor.source === "directory") {
+    await updateSavedVendorStatus(context.tenantId, vendor.id, updates as Parameters<typeof updateSavedVendorStatus>[2]);
+  } else {
+    await updateCustomVendor(context.tenantId, vendor.id, updates as Parameters<typeof updateCustomVendor>[2]);
+  }
+
+  const updatedStatus = (updates.status as string) || vendor.status;
+  const updatedName = (updates.name as string) || vendor.name;
+
+  // Update kernel and checklist decisions (non-critical)
+  if (params.status || params.name) {
+    await updateKernelDecision(context.tenantId, vendor.category, {
+      status: updatedStatus,
+      name: updatedName,
+      locked: updatedStatus === "booked"
+    });
+  }
+
+  const decisionName = getDecisionNameFromCategory(vendor.category);
+  if (decisionName && params.status) {
+    const decisionStatus = updatedStatus === "booked" || updatedStatus === "confirmed" ? "decided" : "researching";
+    await updateDecisionFn(context.tenantId, decisionName, {
+      status: decisionStatus,
+      choiceName: updatedName,
+    });
+  }
+
+  return {
+    success: true,
+    message: `Updated ${vendor.name}: ${changes.join(", ")}`,
+    data: { ...vendor, ...updates }
+  };
 }
 
 async function getVendorList(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  const { pageId, fields } = await getOrCreatePage(context.tenantId, "vendor-contacts");
-  
-  let vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
-  const initialCount = vendors.length;
-
-  // Self-healing: Filter out corrupted entries (undefined ID, undefined Name, or Name "0")
-  vendors = vendors.filter(v => {
-    const name = (v.name as string || "").trim();
-    const id = (v.id as string || "").trim();
-    
-    const isCorrupt = 
-      !id || 
-      id === "undefined" || 
-      !name || 
-      name.toLowerCase() === "undefined" ||
-      name === "0";
-      
-    return !isCorrupt;
+  // Get vendors from unified data layer
+  const vendors = await getMyVendors(context.tenantId, {
+    category: params.category as string | undefined,
+    status: params.status as string | undefined,
+    search: params.search as string | undefined,
   });
-
-  // If we found corrupted entries, save the cleaned list immediately
-  if (vendors.length !== initialCount) {
-    console.log(`[Auto-Cleanup] Removed ${initialCount - vendors.length} corrupted vendor entries.`);
-    await db.update(pages)
-      .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-      .where(eq(pages.id, pageId));
-  }
-
-  const totalCount = vendors.length;
-
-  // Apply filters
-  if (params.category) {
-    const searchCategory = (params.category as string).toLowerCase();
-    vendors = vendors.filter(v => (v.category as string)?.toLowerCase() === searchCategory);
-  }
-
-  if (params.status) {
-    const searchStatus = (params.status as string).toLowerCase();
-    vendors = vendors.filter(v => (v.status as string)?.toLowerCase() === searchStatus);
-  }
-
-  if (params.search) {
-    const search = (params.search as string).toLowerCase();
-    vendors = vendors.filter(v => 
-      (v.name as string)?.toLowerCase().includes(search) ||
-      (v.contactName as string)?.toLowerCase().includes(search)
-    );
-  }
 
   // Format response
   const vendorList = vendors.map(v => {
-    const price = v.price ? ` ($${((v.price as number) / 100).toLocaleString()})` : "";
-    return `• ${v.name} (ID: ${v.id}) [${v.category}] - ${v.status}${price}`;
+    const price = v.price ? ` ($${(v.price / 100).toLocaleString()})` : "";
+    const source = v.source === "directory" ? " 📍" : "";
+    return `• ${v.name} (ID: ${v.id}) [${v.category}] - ${v.status || "saved"}${price}${source}`;
   });
 
-  let message = `**Vendor List** (${vendors.length}${totalCount !== vendors.length ? ` of ${totalCount}` : ""}):\n`;
-  
+  let message = `**Your Vendors** (${vendors.length}):\n`;
+
   if (vendors.length === 0) {
-    message += "\nNo vendors match your criteria.";
+    message += "\nNo vendors in your list yet. Add vendors or search the directory with search_vendors.";
   } else {
     message += vendorList.join("\n");
+    message += "\n\n📍 = from vendor directory (has profile)";
   }
 
   return {
     success: true,
     message,
-    data: { vendors, count: vendors.length, totalCount }
+    data: { vendors, count: vendors.length }
   };
 }
 
@@ -2142,128 +2150,188 @@ async function deleteVendor(
   params: Record<string, unknown>,
   context: ToolContext
 ): Promise<ToolResult> {
-  return withPageLock(context.tenantId, "vendor-contacts", async (tx, { pageId, fields }) => {
-    const vendors = (fields.vendors as Array<Record<string, unknown>>) || [];
+  const vendors = await getMyVendors(context.tenantId);
 
-    // 1. Delete by ID
-    if (params.vendorId) {
-      // Special handling for "undefined" ID string which comes from LLM when ID is missing
-      const targetId = params.vendorId as string;
-      const isTargetingUndefined = targetId === "undefined";
+  // 1. Delete by ID
+  if (params.vendorId) {
+    const vendor = vendors.find(v => v.id === params.vendorId);
+    if (!vendor) {
+      return { success: false, message: "Vendor not found by ID" };
+    }
 
-      let vendorIndex = vendors.findIndex(v => {
-        if (isTargetingUndefined) {
-          return !v.id || v.id === "undefined" || v.name === "0";
-        }
-        return v.id === targetId;
-      });
+    await deleteMyVendor(context.tenantId, vendor.id, vendor.source);
 
-      // Fallback: If targeting undefined and didn't find it, try looking for the strange "0" vendor by name
-      if (vendorIndex === -1 && isTargetingUndefined) {
-        vendorIndex = vendors.findIndex(v => v.name === "0");
-      }
+    return {
+      success: true,
+      message: `Removed ${vendor.name} from your vendor list`,
+      data: vendor
+    };
+  }
 
-      if (vendorIndex === -1) {
-        return { success: false, message: "Vendor not found by ID" };
-      }
-      const deletedVendor = vendors[vendorIndex];
-      vendors.splice(vendorIndex, 1);
+  // 2. Delete by Category (Bulk) - Only if name is NOT provided
+  if (params.category && !params.vendorName) {
+    const category = (params.category as string).toLowerCase();
+    const vendorsInCategory = vendors.filter(v => v.category.toLowerCase() === category);
 
-      await tx.update(pages)
-        .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-        .where(eq(pages.id, pageId));
+    if (vendorsInCategory.length === 0) {
+      return { success: false, message: `No vendors found in category: ${params.category}` };
+    }
 
+    // Require explicit confirmation for bulk deletes (more than 1 vendor)
+    if (vendorsInCategory.length > 1 && params.confirmBulk !== true) {
+      const vendorNames = vendorsInCategory.map(v => v.name).join(", ");
       return {
-        success: true,
-        message: `Removed ${deletedVendor.name} from vendor list`,
-        data: deletedVendor
+        success: false,
+        message: `This will delete ${vendorsInCategory.length} vendors: ${vendorNames}. Please confirm this bulk delete operation.`,
+        requiresConfirmation: true,
+        data: { count: vendorsInCategory.length, vendors: vendorNames }
       };
     }
 
-    // 2. Delete by Category (Bulk) - Only if name is NOT provided
-    if (params.category && !params.vendorName) {
-      const category = (params.category as string).toLowerCase();
-      const initialCount = vendors.length;
-
-      // Filter out vendors that match the category
-      const newVendors = vendors.filter(v => (v.category as string)?.toLowerCase() !== category);
-
-      if (newVendors.length === initialCount) {
-        return { success: false, message: `No vendors found in category: ${params.category}` };
-      }
-
-      const deletedCount = initialCount - newVendors.length;
-
-      // Require explicit confirmation for bulk deletes (more than 1 vendor)
-      if (deletedCount > 1 && params.confirmBulk !== true) {
-        const vendorsToDelete = vendors
-          .filter(v => (v.category as string)?.toLowerCase() === category)
-          .map(v => v.name)
-          .join(", ");
-        return {
-          success: false,
-          message: `This will delete ${deletedCount} vendors: ${vendorsToDelete}. Please confirm this bulk delete operation.`,
-          requiresConfirmation: true,
-          data: { count: deletedCount, vendors: vendorsToDelete }
-        };
-      }
-
-      await tx.update(pages)
-        .set({ fields: { ...fields, vendors: newVendors }, updatedAt: new Date() })
-        .where(eq(pages.id, pageId));
-
-      return {
-        success: true,
-        message: `Removed ${deletedCount} vendor(s) from category: ${params.category}`,
-        data: { deletedCount }
-      };
-    }
-
-    // 3. Delete by Name (with optional category filter)
-    if (params.vendorName) {
-      const searchName = (params.vendorName as string).toLowerCase();
-      const searchCategory = params.category ? (params.category as string).toLowerCase() : null;
-
-      // Map to preserve original indices
-      const candidates = vendors.map((v, i) => ({ vendor: v, index: i }));
-
-      // Filter by category if provided
-      const filteredCandidates = searchCategory
-        ? candidates.filter(({ vendor }) => (vendor.category as string)?.toLowerCase() === searchCategory)
-        : candidates;
-
-      // Try exact match first
-      let match = filteredCandidates.find(({ vendor }) => (vendor.name as string)?.toLowerCase() === searchName);
-
-      // If no exact match, try partial match
-      if (!match) {
-        match = filteredCandidates.find(({ vendor }) => (vendor.name as string)?.toLowerCase().includes(searchName));
-      }
-
-      if (!match) {
-        return { success: false, message: `Vendor "${params.vendorName}" not found` };
-      }
-
-      // We found a match, delete it using the original index
-      const deletedVendor = vendors[match.index];
-      vendors.splice(match.index, 1);
-
-      await tx.update(pages)
-        .set({ fields: { ...fields, vendors }, updatedAt: new Date() })
-        .where(eq(pages.id, pageId));
-
-      return {
-        success: true,
-        message: `Removed ${deletedVendor.name} from vendor list`,
-        data: deletedVendor
-      };
+    // Delete all vendors in category
+    for (const vendor of vendorsInCategory) {
+      await deleteMyVendor(context.tenantId, vendor.id, vendor.source);
     }
 
     return {
-      success: false,
-      message: "Please provide a vendorId, vendorName, or category to delete."
+      success: true,
+      message: `Removed ${vendorsInCategory.length} vendor(s) from category: ${params.category}`,
+      data: { deletedCount: vendorsInCategory.length }
     };
+  }
+
+  // 3. Delete by Name (with optional category filter)
+  if (params.vendorName) {
+    const searchName = (params.vendorName as string).toLowerCase();
+    const searchCategory = params.category ? (params.category as string).toLowerCase() : null;
+
+    let candidates = vendors;
+    if (searchCategory) {
+      candidates = vendors.filter(v => v.category.toLowerCase() === searchCategory);
+    }
+
+    // Try exact match first
+    let vendor = candidates.find(v => v.name.toLowerCase() === searchName);
+
+    // If no exact match, try partial match
+    if (!vendor) {
+      vendor = candidates.find(v => v.name.toLowerCase().includes(searchName));
+    }
+
+    if (!vendor) {
+      return { success: false, message: `Vendor "${params.vendorName}" not found` };
+    }
+
+    await deleteMyVendor(context.tenantId, vendor.id, vendor.source);
+
+    return {
+      success: true,
+      message: `Removed ${vendor.name} from your vendor list`,
+      data: vendor
+    };
+  }
+
+  return {
+    success: false,
+    message: "Please provide a vendorId, vendorName, or category to delete."
+  };
+}
+
+// New: Search vendor directory
+async function searchVendors(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const results = await searchVendorDirectory({
+    category: params.category as string | undefined,
+    state: params.state as string | undefined,
+    city: params.city as string | undefined,
+    priceRange: params.priceRange as string | undefined,
+    search: params.search as string | undefined,
+    limit: (params.limit as number) || 5,
   });
+
+  if (results.length === 0) {
+    return {
+      success: true,
+      message: "No vendors found matching your criteria. Try broadening your search.",
+      data: { vendors: [], count: 0 }
+    };
+  }
+
+  // Format response
+  const vendorList = results.map(v => {
+    const rating = v.averageRating ? ` ⭐ ${(v.averageRating / 10).toFixed(1)}` : "";
+    const reviews = v.reviewCount ? ` (${v.reviewCount} reviews)` : "";
+    const price = v.priceRange ? ` ${v.priceRange}` : "";
+    const location = [v.city, v.state].filter(Boolean).join(", ");
+    return `• **${v.name}** [${v.category}]${price}${rating}${reviews}\n  📍 ${location || "Location not specified"}\n  ID: ${v.id}`;
+  });
+
+  const message = `**Vendor Directory Results** (${results.length}):\n\n${vendorList.join("\n\n")}\n\nUse save_vendor with the vendor ID to add one to your list.`;
+
+  return {
+    success: true,
+    message,
+    data: { vendors: results, count: results.length }
+  };
+}
+
+// New: Save vendor from directory
+async function saveVendor(
+  params: Record<string, unknown>,
+  context: ToolContext
+): Promise<ToolResult> {
+  const vendorId = params.vendorId as string;
+  if (!vendorId) {
+    return { success: false, message: "Please provide a vendorId from the directory." };
+  }
+
+  // Check subscription limits
+  const access = await getTenantAccess(context.tenantId);
+  if (!access) {
+    return { success: false, message: "Unable to verify account access." };
+  }
+
+  const existingVendors = await getMyVendors(context.tenantId);
+  const vendorLimit = getPlanLimit(access.plan, "vendors", access.isLegacy);
+  if (existingVendors.length >= vendorLimit) {
+    return {
+      success: false,
+      message: `You've reached your vendor limit of ${vendorLimit} vendors on the free plan. Upgrade to Stem for unlimited vendors!`,
+      data: { limitReached: true }
+    };
+  }
+
+  // Check if already saved
+  const alreadySaved = existingVendors.find(v => v.source === "directory" && v.vendorProfile?.id === vendorId);
+  if (alreadySaved) {
+    return {
+      success: false,
+      message: `${alreadySaved.name} is already in your vendor list.`
+    };
+  }
+
+  const status = (params.status as string) || "saved";
+  const priceInCents = params.price ? (params.price as number) * 100 : undefined;
+
+  const saved = await saveVendorFromDirectory(context.tenantId, vendorId, {
+    status,
+    notes: params.notes as string,
+    price: priceInCents,
+  });
+
+  // Get vendor profile for the response
+  const vendorProfile = await searchVendorDirectory({ limit: 1 }).then(async () => {
+    const vendors = await getMyVendors(context.tenantId);
+    return vendors.find(v => v.id === saved.id);
+  });
+
+  return {
+    success: true,
+    message: `Added vendor to your list with status: ${status}. You can now track and update their status.`,
+    data: { saved, vendor: vendorProfile }
+  };
 }
 
 // ============================================================================ 

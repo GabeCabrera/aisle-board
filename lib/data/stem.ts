@@ -16,7 +16,9 @@ import {
   boardArticles,
   userBlocks,
   weddingKernels,
+  customVendors,
 } from "@/lib/db/schema";
+import type { VendorProfile, CustomVendor } from "@/lib/db/schema";
 import { eq, and, desc, or, inArray, not, sql, ilike, asc } from "drizzle-orm";
 
 // =============================================================================
@@ -1538,4 +1540,416 @@ export async function getVendorStates() {
     .orderBy(vendorProfiles.state);
 
   return result.map((r) => r.state).filter(Boolean) as string[];
+}
+
+// =============================================================================
+// UNIFIED VENDOR MANAGEMENT (for AI tools)
+// =============================================================================
+
+export type MyVendorSource = "directory" | "custom";
+
+export interface MyVendor {
+  id: string;
+  source: MyVendorSource;
+  category: string;
+  name: string;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  notes: string | null;
+  status: string | null;
+  priority: number | null;
+  price: number | null;
+  depositPaid: boolean | null;
+  contractSigned: boolean | null;
+  lastContactedAt: Date | null;
+  bookedAt: Date | null;
+  createdAt: Date;
+  // Directory vendor extras (only for source="directory")
+  vendorProfile?: VendorProfile;
+}
+
+/**
+ * Get all "my vendors" - both saved directory vendors and custom vendors
+ */
+export async function getMyVendors(
+  tenantId: string,
+  filters?: {
+    category?: string;
+    status?: string;
+    search?: string;
+  }
+): Promise<MyVendor[]> {
+  // Fetch saved directory vendors
+  const savedVendorsQuery = db
+    .select({
+      id: vendorSaves.id,
+      vendorId: vendorSaves.vendorId,
+      notes: vendorSaves.notes,
+      status: vendorSaves.status,
+      priority: vendorSaves.priority,
+      price: vendorSaves.price,
+      depositPaid: vendorSaves.depositPaid,
+      contractSigned: vendorSaves.contractSigned,
+      lastContactedAt: vendorSaves.lastContactedAt,
+      bookedAt: vendorSaves.bookedAt,
+      savedAt: vendorSaves.savedAt,
+      // Vendor profile fields
+      vendorName: vendorProfiles.name,
+      vendorCategory: vendorProfiles.category,
+      vendorEmail: vendorProfiles.email,
+      vendorPhone: vendorProfiles.phone,
+      vendorWebsite: vendorProfiles.website,
+      vendorCity: vendorProfiles.city,
+      vendorState: vendorProfiles.state,
+      vendorProfileImage: vendorProfiles.profileImage,
+      vendorSlug: vendorProfiles.slug,
+      vendorAverageRating: vendorProfiles.averageRating,
+      vendorReviewCount: vendorProfiles.reviewCount,
+    })
+    .from(vendorSaves)
+    .innerJoin(vendorProfiles, eq(vendorSaves.vendorId, vendorProfiles.id))
+    .where(eq(vendorSaves.tenantId, tenantId));
+
+  // Fetch custom vendors
+  const customVendorsQuery = db
+    .select()
+    .from(customVendors)
+    .where(eq(customVendors.tenantId, tenantId));
+
+  const [savedResults, customResults] = await Promise.all([
+    savedVendorsQuery,
+    customVendorsQuery,
+  ]);
+
+  // Transform saved vendors
+  const savedVendorsList: MyVendor[] = savedResults.map((sv) => ({
+    id: sv.id,
+    source: "directory" as MyVendorSource,
+    category: sv.vendorCategory,
+    name: sv.vendorName,
+    contactName: null, // Directory vendors use vendor profile contact
+    email: sv.vendorEmail,
+    phone: sv.vendorPhone,
+    website: sv.vendorWebsite,
+    notes: sv.notes,
+    status: sv.status,
+    priority: sv.priority,
+    price: sv.price,
+    depositPaid: sv.depositPaid,
+    contractSigned: sv.contractSigned,
+    lastContactedAt: sv.lastContactedAt,
+    bookedAt: sv.bookedAt,
+    createdAt: sv.savedAt,
+    vendorProfile: {
+      id: sv.vendorId,
+      name: sv.vendorName,
+      slug: sv.vendorSlug,
+      category: sv.vendorCategory,
+      email: sv.vendorEmail,
+      phone: sv.vendorPhone,
+      website: sv.vendorWebsite,
+      city: sv.vendorCity,
+      state: sv.vendorState,
+      profileImage: sv.vendorProfileImage,
+      averageRating: sv.vendorAverageRating,
+      reviewCount: sv.vendorReviewCount,
+    } as unknown as VendorProfile,
+  }));
+
+  // Transform custom vendors
+  const customVendorsList: MyVendor[] = customResults.map((cv) => ({
+    id: cv.id,
+    source: "custom" as MyVendorSource,
+    category: cv.category,
+    name: cv.name,
+    contactName: cv.contactName,
+    email: cv.email,
+    phone: cv.phone,
+    website: cv.website,
+    notes: cv.notes,
+    status: cv.status,
+    priority: cv.priority,
+    price: cv.price,
+    depositPaid: cv.depositPaid,
+    contractSigned: cv.contractSigned,
+    lastContactedAt: cv.lastContactedAt,
+    bookedAt: cv.bookedAt,
+    createdAt: cv.createdAt,
+  }));
+
+  // Combine and filter
+  let allVendors = [...savedVendorsList, ...customVendorsList];
+
+  if (filters?.category) {
+    allVendors = allVendors.filter(
+      (v) => v.category.toLowerCase() === filters.category!.toLowerCase()
+    );
+  }
+
+  if (filters?.status) {
+    allVendors = allVendors.filter(
+      (v) => v.status?.toLowerCase() === filters.status!.toLowerCase()
+    );
+  }
+
+  if (filters?.search) {
+    const searchLower = filters.search.toLowerCase();
+    allVendors = allVendors.filter(
+      (v) =>
+        v.name.toLowerCase().includes(searchLower) ||
+        v.contactName?.toLowerCase().includes(searchLower) ||
+        v.notes?.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Sort by priority (high to low), then by creation date
+  allVendors.sort((a, b) => {
+    const priorityDiff = (b.priority ?? 0) - (a.priority ?? 0);
+    if (priorityDiff !== 0) return priorityDiff;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
+  return allVendors;
+}
+
+/**
+ * Update saved vendor (from directory) status/booking info
+ */
+export async function updateSavedVendorStatus(
+  tenantId: string,
+  saveId: string,
+  updates: {
+    status?: string;
+    priority?: number;
+    price?: number;
+    depositPaid?: boolean;
+    contractSigned?: boolean;
+    notes?: string;
+    lastContactedAt?: Date;
+    bookedAt?: Date;
+  }
+) {
+  const [updated] = await db
+    .update(vendorSaves)
+    .set(updates)
+    .where(and(eq(vendorSaves.id, saveId), eq(vendorSaves.tenantId, tenantId)))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Update custom vendor
+ */
+export async function updateCustomVendor(
+  tenantId: string,
+  vendorId: string,
+  updates: {
+    name?: string;
+    category?: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    notes?: string;
+    status?: string;
+    priority?: number;
+    price?: number;
+    depositPaid?: boolean;
+    contractSigned?: boolean;
+    lastContactedAt?: Date;
+    bookedAt?: Date;
+  }
+) {
+  const [updated] = await db
+    .update(customVendors)
+    .set(updates)
+    .where(
+      and(eq(customVendors.id, vendorId), eq(customVendors.tenantId, tenantId))
+    )
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Add custom vendor (not in directory)
+ */
+export async function addCustomVendor(
+  tenantId: string,
+  vendor: {
+    category: string;
+    name: string;
+    contactName?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    notes?: string;
+    status?: string;
+    price?: number;
+  }
+) {
+  const [created] = await db
+    .insert(customVendors)
+    .values({
+      tenantId,
+      category: vendor.category,
+      name: vendor.name,
+      contactName: vendor.contactName,
+      email: vendor.email,
+      phone: vendor.phone,
+      website: vendor.website,
+      notes: vendor.notes,
+      status: vendor.status ?? "researching",
+      price: vendor.price,
+    })
+    .returning();
+
+  return created;
+}
+
+/**
+ * Delete a vendor from my list (either saved or custom)
+ */
+export async function deleteMyVendor(
+  tenantId: string,
+  vendorId: string,
+  source: MyVendorSource
+) {
+  if (source === "directory") {
+    // For saved vendors, use the save ID
+    await db
+      .delete(vendorSaves)
+      .where(
+        and(eq(vendorSaves.id, vendorId), eq(vendorSaves.tenantId, tenantId))
+      );
+  } else {
+    await db
+      .delete(customVendors)
+      .where(
+        and(
+          eq(customVendors.id, vendorId),
+          eq(customVendors.tenantId, tenantId)
+        )
+      );
+  }
+}
+
+/**
+ * Search vendor directory (for AI to recommend vendors)
+ */
+export async function searchVendorDirectory(options: {
+  category?: string;
+  state?: string;
+  city?: string;
+  priceRange?: string;
+  search?: string;
+  limit?: number;
+}): Promise<VendorProfile[]> {
+  const conditions = [];
+
+  if (options.category) {
+    conditions.push(ilike(vendorProfiles.category, options.category));
+  }
+
+  if (options.state) {
+    conditions.push(ilike(vendorProfiles.state, `%${options.state}%`));
+  }
+
+  if (options.city) {
+    conditions.push(ilike(vendorProfiles.city, `%${options.city}%`));
+  }
+
+  if (options.priceRange) {
+    conditions.push(eq(vendorProfiles.priceRange, options.priceRange));
+  }
+
+  if (options.search) {
+    conditions.push(
+      or(
+        ilike(vendorProfiles.name, `%${options.search}%`),
+        ilike(vendorProfiles.city, `%${options.search}%`),
+        ilike(vendorProfiles.bio, `%${options.search}%`)
+      )
+    );
+  }
+
+  const query = db
+    .select()
+    .from(vendorProfiles)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(
+      desc(vendorProfiles.isFeatured),
+      desc(vendorProfiles.averageRating),
+      desc(vendorProfiles.reviewCount)
+    )
+    .limit(options.limit ?? 10);
+
+  return query;
+}
+
+/**
+ * Find vendor in directory by name (for AI to match user input)
+ */
+export async function findVendorInDirectory(
+  name: string,
+  category?: string
+): Promise<VendorProfile | null> {
+  const conditions = [ilike(vendorProfiles.name, `%${name}%`)];
+
+  if (category) {
+    conditions.push(ilike(vendorProfiles.category, category));
+  }
+
+  const results = await db
+    .select()
+    .from(vendorProfiles)
+    .where(and(...conditions))
+    .limit(1);
+
+  return results[0] ?? null;
+}
+
+/**
+ * Save vendor from directory to my list with initial status
+ */
+export async function saveVendorFromDirectory(
+  tenantId: string,
+  vendorId: string,
+  options?: {
+    status?: string;
+    notes?: string;
+    price?: number;
+  }
+) {
+  const [saved] = await db
+    .insert(vendorSaves)
+    .values({
+      tenantId,
+      vendorId,
+      status: options?.status ?? "saved",
+      notes: options?.notes,
+      price: options?.price,
+    })
+    .onConflictDoUpdate({
+      target: [vendorSaves.tenantId, vendorSaves.vendorId],
+      set: {
+        status: options?.status ?? "saved",
+        notes: options?.notes,
+        price: options?.price,
+      },
+    })
+    .returning();
+
+  // Increment save count on vendor profile
+  await db
+    .update(vendorProfiles)
+    .set({
+      saveCount: sql`COALESCE(${vendorProfiles.saveCount}, 0) + 1`,
+    })
+    .where(eq(vendorProfiles.id, vendorId));
+
+  return saved;
 }

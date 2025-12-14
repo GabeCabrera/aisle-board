@@ -839,6 +839,84 @@ export const tools: ToolDefinition[] = [
       required: []
     }
   },
+  {
+    name: "search_vendors",
+    description: "Search the vendor directory for recommendations. Use this to help users find vendors in their area or by category. Returns vendor profiles with ratings, reviews, and contact info.",
+    parameters: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description: "Filter by vendor category",
+          enum: [
+            "photographer",
+            "videographer",
+            "venue",
+            "caterer",
+            "florist",
+            "dj",
+            "musician",
+            "wedding-planner",
+            "hair-makeup",
+            "officiant",
+            "rentals",
+            "bakery",
+            "stationery",
+            "transportation"
+          ]
+        },
+        state: {
+          type: "string",
+          description: "Filter by state (e.g., 'California', 'New York')"
+        },
+        city: {
+          type: "string",
+          description: "Filter by city (e.g., 'Los Angeles', 'Denver')"
+        },
+        priceRange: {
+          type: "string",
+          description: "Filter by price range",
+          enum: ["$", "$$", "$$$", "$$$$"]
+        },
+        search: {
+          type: "string",
+          description: "Search by vendor name or keywords"
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 5)"
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: "save_vendor",
+    description: "Save a vendor from the directory to the couple's list. Use after finding a vendor they're interested in.",
+    parameters: {
+      type: "object",
+      properties: {
+        vendorId: {
+          type: "string",
+          description: "The ID of the vendor profile to save"
+        },
+        status: {
+          type: "string",
+          description: "Initial tracking status",
+          enum: ["saved", "researching", "contacted", "meeting_scheduled", "booked"]
+        },
+        notes: {
+          type: "string",
+          description: "Notes about why they're interested"
+        },
+        price: {
+          type: "number",
+          description: "Quoted price in dollars (if known)"
+        }
+      },
+      required: ["vendorId"]
+    }
+  },
 
   // ----------------------------------------
   // TASK TOOLS

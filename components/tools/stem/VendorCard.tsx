@@ -24,12 +24,22 @@ interface VendorCardProps {
   onSaveToggle?: (vendorId: string, currentlySaved: boolean) => void;
   locationMatch?: LocationMatch;
   compact?: boolean;
+  status?: string | null; // Tracking status for saved vendors
 }
 
 const LOCATION_MATCH_LABELS: Record<string, string> = {
   city: "In Your City",
   state: "Near You",
   serviceArea: "Serves Your Area",
+};
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  saved: { label: "Saved", color: "bg-slate-500/90" },
+  researching: { label: "Researching", color: "bg-blue-500/90" },
+  contacted: { label: "Contacted", color: "bg-yellow-500/90" },
+  meeting_scheduled: { label: "Meeting Set", color: "bg-purple-500/90" },
+  booked: { label: "Booked", color: "bg-green-500/90" },
+  passed: { label: "Passed", color: "bg-gray-500/90" },
 };
 
 const PRICE_LABELS: Record<string, string> = {
@@ -56,12 +66,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   transportation: "Transportation",
 };
 
-export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatch, compact = false }: VendorCardProps) {
+export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatch, compact = false, status }: VendorCardProps) {
   const router = useRouter();
 
   const coverImage = vendor.coverImage || vendor.profileImage;
   const categoryLabel = CATEGORY_LABELS[vendor.category] || vendor.category;
   const priceLabel = vendor.priceRange ? PRICE_LABELS[vendor.priceRange] : null;
+  const statusInfo = status ? STATUS_LABELS[status] : null;
   const location = [vendor.city, vendor.state].filter(Boolean).join(", ");
   const locationMatchLabel = locationMatch ? LOCATION_MATCH_LABELS[locationMatch] : null;
 
@@ -96,6 +107,11 @@ export function VendorCard({ vendor, isSaved = false, onSaveToggle, locationMatc
 
         {/* Top badges */}
         <div className="absolute top-3 left-3 flex gap-2">
+          {statusInfo && (
+            <Badge className={cn(statusInfo.color, "text-white backdrop-blur-sm")}>
+              {statusInfo.label}
+            </Badge>
+          )}
           {locationMatchLabel && (
             <Badge className="bg-emerald-500/90 text-white backdrop-blur-sm gap-1">
               <Navigation className="h-3 w-3" />

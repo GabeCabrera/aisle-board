@@ -1457,6 +1457,16 @@ export const vendorSaves = pgTable(
       .references(() => vendorProfiles.id, { onDelete: "cascade" }),
     notes: text("notes"),
     savedAt: timestamp("saved_at").defaultNow().notNull(),
+    // Status tracking
+    status: text("status").default("saved"), // saved, researching, contacted, meeting_scheduled, booked, passed
+    priority: integer("priority").default(0), // 1-5 ranking
+    // Booking tracking
+    price: integer("price"), // in cents
+    depositPaid: boolean("deposit_paid").default(false),
+    contractSigned: boolean("contract_signed").default(false),
+    // Timestamps
+    lastContactedAt: timestamp("last_contacted_at"),
+    bookedAt: timestamp("booked_at"),
   },
   (table) => ({
     tenantVendorIdx: uniqueIndex("vendor_saves_tenant_vendor_idx").on(
@@ -1481,6 +1491,50 @@ export const vendorSavesRelations = relations(vendorSaves, ({ one }) => ({
 
 export type VendorSave = typeof vendorSaves.$inferSelect;
 export type NewVendorSave = typeof vendorSaves.$inferInsert;
+
+// CUSTOM VENDORS - Vendors not in the directory (manually added by couples)
+export const customVendors = pgTable(
+  "custom_vendors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    // Vendor info
+    category: text("category").notNull(),
+    name: text("name").notNull(),
+    contactName: text("contact_name"),
+    email: text("email"),
+    phone: text("phone"),
+    website: text("website"),
+    notes: text("notes"),
+    // Status tracking (same as vendorSaves)
+    status: text("status").default("researching"), // researching, contacted, meeting_scheduled, booked, passed
+    priority: integer("priority").default(0),
+    // Booking tracking
+    price: integer("price"), // in cents
+    depositPaid: boolean("deposit_paid").default(false),
+    contractSigned: boolean("contract_signed").default(false),
+    // Timestamps
+    lastContactedAt: timestamp("last_contacted_at"),
+    bookedAt: timestamp("booked_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("custom_vendors_tenant_idx").on(table.tenantId),
+    categoryIdx: index("custom_vendors_category_idx").on(table.category),
+  })
+);
+
+export const customVendorsRelations = relations(customVendors, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [customVendors.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type CustomVendor = typeof customVendors.$inferSelect;
+export type NewCustomVendor = typeof customVendors.$inferInsert;
 
 // VENDOR REVIEWS - Reviews and ratings for vendors
 export const vendorReviews = pgTable(
