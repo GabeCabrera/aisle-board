@@ -192,6 +192,66 @@ export async function getFollowingIds(tenantId: string): Promise<string[]> {
   return followingList.map((f) => f.followingId);
 }
 
+export async function getFollowersList(tenantId: string, viewerTenantId: string) {
+  // Get all followers of this tenant
+  const followerRecords = await db.query.follows.findMany({
+    where: eq(follows.followingId, tenantId),
+    with: {
+      follower: {
+        columns: {
+          id: true,
+          displayName: true,
+          profileImage: true,
+          slug: true,
+          weddingDate: true,
+        },
+      },
+    },
+  });
+
+  // Check which ones the viewer is following
+  const viewerFollowingIds = await getFollowingIds(viewerTenantId);
+
+  return followerRecords.map((record) => ({
+    id: record.follower.id,
+    displayName: record.follower.displayName,
+    profileImage: record.follower.profileImage,
+    slug: record.follower.slug,
+    weddingDate: record.follower.weddingDate,
+    isFollowing: viewerFollowingIds.includes(record.follower.id),
+  }));
+}
+
+export async function getFollowingList(tenantId: string, viewerTenantId: string) {
+  // Get all tenants this user is following
+  const followingRecords = await db.query.follows.findMany({
+    where: eq(follows.followerId, tenantId),
+    with: {
+      following: {
+        columns: {
+          id: true,
+          displayName: true,
+          profileImage: true,
+          slug: true,
+          weddingDate: true,
+        },
+      },
+    },
+  });
+
+  // Check which ones the viewer is following (for follow/unfollow button state)
+  const viewerFollowingIds = await getFollowingIds(viewerTenantId);
+
+  return followingRecords.map((record) => ({
+    id: record.following.id,
+    displayName: record.following.displayName,
+    profileImage: record.following.profileImage,
+    slug: record.following.slug,
+    weddingDate: record.following.weddingDate,
+    isFollowing: viewerFollowingIds.includes(record.following.id),
+  }));
+}
+
 // =============================================================================
 // ACTIVITIES
 // =============================================================================
