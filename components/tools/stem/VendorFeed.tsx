@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { VendorCard } from "./VendorCard";
@@ -66,20 +66,11 @@ export function VendorFeed({
   // Track if any filters are active (to hide recommended section)
   const hasActiveFilters = !!(category || state || priceRange || search);
 
-  // Update URL when filters change
-  const updateUrl = useCallback((params: Record<string, string | undefined>) => {
-    const newParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) newParams.set(key, value);
-    });
-    const queryString = newParams.toString();
-    router.push(`/planner/stem/vendors${queryString ? `?${queryString}` : ""}`, { scroll: false });
-  }, [router]);
-
-  // Fetch vendors when filters change
-  const fetchVendors = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  // Update vendors when filters change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Fetch vendors
+      setIsLoading(true);
       const params = new URLSearchParams();
       if (category) params.set("category", category);
       if (state) params.set("state", state);
@@ -87,26 +78,28 @@ export function VendorFeed({
       if (search) params.set("search", search);
       if (sortBy) params.set("sortBy", sortBy);
 
-      const response = await fetch(`/api/vendors?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setVendors(data);
-      }
-    } catch (error) {
-      console.error("Error fetching vendors:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [category, state, priceRange, search, sortBy]);
+      fetch(`/api/vendors?${params.toString()}`)
+        .then((response) => {
+          if (response.ok) return response.json();
+          throw new Error("Failed to fetch");
+        })
+        .then((data) => setVendors(data))
+        .catch((error) => console.error("Error fetching vendors:", error))
+        .finally(() => setIsLoading(false));
 
-  // Update vendors when filters change
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchVendors();
-      updateUrl({ category, state, priceRange, search: search || undefined, sortBy });
+      // Update URL (without triggering re-render loop)
+      const newParams = new URLSearchParams();
+      if (category) newParams.set("category", category);
+      if (state) newParams.set("state", state);
+      if (priceRange) newParams.set("priceRange", priceRange);
+      if (search) newParams.set("search", search);
+      if (sortBy) newParams.set("sortBy", sortBy);
+      const queryString = newParams.toString();
+      router.replace(`/planner/stem/vendors${queryString ? `?${queryString}` : ""}`, { scroll: false });
     }, 300);
     return () => clearTimeout(timer);
-  }, [category, state, priceRange, search, sortBy, fetchVendors, updateUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, state, priceRange, search, sortBy]);
 
   const handleSaveToggle = async (vendorId: string, currentlySaved: boolean) => {
     // Optimistic update
