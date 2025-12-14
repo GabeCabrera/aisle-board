@@ -33,8 +33,8 @@ const fetchMock = global.fetch as jest.Mock;
 
 describe('MyBoardsTool', () => {
   const mockInitialBoards = [
-    { id: '1', name: 'Wedding Dress', isPublic: false, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 0, viewCount: 0, boardType: 'standard', reactionCount: 0, commentCount: 0, linkedVendorId: null },
-    { id: '2', name: 'Venue Ideas', isPublic: true, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 1, viewCount: 0, boardType: 'standard', reactionCount: 0, commentCount: 0, linkedVendorId: null },
+    { id: '1', name: 'Wedding Dress', isPublic: false, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 0, viewCount: 0, boardType: 'standard', reactionCount: 0, commentCount: 0, linkedVendorId: null, saveTrendScore: 0, reactionTrendScore: 0, lastTrendUpdate: null },
+    { id: '2', name: 'Venue Ideas', isPublic: true, tenantId: 't1', createdAt: new Date(), updatedAt: new Date(), description: '', position: 1, viewCount: 0, boardType: 'standard', reactionCount: 0, commentCount: 0, linkedVendorId: null, saveTrendScore: 0, reactionTrendScore: 0, lastTrendUpdate: null },
   ];
 
   beforeEach(() => {

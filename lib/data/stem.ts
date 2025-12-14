@@ -13,12 +13,15 @@ import {
   vendorSaves,
   vendorReviews,
   vendorQuestions,
+  vendorFollows,
+  vendorPosts,
+  weddingShowcases,
   boardArticles,
   userBlocks,
   weddingKernels,
   customVendors,
 } from "@/lib/db/schema";
-import type { VendorProfile, CustomVendor } from "@/lib/db/schema";
+import type { VendorProfile, CustomVendor, VendorPost, WeddingShowcase } from "@/lib/db/schema";
 import { eq, and, desc, or, inArray, not, sql, ilike, asc } from "drizzle-orm";
 
 // =============================================================================
@@ -2075,4 +2078,1265 @@ export async function getVendorCount(): Promise<number> {
     .select({ count: sql<number>`count(*)` })
     .from(vendorProfiles);
   return Number(result[0]?.count ?? 0);
+}
+
+// =============================================================================
+// FOLLOWER SUGGESTIONS
+// =============================================================================
+
+interface SuggestionCandidate {
+  tenantId: string;
+  displayName: string;
+  profileImage: string | null;
+  weddingDate: Date | null;
+  bio: string | null;
+  score: number;
+  reason: string;
+}
+
+/**
+ * Get follower suggestions for a tenant
+ * Scoring algorithm:
+ * - Mutual follows: +30 points per mutual connection
+ * - Similar wedding date (within 3 months): +25 points
+ * - Same region: +20 points
+ * - Matching vibe/style: +15 points per match
+ * - Similar budget: +10 points
+ */
+export async function getFollowerSuggestions(
+  tenantId: string,
+  limit: number = 10
+): Promise<SuggestionCandidate[]> {
+  // Get the current user's kernel for matching
+  const currentKernel = await db.query.weddingKernels.findFirst({
+    where: eq(weddingKernels.tenantId, tenantId),
+  });
+
+  // Get who the user already follows
+  const existingFollows = await db
+    .select({ followingId: follows.followingId })
+    .from(follows)
+    .where(eq(follows.followerId, tenantId));
+
+  const followingIds = new Set(existingFollows.map((f) => f.followingId));
+  followingIds.add(tenantId); // Exclude self
+
+  // Get blocked users (both directions)
+  const blockedRelations = await db
+    .select({
+      blockerTenantId: userBlocks.blockerTenantId,
+      blockedTenantId: userBlocks.blockedTenantId,
+    })
+    .from(userBlocks)
+    .where(
+      or(
+        eq(userBlocks.blockerTenantId, tenantId),
+        eq(userBlocks.blockedTenantId, tenantId)
+      )
+    );
+
+  const blockedIds = new Set<string>();
+  blockedRelations.forEach((b) => {
+    blockedIds.add(b.blockerTenantId);
+    blockedIds.add(b.blockedTenantId);
+  });
+
+  // Get followers of people the user follows (mutual connections)
+  const mutualCandidates = await db
+    .select({
+      tenantId: follows.followerId,
+      mutualCount: sql<number>`count(*)::int`,
+    })
+    .from(follows)
+    .where(
+      and(
+        inArray(follows.followingId, Array.from(followingIds)),
+        not(inArray(follows.followerId, [...Array.from(followingIds), ...Array.from(blockedIds)]))
+      )
+    )
+    .groupBy(follows.followerId)
+    .orderBy(desc(sql`count(*)`))
+    .limit(50);
+
+  // Get all public tenants with profiles (fallback candidates)
+  const allCandidates = await db
+    .select({
+      id: tenants.id,
+      displayName: tenants.displayName,
+      profileImage: tenants.profileImage,
+      weddingDate: tenants.weddingDate,
+      bio: tenants.bio,
+      profileVisibility: tenants.profileVisibility,
+    })
+    .from(tenants)
+    .where(
+      and(
+        eq(tenants.profileVisibility, "public"),
+        not(inArray(tenants.id, [...Array.from(followingIds), ...Array.from(blockedIds)])),
+        sql`${tenants.displayName} != ''`
+      )
+    )
+    .limit(100);
+
+  // Get kernels for candidates for matching
+  const candidateIds = allCandidates.map((c) => c.id);
+  const candidateKernels = await db
+    .select()
+    .from(weddingKernels)
+    .where(inArray(weddingKernels.tenantId, candidateIds));
+
+  const kernelMap = new Map(candidateKernels.map((k) => [k.tenantId, k]));
+  const mutualCountMap = new Map(mutualCandidates.map((m) => [m.tenantId, m.mutualCount]));
+
+  // Score each candidate
+  const scoredCandidates: SuggestionCandidate[] = allCandidates.map((candidate) => {
+    let score = 0;
+    const reasons: string[] = [];
+
+    // Mutual connections score
+    const mutualCount = mutualCountMap.get(candidate.id) || 0;
+    if (mutualCount > 0) {
+      score += mutualCount * 30;
+      reasons.push(`${mutualCount} mutual connection${mutualCount > 1 ? "s" : ""}`);
+    }
+
+    const candidateKernel = kernelMap.get(candidate.id);
+
+    if (currentKernel && candidateKernel) {
+      // Similar wedding date (within 3 months)
+      if (currentKernel.weddingDate && candidateKernel.weddingDate) {
+        const diffMs = Math.abs(
+          new Date(currentKernel.weddingDate).getTime() -
+            new Date(candidateKernel.weddingDate).getTime()
+        );
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays <= 90) {
+          score += 25;
+          reasons.push("Similar wedding date");
+        }
+      }
+
+      // Same region
+      if (
+        currentKernel.region &&
+        candidateKernel.region &&
+        currentKernel.region.toLowerCase() === candidateKernel.region.toLowerCase()
+      ) {
+        score += 20;
+        reasons.push("Same region");
+      }
+
+      // Matching vibe
+      const currentVibe = (currentKernel.vibe as string[]) || [];
+      const candidateVibe = (candidateKernel.vibe as string[]) || [];
+      const matchingVibes = currentVibe.filter((v) =>
+        candidateVibe.some((cv) => cv.toLowerCase() === v.toLowerCase())
+      );
+      if (matchingVibes.length > 0) {
+        score += matchingVibes.length * 15;
+        reasons.push(`Similar style: ${matchingVibes.slice(0, 2).join(", ")}`);
+      }
+
+      // Similar budget range
+      if (
+        currentKernel.budgetRange &&
+        candidateKernel.budgetRange &&
+        currentKernel.budgetRange === candidateKernel.budgetRange
+      ) {
+        score += 10;
+        reasons.push("Similar budget");
+      }
+    }
+
+    // Boost for having a profile image
+    if (candidate.profileImage) {
+      score += 5;
+    }
+
+    // Boost for having a bio
+    if (candidate.bio) {
+      score += 5;
+    }
+
+    return {
+      tenantId: candidate.id,
+      displayName: candidate.displayName,
+      profileImage: candidate.profileImage,
+      weddingDate: candidate.weddingDate,
+      bio: candidate.bio,
+      score,
+      reason: reasons.length > 0 ? reasons[0] : "Planning a wedding too",
+    };
+  });
+
+  // Sort by score and return top suggestions
+  return scoredCandidates
+    .filter((c) => c.score > 0 || c.displayName) // Only show scored candidates or those with names
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+// =============================================================================
+// TRENDING CONTENT
+// =============================================================================
+
+import { trendingSnapshots } from "@/lib/db/schema";
+
+interface TrendingBoard {
+  id: string;
+  name: string;
+  description: string | null;
+  tenantId: string;
+  tenantName: string;
+  tenantImage: string | null;
+  ideaCount: number;
+  coverImages: string[];
+  reactionCount: number;
+  viewCount: number;
+  trendScore: number;
+}
+
+interface TrendingIdea {
+  id: string;
+  title: string | null;
+  imageUrl: string;
+  boardId: string;
+  boardName: string;
+  tenantId: string;
+  tenantName: string;
+  reactionCount: number;
+  saveCount: number;
+  trendScore: number;
+}
+
+/**
+ * Compute trending boards based on recent engagement
+ */
+export async function computeTrendingBoards(region?: string): Promise<TrendingBoard[]> {
+  // Get boards with recent engagement (last 7 days)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const trendingBoards = await db
+    .select({
+      id: boards.id,
+      name: boards.name,
+      description: boards.description,
+      tenantId: boards.tenantId,
+      reactionCount: boards.reactionCount,
+      viewCount: boards.viewCount,
+      saveTrendScore: boards.saveTrendScore,
+      reactionTrendScore: boards.reactionTrendScore,
+    })
+    .from(boards)
+    .where(
+      and(
+        eq(boards.isPublic, true),
+        sql`${boards.updatedAt} > ${sevenDaysAgo}`
+      )
+    )
+    .orderBy(
+      desc(sql`${boards.reactionTrendScore} + ${boards.saveTrendScore} + (${boards.viewCount} * 0.1)`)
+    )
+    .limit(20);
+
+  // Enrich with tenant info and ideas
+  const enrichedBoards: TrendingBoard[] = [];
+  for (const board of trendingBoards) {
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, board.tenantId),
+      columns: { displayName: true, profileImage: true },
+    });
+
+    const boardIdeas = await db.query.ideas.findMany({
+      where: eq(ideas.boardId, board.id),
+      columns: { id: true, imageUrl: true },
+      limit: 4,
+    });
+
+    enrichedBoards.push({
+      id: board.id,
+      name: board.name,
+      description: board.description,
+      tenantId: board.tenantId,
+      tenantName: tenant?.displayName || "Unknown",
+      tenantImage: tenant?.profileImage || null,
+      ideaCount: boardIdeas.length,
+      coverImages: boardIdeas.map((i) => i.imageUrl),
+      reactionCount: board.reactionCount,
+      viewCount: board.viewCount,
+      trendScore: board.reactionTrendScore + board.saveTrendScore,
+    });
+  }
+
+  return enrichedBoards;
+}
+
+/**
+ * Compute trending ideas based on recent engagement
+ */
+export async function computeTrendingIdeas(region?: string): Promise<TrendingIdea[]> {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const trendingIdeas = await db
+    .select({
+      id: ideas.id,
+      title: ideas.title,
+      imageUrl: ideas.imageUrl,
+      boardId: ideas.boardId,
+      reactionCount: ideas.reactionCount,
+      saveCount: ideas.saveCount,
+      saveTrendScore: ideas.saveTrendScore,
+      reactionTrendScore: ideas.reactionTrendScore,
+    })
+    .from(ideas)
+    .innerJoin(boards, eq(ideas.boardId, boards.id))
+    .where(
+      and(
+        eq(boards.isPublic, true),
+        sql`${ideas.createdAt} > ${sevenDaysAgo}`
+      )
+    )
+    .orderBy(
+      desc(sql`${ideas.reactionTrendScore} + ${ideas.saveTrendScore}`)
+    )
+    .limit(30);
+
+  // Enrich with board and tenant info
+  const enrichedIdeas: TrendingIdea[] = [];
+  for (const idea of trendingIdeas) {
+    const board = await db.query.boards.findFirst({
+      where: eq(boards.id, idea.boardId),
+      with: {
+        tenant: {
+          columns: { id: true, displayName: true },
+        },
+      },
+    });
+
+    if (board) {
+      enrichedIdeas.push({
+        id: idea.id,
+        title: idea.title,
+        imageUrl: idea.imageUrl,
+        boardId: idea.boardId,
+        boardName: board.name,
+        tenantId: board.tenantId,
+        tenantName: board.tenant?.displayName || "Unknown",
+        reactionCount: idea.reactionCount,
+        saveCount: idea.saveCount,
+        trendScore: idea.reactionTrendScore + idea.saveTrendScore,
+      });
+    }
+  }
+
+  return enrichedIdeas;
+}
+
+/**
+ * Get or compute trending content (cached)
+ */
+export async function getTrendingContent(
+  type: "boards" | "ideas",
+  region?: string
+): Promise<TrendingBoard[] | TrendingIdea[]> {
+  // Check for cached snapshot
+  const cached = await db.query.trendingSnapshots.findFirst({
+    where: and(
+      eq(trendingSnapshots.type, type),
+      region
+        ? eq(trendingSnapshots.region, region)
+        : sql`${trendingSnapshots.region} IS NULL`,
+      sql`${trendingSnapshots.expiresAt} > NOW()`
+    ),
+  });
+
+  if (cached) {
+    return cached.data as TrendingBoard[] | TrendingIdea[];
+  }
+
+  // Compute fresh trending content
+  const data =
+    type === "boards"
+      ? await computeTrendingBoards(region)
+      : await computeTrendingIdeas(region);
+
+  // Cache for 1 hour
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 1);
+
+  // Upsert the snapshot
+  await db
+    .insert(trendingSnapshots)
+    .values({
+      type,
+      region: region || null,
+      data,
+      expiresAt,
+    })
+    .onConflictDoUpdate({
+      target: [trendingSnapshots.type, trendingSnapshots.region],
+      set: {
+        data,
+        computedAt: new Date(),
+        expiresAt,
+      },
+    });
+
+  return data;
+}
+
+/**
+ * Update trend scores when engagement happens
+ * Uses time-decay: recent engagement counts more
+ */
+export async function updateTrendScore(
+  targetType: "board" | "idea",
+  targetId: string,
+  engagementType: "reaction" | "save" | "view"
+): Promise<void> {
+  // Points per engagement type
+  const points = {
+    reaction: 10,
+    save: 15,
+    view: 1,
+  };
+
+  const pointsToAdd = points[engagementType];
+
+  if (targetType === "board") {
+    const scoreField =
+      engagementType === "reaction" ? "reactionTrendScore" : "saveTrendScore";
+    await db
+      .update(boards)
+      .set({
+        [scoreField]: sql`${boards[scoreField as keyof typeof boards]} + ${pointsToAdd}`,
+        lastTrendUpdate: new Date(),
+      })
+      .where(eq(boards.id, targetId));
+  } else {
+    const scoreField =
+      engagementType === "reaction" ? "reactionTrendScore" : "saveTrendScore";
+    await db
+      .update(ideas)
+      .set({
+        [scoreField]: sql`${ideas[scoreField as keyof typeof ideas]} + ${pointsToAdd}`,
+        lastTrendUpdate: new Date(),
+      })
+      .where(eq(ideas.id, targetId));
+  }
+}
+
+/**
+ * Decay trend scores (run periodically, e.g., daily cron job)
+ */
+export async function decayTrendScores(): Promise<void> {
+  const decayFactor = 0.9; // 10% decay per day
+
+  await db
+    .update(boards)
+    .set({
+      saveTrendScore: sql`FLOOR(${boards.saveTrendScore} * ${decayFactor})`,
+      reactionTrendScore: sql`FLOOR(${boards.reactionTrendScore} * ${decayFactor})`,
+    })
+    .where(sql`${boards.saveTrendScore} > 0 OR ${boards.reactionTrendScore} > 0`);
+
+  await db
+    .update(ideas)
+    .set({
+      saveTrendScore: sql`FLOOR(${ideas.saveTrendScore} * ${decayFactor})`,
+      reactionTrendScore: sql`FLOOR(${ideas.reactionTrendScore} * ${decayFactor})`,
+    })
+    .where(sql`${ideas.saveTrendScore} > 0 OR ${ideas.reactionTrendScore} > 0`);
+}
+
+// =============================================================================
+// ENHANCED EXPLORE
+// =============================================================================
+
+export type BoardCategory =
+  | "all"
+  | "venues"
+  | "dresses"
+  | "decor"
+  | "flowers"
+  | "cakes"
+  | "photography"
+  | "invitations"
+  | "rings"
+  | "hair-makeup";
+
+export type ExploreSortOption = "trending" | "recent" | "popular";
+
+interface ExploreOptions {
+  category?: BoardCategory;
+  sortBy?: ExploreSortOption;
+  region?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Get explore feed with filtering and sorting
+ */
+export async function getExploreFeed(options: ExploreOptions = {}): Promise<{
+  boards: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    tenantId: string;
+    tenantName: string;
+    tenantImage: string | null;
+    ideaCount: number;
+    coverImages: string[];
+    reactionCount: number;
+    viewCount: number;
+  }>;
+  hasMore: boolean;
+}> {
+  const { category = "all", sortBy = "trending", limit = 20, offset = 0 } = options;
+
+  // Build category filter if needed
+  const categoryKeywords: Record<BoardCategory, string[]> = {
+    all: [],
+    venues: ["venue", "location", "ceremony", "reception"],
+    dresses: ["dress", "gown", "bridal", "attire"],
+    decor: ["decor", "decoration", "centerpiece", "table"],
+    flowers: ["flower", "bouquet", "floral", "bloom"],
+    cakes: ["cake", "dessert", "sweet", "bakery"],
+    photography: ["photo", "photography", "photographer"],
+    invitations: ["invitation", "stationery", "paper", "invite"],
+    rings: ["ring", "jewelry", "band", "engagement"],
+    "hair-makeup": ["hair", "makeup", "beauty", "bridal look"],
+  };
+
+  const keywords = categoryKeywords[category];
+
+  // Build query conditions
+  const conditions = [eq(boards.isPublic, true)];
+
+  if (keywords.length > 0) {
+    // Filter by board name or description containing category keywords
+    const keywordConditions = keywords.map((kw) =>
+      or(
+        ilike(boards.name, `%${kw}%`),
+        ilike(boards.description, `%${kw}%`)
+      )
+    );
+    conditions.push(or(...keywordConditions)!);
+  }
+
+  // Build order by
+  let orderByClause;
+  switch (sortBy) {
+    case "trending":
+      orderByClause = [
+        desc(sql`${boards.reactionTrendScore} + ${boards.saveTrendScore}`),
+        desc(boards.viewCount),
+      ];
+      break;
+    case "recent":
+      orderByClause = [desc(boards.createdAt)];
+      break;
+    case "popular":
+      orderByClause = [desc(boards.reactionCount), desc(boards.viewCount)];
+      break;
+  }
+
+  const boardsData = await db.query.boards.findMany({
+    where: and(...conditions),
+    with: {
+      tenant: {
+        columns: { id: true, displayName: true, profileImage: true },
+      },
+      ideas: {
+        columns: { id: true, imageUrl: true },
+        orderBy: [desc(ideas.createdAt)],
+      },
+    },
+    orderBy: orderByClause,
+    limit: limit + 1, // Get one extra to check for more
+    offset,
+  });
+
+  const hasMore = boardsData.length > limit;
+  const resultBoards = hasMore ? boardsData.slice(0, limit) : boardsData;
+
+  return {
+    boards: resultBoards.map((board) => ({
+      id: board.id,
+      name: board.name,
+      description: board.description,
+      tenantId: board.tenantId,
+      tenantName: board.tenant?.displayName || "Unknown",
+      tenantImage: board.tenant?.profileImage || null,
+      ideaCount: board.ideas.length,
+      coverImages: board.ideas.slice(0, 4).map((i) => i.imageUrl),
+      reactionCount: board.reactionCount,
+      viewCount: board.viewCount,
+    })),
+    hasMore,
+  };
+}
+
+// =============================================================================
+// VENDOR SOCIAL - Follows, Posts, Showcases
+// =============================================================================
+
+/**
+ * Follow a vendor
+ */
+export async function followVendor(tenantId: string, vendorId: string) {
+  // Check if already following
+  const existing = await db.query.vendorFollows.findFirst({
+    where: and(
+      eq(vendorFollows.tenantId, tenantId),
+      eq(vendorFollows.vendorId, vendorId)
+    ),
+  });
+
+  if (existing) {
+    return { alreadyFollowing: true };
+  }
+
+  // Create follow
+  const [follow] = await db
+    .insert(vendorFollows)
+    .values({ tenantId, vendorId })
+    .returning();
+
+  // Update vendor follower count
+  await db
+    .update(vendorProfiles)
+    .set({ followerCount: sql`${vendorProfiles.followerCount} + 1` })
+    .where(eq(vendorProfiles.id, vendorId));
+
+  // Get vendor info for activity
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, vendorId),
+    columns: { name: true, slug: true },
+  });
+
+  // Create activity
+  await createActivity({
+    actorTenantId: tenantId,
+    type: "vendor_followed",
+    targetType: "vendor",
+    targetId: vendorId,
+    metadata: {
+      vendorName: vendor?.name,
+      vendorSlug: vendor?.slug,
+    },
+  });
+
+  return { follow, alreadyFollowing: false };
+}
+
+/**
+ * Unfollow a vendor
+ */
+export async function unfollowVendor(tenantId: string, vendorId: string) {
+  const deleted = await db
+    .delete(vendorFollows)
+    .where(
+      and(
+        eq(vendorFollows.tenantId, tenantId),
+        eq(vendorFollows.vendorId, vendorId)
+      )
+    )
+    .returning();
+
+  if (deleted.length > 0) {
+    // Update vendor follower count
+    await db
+      .update(vendorProfiles)
+      .set({ followerCount: sql`GREATEST(${vendorProfiles.followerCount} - 1, 0)` })
+      .where(eq(vendorProfiles.id, vendorId));
+  }
+
+  return { unfollowed: deleted.length > 0 };
+}
+
+/**
+ * Check if user is following a vendor
+ */
+export async function isFollowingVendor(tenantId: string, vendorId: string): Promise<boolean> {
+  const follow = await db.query.vendorFollows.findFirst({
+    where: and(
+      eq(vendorFollows.tenantId, tenantId),
+      eq(vendorFollows.vendorId, vendorId)
+    ),
+  });
+
+  return !!follow;
+}
+
+/**
+ * Get vendors a user is following
+ */
+export async function getFollowedVendors(tenantId: string, limit = 20, offset = 0) {
+  const followedVendors = await db.query.vendorFollows.findMany({
+    where: eq(vendorFollows.tenantId, tenantId),
+    with: {
+      vendor: true,
+    },
+    orderBy: [desc(vendorFollows.createdAt)],
+    limit,
+    offset,
+  });
+
+  return followedVendors.map((f) => ({
+    ...f.vendor,
+    followedAt: f.createdAt,
+  }));
+}
+
+/**
+ * Get followers of a vendor
+ */
+export async function getVendorFollowers(vendorId: string, limit = 20, offset = 0) {
+  const followers = await db.query.vendorFollows.findMany({
+    where: eq(vendorFollows.vendorId, vendorId),
+    with: {
+      tenant: {
+        columns: { id: true, displayName: true, profileImage: true, slug: true },
+      },
+    },
+    orderBy: [desc(vendorFollows.createdAt)],
+    limit,
+    offset,
+  });
+
+  return followers.map((f) => ({
+    ...f.tenant,
+    followedAt: f.createdAt,
+  }));
+}
+
+// =============================================================================
+// VENDOR POSTS
+// =============================================================================
+
+export type VendorPostType = "update" | "portfolio" | "special_offer" | "tip";
+
+/**
+ * Create a vendor post
+ */
+export async function createVendorPost(data: {
+  vendorId: string;
+  authorTenantId: string;
+  type: VendorPostType;
+  title?: string;
+  content: string;
+  images?: string[];
+}) {
+  // Verify the author owns the vendor
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, data.vendorId),
+    columns: { claimedByTenantId: true, name: true, slug: true },
+  });
+
+  if (!vendor || vendor.claimedByTenantId !== data.authorTenantId) {
+    throw new Error("Only the vendor owner can create posts");
+  }
+
+  const [post] = await db
+    .insert(vendorPosts)
+    .values({
+      vendorId: data.vendorId,
+      authorTenantId: data.authorTenantId,
+      type: data.type,
+      title: data.title,
+      content: data.content,
+      images: data.images ?? [],
+    })
+    .returning();
+
+  // Update vendor post count
+  await db
+    .update(vendorProfiles)
+    .set({ postCount: sql`${vendorProfiles.postCount} + 1` })
+    .where(eq(vendorProfiles.id, data.vendorId));
+
+  // Create activity for followers
+  await createActivity({
+    actorTenantId: data.authorTenantId,
+    type: "vendor_post",
+    targetType: "vendor_post",
+    targetId: post.id,
+    metadata: {
+      vendorName: vendor.name,
+      vendorSlug: vendor.slug,
+      postType: data.type,
+      postTitle: data.title,
+    },
+  });
+
+  return post;
+}
+
+/**
+ * Get vendor posts
+ */
+export async function getVendorPosts(
+  vendorId: string,
+  options: { limit?: number; offset?: number; type?: VendorPostType } = {}
+) {
+  const conditions = [
+    eq(vendorPosts.vendorId, vendorId),
+    eq(vendorPosts.isPublished, true),
+  ];
+
+  if (options.type) {
+    conditions.push(eq(vendorPosts.type, options.type));
+  }
+
+  const posts = await db.query.vendorPosts.findMany({
+    where: and(...conditions),
+    with: {
+      vendor: {
+        columns: { name: true, slug: true, profileImage: true },
+      },
+      author: {
+        columns: { displayName: true, profileImage: true },
+      },
+    },
+    orderBy: [desc(vendorPosts.createdAt)],
+    limit: options.limit ?? 20,
+    offset: options.offset ?? 0,
+  });
+
+  return posts;
+}
+
+/**
+ * Get single vendor post by ID
+ */
+export async function getVendorPostById(postId: string) {
+  return db.query.vendorPosts.findFirst({
+    where: eq(vendorPosts.id, postId),
+    with: {
+      vendor: {
+        columns: { id: true, name: true, slug: true, profileImage: true },
+      },
+      author: {
+        columns: { displayName: true, profileImage: true },
+      },
+    },
+  });
+}
+
+/**
+ * Update a vendor post
+ */
+export async function updateVendorPost(
+  postId: string,
+  tenantId: string,
+  data: { title?: string; content?: string; images?: string[]; type?: VendorPostType }
+) {
+  const post = await db.query.vendorPosts.findFirst({
+    where: eq(vendorPosts.id, postId),
+  });
+
+  if (!post || post.authorTenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  const [updated] = await db
+    .update(vendorPosts)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(vendorPosts.id, postId))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Delete a vendor post
+ */
+export async function deleteVendorPost(postId: string, tenantId: string) {
+  const post = await db.query.vendorPosts.findFirst({
+    where: eq(vendorPosts.id, postId),
+  });
+
+  if (!post || post.authorTenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.delete(vendorPosts).where(eq(vendorPosts.id, postId));
+
+  // Update vendor post count
+  await db
+    .update(vendorProfiles)
+    .set({ postCount: sql`GREATEST(${vendorProfiles.postCount} - 1, 0)` })
+    .where(eq(vendorProfiles.id, post.vendorId));
+}
+
+/**
+ * Get posts from vendors a user follows
+ */
+export async function getFollowedVendorPosts(tenantId: string, limit = 20, offset = 0) {
+  // Get IDs of vendors the user follows
+  const followedVendorIds = await db
+    .select({ vendorId: vendorFollows.vendorId })
+    .from(vendorFollows)
+    .where(eq(vendorFollows.tenantId, tenantId));
+
+  if (followedVendorIds.length === 0) {
+    return [];
+  }
+
+  const vendorIds = followedVendorIds.map((f) => f.vendorId);
+
+  const posts = await db.query.vendorPosts.findMany({
+    where: and(
+      inArray(vendorPosts.vendorId, vendorIds),
+      eq(vendorPosts.isPublished, true)
+    ),
+    with: {
+      vendor: {
+        columns: { id: true, name: true, slug: true, profileImage: true },
+      },
+      author: {
+        columns: { displayName: true, profileImage: true },
+      },
+    },
+    orderBy: [desc(vendorPosts.createdAt)],
+    limit,
+    offset,
+  });
+
+  return posts;
+}
+
+// =============================================================================
+// WEDDING SHOWCASES
+// =============================================================================
+
+/**
+ * Create a wedding showcase
+ */
+export async function createWeddingShowcase(data: {
+  vendorId: string;
+  authorTenantId: string;
+  title: string;
+  description?: string;
+  weddingDate?: Date;
+  location?: string;
+  images: string[];
+  featuredImage?: string;
+  vendorList?: Array<{ vendorId?: string; role: string; name: string }>;
+  coupleTenantId?: string;
+}) {
+  // Verify the author owns the vendor
+  const vendor = await db.query.vendorProfiles.findFirst({
+    where: eq(vendorProfiles.id, data.vendorId),
+    columns: { claimedByTenantId: true, name: true, slug: true },
+  });
+
+  if (!vendor || vendor.claimedByTenantId !== data.authorTenantId) {
+    throw new Error("Only the vendor owner can create showcases");
+  }
+
+  const [showcase] = await db
+    .insert(weddingShowcases)
+    .values({
+      vendorId: data.vendorId,
+      authorTenantId: data.authorTenantId,
+      title: data.title,
+      description: data.description,
+      weddingDate: data.weddingDate,
+      location: data.location,
+      images: data.images,
+      featuredImage: data.featuredImage ?? data.images[0],
+      vendorList: data.vendorList ?? [],
+      coupleTenantId: data.coupleTenantId,
+      // If couple is tagged, they need to approve
+      coupleApproved: !data.coupleTenantId,
+    })
+    .returning();
+
+  // Update vendor showcase count
+  await db
+    .update(vendorProfiles)
+    .set({ showcaseCount: sql`${vendorProfiles.showcaseCount} + 1` })
+    .where(eq(vendorProfiles.id, data.vendorId));
+
+  // Create activity
+  await createActivity({
+    actorTenantId: data.authorTenantId,
+    type: "showcase_created",
+    targetType: "showcase",
+    targetId: showcase.id,
+    metadata: {
+      vendorName: vendor.name,
+      vendorSlug: vendor.slug,
+      showcaseTitle: data.title,
+    },
+  });
+
+  return showcase;
+}
+
+/**
+ * Get wedding showcases
+ */
+export async function getWeddingShowcases(
+  options: {
+    vendorId?: string;
+    limit?: number;
+    offset?: number;
+    featured?: boolean;
+  } = {}
+) {
+  const conditions = [eq(weddingShowcases.isPublished, true)];
+
+  if (options.vendorId) {
+    conditions.push(eq(weddingShowcases.vendorId, options.vendorId));
+  }
+
+  if (options.featured) {
+    conditions.push(eq(weddingShowcases.isFeatured, true));
+  }
+
+  const showcases = await db.query.weddingShowcases.findMany({
+    where: and(...conditions),
+    with: {
+      vendor: {
+        columns: { id: true, name: true, slug: true, profileImage: true, category: true },
+      },
+      author: {
+        columns: { displayName: true, profileImage: true },
+      },
+      couple: {
+        columns: { id: true, displayName: true, profileImage: true },
+      },
+    },
+    orderBy: [desc(weddingShowcases.createdAt)],
+    limit: options.limit ?? 20,
+    offset: options.offset ?? 0,
+  });
+
+  return showcases;
+}
+
+/**
+ * Get single showcase by ID
+ */
+export async function getWeddingShowcaseById(showcaseId: string) {
+  const showcase = await db.query.weddingShowcases.findFirst({
+    where: eq(weddingShowcases.id, showcaseId),
+    with: {
+      vendor: {
+        columns: { id: true, name: true, slug: true, profileImage: true, category: true },
+      },
+      author: {
+        columns: { displayName: true, profileImage: true },
+      },
+      couple: {
+        columns: { id: true, displayName: true, profileImage: true },
+      },
+    },
+  });
+
+  if (showcase) {
+    // Increment view count
+    await db
+      .update(weddingShowcases)
+      .set({ viewCount: sql`${weddingShowcases.viewCount} + 1` })
+      .where(eq(weddingShowcases.id, showcaseId));
+  }
+
+  return showcase;
+}
+
+/**
+ * Update a wedding showcase
+ */
+export async function updateWeddingShowcase(
+  showcaseId: string,
+  tenantId: string,
+  data: {
+    title?: string;
+    description?: string;
+    weddingDate?: Date;
+    location?: string;
+    images?: string[];
+    featuredImage?: string;
+    vendorList?: Array<{ vendorId?: string; role: string; name: string }>;
+  }
+) {
+  const showcase = await db.query.weddingShowcases.findFirst({
+    where: eq(weddingShowcases.id, showcaseId),
+  });
+
+  if (!showcase || showcase.authorTenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  const [updated] = await db
+    .update(weddingShowcases)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(weddingShowcases.id, showcaseId))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Delete a wedding showcase
+ */
+export async function deleteWeddingShowcase(showcaseId: string, tenantId: string) {
+  const showcase = await db.query.weddingShowcases.findFirst({
+    where: eq(weddingShowcases.id, showcaseId),
+  });
+
+  if (!showcase || showcase.authorTenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.delete(weddingShowcases).where(eq(weddingShowcases.id, showcaseId));
+
+  // Update vendor showcase count
+  await db
+    .update(vendorProfiles)
+    .set({ showcaseCount: sql`GREATEST(${vendorProfiles.showcaseCount} - 1, 0)` })
+    .where(eq(vendorProfiles.id, showcase.vendorId));
+}
+
+/**
+ * Couple approves their tagging in a showcase
+ */
+export async function approveShowcaseTagging(showcaseId: string, tenantId: string) {
+  const showcase = await db.query.weddingShowcases.findFirst({
+    where: eq(weddingShowcases.id, showcaseId),
+  });
+
+  if (!showcase || showcase.coupleTenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  const [updated] = await db
+    .update(weddingShowcases)
+    .set({ coupleApproved: true })
+    .where(eq(weddingShowcases.id, showcaseId))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Get showcases where user is tagged (for approval)
+ */
+export async function getShowcasesAwaitingApproval(tenantId: string) {
+  return db.query.weddingShowcases.findMany({
+    where: and(
+      eq(weddingShowcases.coupleTenantId, tenantId),
+      eq(weddingShowcases.coupleApproved, false)
+    ),
+    with: {
+      vendor: {
+        columns: { id: true, name: true, slug: true, profileImage: true },
+      },
+    },
+    orderBy: [desc(weddingShowcases.createdAt)],
+  });
+}
+
+/**
+ * React to a vendor post
+ */
+export async function reactToVendorPost(postId: string, tenantId: string) {
+  // Check for existing reaction
+  const existing = await db.query.reactions.findFirst({
+    where: and(
+      eq(reactions.tenantId, tenantId),
+      eq(reactions.targetType, "vendor_post"),
+      eq(reactions.targetId, postId)
+    ),
+  });
+
+  if (existing) {
+    // Remove reaction
+    await db.delete(reactions).where(eq(reactions.id, existing.id));
+    await db
+      .update(vendorPosts)
+      .set({ reactionCount: sql`GREATEST(${vendorPosts.reactionCount} - 1, 0)` })
+      .where(eq(vendorPosts.id, postId));
+    return { reacted: false };
+  }
+
+  // Add reaction
+  await db.insert(reactions).values({
+    tenantId,
+    targetType: "vendor_post",
+    targetId: postId,
+    type: "like",
+  });
+
+  await db
+    .update(vendorPosts)
+    .set({ reactionCount: sql`${vendorPosts.reactionCount} + 1` })
+    .where(eq(vendorPosts.id, postId));
+
+  return { reacted: true };
+}
+
+/**
+ * React to a showcase
+ */
+export async function reactToShowcase(showcaseId: string, tenantId: string) {
+  // Check for existing reaction
+  const existing = await db.query.reactions.findFirst({
+    where: and(
+      eq(reactions.tenantId, tenantId),
+      eq(reactions.targetType, "showcase"),
+      eq(reactions.targetId, showcaseId)
+    ),
+  });
+
+  if (existing) {
+    // Remove reaction
+    await db.delete(reactions).where(eq(reactions.id, existing.id));
+    await db
+      .update(weddingShowcases)
+      .set({ reactionCount: sql`GREATEST(${weddingShowcases.reactionCount} - 1, 0)` })
+      .where(eq(weddingShowcases.id, showcaseId));
+    return { reacted: false };
+  }
+
+  // Add reaction
+  await db.insert(reactions).values({
+    tenantId,
+    targetType: "showcase",
+    targetId: showcaseId,
+    type: "like",
+  });
+
+  await db
+    .update(weddingShowcases)
+    .set({ reactionCount: sql`${weddingShowcases.reactionCount} + 1` })
+    .where(eq(weddingShowcases.id, showcaseId));
+
+  return { reacted: true };
+}
+
+/**
+ * Check if user has reacted to a post or showcase
+ */
+export async function hasReacted(
+  tenantId: string,
+  targetType: "vendor_post" | "showcase",
+  targetId: string
+): Promise<boolean> {
+  const reaction = await db.query.reactions.findFirst({
+    where: and(
+      eq(reactions.tenantId, tenantId),
+      eq(reactions.targetType, targetType),
+      eq(reactions.targetId, targetId)
+    ),
+  });
+
+  return !!reaction;
 }

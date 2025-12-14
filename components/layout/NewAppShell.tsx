@@ -3,11 +3,11 @@
 import * as React from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  MessageSquare, 
-  Settings, 
-  LogOut, 
-  Menu, 
+import {
+  MessageSquare,
+  Settings,
+  LogOut,
+  Menu,
   X,
   LayoutDashboard,
   CreditCard,
@@ -20,6 +20,7 @@ import {
   CalendarRange,
   Armchair
 } from 'lucide-react';
+import { NotificationBell } from "@/components/tools/stem/NotificationBell";
 
 import {
   BrowserProvider,
@@ -79,8 +80,9 @@ function MainContent({ children }: { children: React.ReactNode }) {
   const SidebarContent = () => (
     <nav className="flex flex-col h-full bg-canvas/50 border-r border-border backdrop-blur-xl" aria-label="Main navigation">
       {/* Header */}
-      <div className="h-16 flex items-center px-6 border-b border-border/50">
+      <div className="h-16 flex items-center justify-between px-6 border-b border-border/50">
         <span className="font-serif text-2xl font-medium tracking-tight text-foreground">Scribe & Stem</span>
+        <NotificationBell />
       </div>
 
       {/* Navigation */}
@@ -207,19 +209,22 @@ function MainContent({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative min-w-0 overflow-hidden bg-white/50">
         {/* Mobile Header */}
-        <div className="md:hidden h-16 flex items-center px-4 border-b border-border bg-background/80 backdrop-blur-md z-20">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(true)}
-            className="-ml-2"
-            aria-label="Open navigation menu"
-            aria-expanded={isMobileOpen}
-            aria-controls="mobile-nav"
-          >
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          </Button>
-          <span className="ml-2 font-serif text-lg font-medium">Scribe & Stem</span>
+        <div className="md:hidden h-16 flex items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-md z-20">
+          <div className="flex items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileOpen(true)}
+              className="-ml-2"
+              aria-label="Open navigation menu"
+              aria-expanded={isMobileOpen}
+              aria-controls="mobile-nav"
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            </Button>
+            <span className="ml-2 font-serif text-lg font-medium">Scribe & Stem</span>
+          </div>
+          <NotificationBell />
         </div>
 
         {/* Content Scroll Area */}

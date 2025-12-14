@@ -632,6 +632,11 @@ export const boards = pgTable("boards", {
   commentCount: integer("comment_count").default(0).notNull(),
   linkedVendorId: uuid("linked_vendor_id"), // For vendor showcase boards
 
+  // Trending scores
+  saveTrendScore: integer("save_trend_score").default(0).notNull(),
+  reactionTrendScore: integer("reaction_trend_score").default(0).notNull(),
+  lastTrendUpdate: timestamp("last_trend_update", { withTimezone: true }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -680,6 +685,11 @@ export const ideas = pgTable("ideas", {
   commentCount: integer("comment_count").default(0).notNull(),
   linkedVendorId: uuid("linked_vendor_id"), // If idea showcases a vendor
   linkedArticleSlug: text("linked_article_slug"), // If idea is from an article
+
+  // Trending scores
+  saveTrendScore: integer("save_trend_score").default(0).notNull(),
+  reactionTrendScore: integer("reaction_trend_score").default(0).notNull(),
+  lastTrendUpdate: timestamp("last_trend_update", { withTimezone: true }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -1242,6 +1252,13 @@ export const messages = pgTable(
 
     content: text("content").notNull(),
 
+    // Message type (for attachments)
+    messageType: text("message_type").default("text"), // "text" | "image" | "attachment"
+    attachmentUrl: text("attachment_url"),
+    attachmentType: text("attachment_type"), // MIME type
+    attachmentName: text("attachment_name"),
+    attachmentSize: integer("attachment_size"), // in bytes
+
     // Read status
     readAt: timestamp("read_at", { withTimezone: true }),
 
@@ -1309,6 +1326,11 @@ export const vendorProfiles = pgTable(
     averageRating: integer("average_rating"), // 1-5 scaled to 10-50
     saveCount: integer("save_count").default(0),
     questionCount: integer("question_count").default(0),
+
+    // Social stats
+    followerCount: integer("follower_count").default(0).notNull(),
+    postCount: integer("post_count").default(0).notNull(),
+    showcaseCount: integer("showcase_count").default(0).notNull(),
 
     // Verification
     isVerified: boolean("is_verified").default(false).notNull(),
@@ -1690,6 +1712,412 @@ export const vendorQuestionsRelations = relations(vendorQuestions, ({ one }) => 
 
 export type VendorQuestion = typeof vendorQuestions.$inferSelect;
 export type NewVendorQuestion = typeof vendorQuestions.$inferInsert;
+
+// ============================================================================
+// NOTIFICATIONS - System notifications for social features
+// ============================================================================
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipientTenantId: uuid("recipient_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Notification type
+    type: text("type").notNull(), // "new_follower" | "reaction" | "comment" | "message" | "board_shared" | "collaborator_invite" | "vendor_post" | "showcase_tag"
+
+    // Who triggered this notification (optional - system notifications have no actor)
+    actorTenantId: uuid("actor_tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Target entity (polymorphic)
+    targetType: text("target_type"), // "board" | "idea" | "conversation" | "vendor_post" | "showcase" | null
+    targetId: text("target_id"),
+
+    // Additional context
+    metadata: jsonb("metadata").default({}),
+
+    // Read status
+    isRead: boolean("is_read").default(false).notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    recipientIdx: index("notifications_recipient_idx").on(table.recipientTenantId),
+    readIdx: index("notifications_read_idx").on(table.recipientTenantId, table.isRead),
+    createdIdx: index("notifications_created_idx").on(table.createdAt),
+  })
+);
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  recipient: one(tenants, {
+    fields: [notifications.recipientTenantId],
+    references: [tenants.id],
+    relationName: "notificationRecipient",
+  }),
+  actor: one(tenants, {
+    fields: [notifications.actorTenantId],
+    references: [tenants.id],
+    relationName: "notificationActor",
+  }),
+}));
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
+
+// ============================================================================
+// TRENDING SNAPSHOTS - Cached trending content
+// ============================================================================
+export const trendingSnapshots = pgTable(
+  "trending_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // What type of trending content
+    type: text("type").notNull(), // "boards" | "ideas" | "showcases"
+
+    // Scope
+    region: text("region"), // NULL for global
+
+    // Cached trending data
+    data: jsonb("data").notNull().default([]),
+
+    // Cache management
+    computedAt: timestamp("computed_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (table) => ({
+    typeRegionIdx: uniqueIndex("trending_snapshots_type_region_idx").on(table.type, table.region),
+    expiresIdx: index("trending_snapshots_expires_idx").on(table.expiresAt),
+  })
+);
+
+export type TrendingSnapshot = typeof trendingSnapshots.$inferSelect;
+export type NewTrendingSnapshot = typeof trendingSnapshots.$inferInsert;
+
+// ============================================================================
+// BOARD COLLABORATORS - Collaborative boards
+// ============================================================================
+export const boardCollaborators = pgTable(
+  "board_collaborators",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Permission level
+    permission: text("permission").notNull(), // "owner" | "editor" | "viewer"
+
+    // Invitation tracking
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"), // "pending" | "accepted" | "declined"
+    invitedAt: timestamp("invited_at").defaultNow().notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  },
+  (table) => ({
+    boardIdx: index("board_collaborators_board_idx").on(table.boardId),
+    tenantIdx: index("board_collaborators_tenant_idx").on(table.tenantId),
+    boardTenantIdx: uniqueIndex("board_collaborators_board_tenant_idx").on(
+      table.boardId,
+      table.tenantId
+    ),
+  })
+);
+
+export const boardCollaboratorsRelations = relations(boardCollaborators, ({ one }) => ({
+  board: one(boards, {
+    fields: [boardCollaborators.boardId],
+    references: [boards.id],
+  }),
+  tenant: one(tenants, {
+    fields: [boardCollaborators.tenantId],
+    references: [tenants.id],
+  }),
+  inviter: one(tenants, {
+    fields: [boardCollaborators.invitedBy],
+    references: [tenants.id],
+  }),
+}));
+
+export type BoardCollaborator = typeof boardCollaborators.$inferSelect;
+export type NewBoardCollaborator = typeof boardCollaborators.$inferInsert;
+
+// ============================================================================
+// WEDDING PARTY MEMBERS - Wedding party management
+// ============================================================================
+export const weddingPartyMembers = pgTable(
+  "wedding_party_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Member info
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+
+    // Role
+    role: text("role").notNull(), // "bridesmaid" | "groomsman" | "maid_of_honor" | "best_man" | "flower_girl" | "ring_bearer" | "officiant" | "other"
+    side: text("side").notNull().default("both"), // "bride" | "groom" | "both"
+
+    // If they have an account, link it
+    linkedTenantId: uuid("linked_tenant_id").references(() => tenants.id, { onDelete: "set null" }),
+
+    // Invitation status
+    invitationStatus: text("invitation_status").default("not_invited"), // "not_invited" | "invited" | "accepted" | "declined"
+    invitationToken: text("invitation_token").unique(),
+    invitedAt: timestamp("invited_at", { withTimezone: true }),
+
+    // Permissions
+    canViewPlanning: boolean("can_view_planning").default(false).notNull(),
+    canViewBudget: boolean("can_view_budget").default(false).notNull(),
+    canEditPartyBoards: boolean("can_edit_party_boards").default(false).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("wedding_party_members_tenant_idx").on(table.tenantId),
+    linkedTenantIdx: index("wedding_party_members_linked_idx").on(table.linkedTenantId),
+    tokenIdx: uniqueIndex("wedding_party_members_token_idx").on(table.invitationToken),
+  })
+);
+
+export const weddingPartyMembersRelations = relations(weddingPartyMembers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [weddingPartyMembers.tenantId],
+    references: [tenants.id],
+  }),
+  linkedTenant: one(tenants, {
+    fields: [weddingPartyMembers.linkedTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type WeddingPartyMember = typeof weddingPartyMembers.$inferSelect;
+export type NewWeddingPartyMember = typeof weddingPartyMembers.$inferInsert;
+
+// ============================================================================
+// BOARD SHARES - Public sharing links for boards
+// ============================================================================
+export const boardShares = pgTable(
+  "board_shares",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    boardId: uuid("board_id")
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+
+    // Share type
+    shareType: text("share_type").notNull(), // "link" | "email" | "vendor"
+
+    // Unique share token for URL
+    shareToken: text("share_token").notNull().unique(),
+
+    // Permission level for viewers
+    permission: text("permission").default("view"), // "view" | "comment"
+
+    // Optional expiration
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+
+    // Analytics
+    viewCount: integer("view_count").default(0).notNull(),
+
+    // Who created this share
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    boardIdx: index("board_shares_board_idx").on(table.boardId),
+    tokenIdx: uniqueIndex("board_shares_token_idx").on(table.shareToken),
+  })
+);
+
+export const boardSharesRelations = relations(boardShares, ({ one }) => ({
+  board: one(boards, {
+    fields: [boardShares.boardId],
+    references: [boards.id],
+  }),
+  creator: one(tenants, {
+    fields: [boardShares.createdBy],
+    references: [tenants.id],
+  }),
+}));
+
+export type BoardShare = typeof boardShares.$inferSelect;
+export type NewBoardShare = typeof boardShares.$inferInsert;
+
+// ============================================================================
+// VENDOR FOLLOWS - Follow vendors for updates
+// ============================================================================
+export const vendorFollows = pgTable(
+  "vendor_follows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantVendorIdx: uniqueIndex("vendor_follows_tenant_vendor_idx").on(
+      table.tenantId,
+      table.vendorId
+    ),
+    tenantIdx: index("vendor_follows_tenant_idx").on(table.tenantId),
+    vendorIdx: index("vendor_follows_vendor_idx").on(table.vendorId),
+  })
+);
+
+export const vendorFollowsRelations = relations(vendorFollows, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [vendorFollows.tenantId],
+    references: [tenants.id],
+  }),
+  vendor: one(vendorProfiles, {
+    fields: [vendorFollows.vendorId],
+    references: [vendorProfiles.id],
+  }),
+}));
+
+export type VendorFollow = typeof vendorFollows.$inferSelect;
+export type NewVendorFollow = typeof vendorFollows.$inferInsert;
+
+// ============================================================================
+// VENDOR POSTS - Posts/updates from vendors
+// ============================================================================
+export const vendorPosts = pgTable(
+  "vendor_posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+    authorTenantId: uuid("author_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Post type
+    type: text("type").notNull(), // "update" | "portfolio" | "special_offer" | "tip"
+
+    // Content
+    title: text("title"),
+    content: text("content").notNull(),
+    images: jsonb("images").default([]),
+
+    // Engagement
+    reactionCount: integer("reaction_count").default(0).notNull(),
+    commentCount: integer("comment_count").default(0).notNull(),
+
+    // Visibility
+    isPublished: boolean("is_published").default(true).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    vendorIdx: index("vendor_posts_vendor_idx").on(table.vendorId),
+    createdIdx: index("vendor_posts_created_idx").on(table.createdAt),
+  })
+);
+
+export const vendorPostsRelations = relations(vendorPosts, ({ one }) => ({
+  vendor: one(vendorProfiles, {
+    fields: [vendorPosts.vendorId],
+    references: [vendorProfiles.id],
+  }),
+  author: one(tenants, {
+    fields: [vendorPosts.authorTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type VendorPost = typeof vendorPosts.$inferSelect;
+export type NewVendorPost = typeof vendorPosts.$inferInsert;
+
+// ============================================================================
+// WEDDING SHOWCASES - Real wedding showcases from vendors
+// ============================================================================
+export const weddingShowcases = pgTable(
+  "wedding_showcases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendorProfiles.id, { onDelete: "cascade" }),
+    authorTenantId: uuid("author_tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+
+    // Tagged couple (optional)
+    coupleTenantId: uuid("couple_tenant_id").references(() => tenants.id, { onDelete: "set null" }),
+    coupleApproved: boolean("couple_approved").default(false).notNull(),
+
+    // Content
+    title: text("title").notNull(),
+    description: text("description"),
+    weddingDate: timestamp("wedding_date", { withTimezone: true }),
+    location: text("location"),
+
+    // Images
+    images: jsonb("images").default([]),
+    featuredImage: text("featured_image"),
+
+    // Vendor credits
+    vendorList: jsonb("vendor_list").default([]), // [{ vendorId, role, name }]
+
+    // Engagement
+    viewCount: integer("view_count").default(0).notNull(),
+    reactionCount: integer("reaction_count").default(0).notNull(),
+    commentCount: integer("comment_count").default(0).notNull(),
+
+    // Visibility
+    isPublished: boolean("is_published").default(true).notNull(),
+    isFeatured: boolean("is_featured").default(false).notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    vendorIdx: index("wedding_showcases_vendor_idx").on(table.vendorId),
+    coupleIdx: index("wedding_showcases_couple_idx").on(table.coupleTenantId),
+    createdIdx: index("wedding_showcases_created_idx").on(table.createdAt),
+  })
+);
+
+export const weddingShowcasesRelations = relations(weddingShowcases, ({ one }) => ({
+  vendor: one(vendorProfiles, {
+    fields: [weddingShowcases.vendorId],
+    references: [vendorProfiles.id],
+  }),
+  author: one(tenants, {
+    fields: [weddingShowcases.authorTenantId],
+    references: [tenants.id],
+  }),
+  couple: one(tenants, {
+    fields: [weddingShowcases.coupleTenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export type WeddingShowcase = typeof weddingShowcases.$inferSelect;
+export type NewWeddingShowcase = typeof weddingShowcases.$inferInsert;
 
 // ============================================================================
 // SANITY HISTORY - Track stress/sanity snapshots over time

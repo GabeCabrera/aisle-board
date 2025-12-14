@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -24,12 +25,65 @@ import {
   ImageIcon,
   Loader2,
   ExternalLink,
+  Users,
+  Newspaper,
+  Camera,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VendorReviewCard } from "./VendorReviewCard";
 import { VendorReviewForm } from "./VendorReviewForm";
 import { VendorQASection } from "./VendorQASection";
+import { VendorFollowButton } from "./VendorFollowButton";
+import { VendorPostCard } from "./VendorPostCard";
+import { VendorPostForm } from "./VendorPostForm";
+import { ShowcaseCard } from "./ShowcaseCard";
 import type { VendorProfile as VendorProfileType, VendorReview, VendorQuestion } from "@/lib/db/schema";
+
+interface VendorPost {
+  id: string;
+  type: string;
+  title?: string | null;
+  content: string;
+  images?: string[];
+  reactionCount: number;
+  commentCount: number;
+  createdAt: Date | string;
+  vendor?: {
+    name: string;
+    slug: string;
+    profileImage?: string | null;
+  } | null;
+  author?: {
+    displayName: string;
+    profileImage?: string | null;
+  } | null;
+}
+
+interface Showcase {
+  id: string;
+  title: string;
+  description?: string | null;
+  weddingDate?: Date | string | null;
+  location?: string | null;
+  featuredImage?: string | null;
+  images?: string[];
+  viewCount: number;
+  reactionCount: number;
+  isFeatured: boolean;
+  vendor?: {
+    id?: string;
+    name: string;
+    slug: string;
+    profileImage?: string | null;
+    category?: string | null;
+  } | null;
+  couple?: {
+    id?: string;
+    displayName: string;
+    profileImage?: string | null;
+  } | null;
+}
 
 interface VendorProfileProps {
   vendor: VendorProfileType & {
@@ -97,6 +151,52 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
   const [isSaving, setIsSaving] = useState(false);
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [activeTab, setActiveTab] = useState("about");
+  const [posts, setPosts] = useState<VendorPost[]>([]);
+  const [showcases, setShowcases] = useState<Showcase[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [isLoadingShowcases, setIsLoadingShowcases] = useState(false);
+  const [showPostForm, setShowPostForm] = useState(false);
+
+  // Fetch posts when switching to posts tab
+  useEffect(() => {
+    if (activeTab === "posts" && posts.length === 0 && !isLoadingPosts) {
+      fetchPosts();
+    }
+    if (activeTab === "showcases" && showcases.length === 0 && !isLoadingShowcases) {
+      fetchShowcases();
+    }
+  }, [activeTab]);
+
+  const fetchPosts = async () => {
+    setIsLoadingPosts(true);
+    try {
+      const response = await fetch(`/api/vendors/${vendor.slug}/posts`);
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts);
+      }
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  };
+
+  const fetchShowcases = async () => {
+    setIsLoadingShowcases(true);
+    try {
+      const response = await fetch(`/api/showcases?vendorId=${vendor.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setShowcases(data.showcases);
+      }
+    } catch (error) {
+      console.error("Error fetching showcases:", error);
+    } finally {
+      setIsLoadingShowcases(false);
+    }
+  };
 
   const coverImage = vendor.coverImage || vendor.profileImage;
   const categoryLabel = CATEGORY_LABELS[vendor.category] || vendor.category;
@@ -337,15 +437,36 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
                     )}
                   </div>
 
+                  {/* Social Stats */}
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      {vendor.followerCount ?? 0} followers
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Newspaper className="h-4 w-4" />
+                      {vendor.postCount ?? 0} posts
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Camera className="h-4 w-4" />
+                      {vendor.showcaseCount ?? 0} showcases
+                    </span>
+                  </div>
+
                   {/* Action Buttons */}
                   <div className="flex flex-wrap items-center gap-3">
+                    <VendorFollowButton
+                      vendorSlug={vendor.slug}
+                      vendorName={vendor.name}
+                      size="lg"
+                    />
+
                     <Button
                       size="lg"
+                      variant="outline"
                       className={cn(
                         "rounded-full px-6 transition-all",
-                        isSaved
-                          ? "bg-rose-100 text-rose-600 hover:bg-rose-200"
-                          : "bg-primary text-primary-foreground hover:bg-primary/90"
+                        isSaved && "bg-rose-100 text-rose-600 border-rose-200 hover:bg-rose-200"
                       )}
                       onClick={handleSave}
                       disabled={isSaving}
@@ -391,141 +512,267 @@ export function VendorProfile({ vendor, reviews, questions, isVendorOwner = fals
         </div>
       </div>
 
-      {/* Description */}
-      {(vendor.description || vendor.bio) && (
-        <div className="space-y-3">
-          <h2 className="font-serif text-2xl text-foreground">About</h2>
-          <p className="text-muted-foreground leading-relaxed max-w-3xl">
-            {vendor.description || vendor.bio}
-          </p>
-        </div>
-      )}
+      {/* Content Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+          <TabsTrigger
+            value="about"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+          >
+            About
+          </TabsTrigger>
+          <TabsTrigger
+            value="posts"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+          >
+            Posts ({vendor.postCount ?? 0})
+          </TabsTrigger>
+          <TabsTrigger
+            value="showcases"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+          >
+            Showcases ({vendor.showcaseCount ?? 0})
+          </TabsTrigger>
+          <TabsTrigger
+            value="reviews"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+          >
+            Reviews ({vendor.reviewCount ?? 0})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Contact Links */}
-      <div className="flex flex-wrap gap-3">
-        {vendor.website && (
-          <a href={vendor.website} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" className="rounded-full gap-2">
-              <Globe className="h-4 w-4" />
-              Website
-              <ExternalLink className="h-3 w-3" />
-            </Button>
-          </a>
-        )}
-        {vendor.instagram && (
-          <a href={`https://instagram.com/${vendor.instagram}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" className="rounded-full gap-2">
-              <Instagram className="h-4 w-4" />
-              @{vendor.instagram}
-            </Button>
-          </a>
-        )}
-        {vendor.email && (
-          <a href={`mailto:${vendor.email}`}>
-            <Button variant="outline" className="rounded-full gap-2">
-              <Mail className="h-4 w-4" />
-              Email
-            </Button>
-          </a>
-        )}
-        {vendor.phone && (
-          <a href={`tel:${vendor.phone}`}>
-            <Button variant="outline" className="rounded-full gap-2">
-              <Phone className="h-4 w-4" />
-              {vendor.phone}
-            </Button>
-          </a>
-        )}
-      </div>
-
-      {/* Portfolio Gallery */}
-      {portfolioImages.length > 0 && (
-        <div className="space-y-6">
-          <h2 className="font-serif text-2xl text-foreground">Portfolio</h2>
-          <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 550: 2, 900: 3 }}>
-            <Masonry gutter="16px">
-              {portfolioImages.map((image, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl overflow-hidden relative aspect-auto group cursor-pointer"
-                >
-                  <Image
-                    src={image}
-                    alt={`${vendor.name} portfolio ${index + 1}`}
-                    width={400}
-                    height={300}
-                    className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
-                    unoptimized
-                  />
-                </div>
-              ))}
-            </Masonry>
-          </ResponsiveMasonry>
-        </div>
-      )}
-
-      {/* Reviews Section */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-2xl text-foreground">
-            Reviews ({vendor.reviewCount || 0})
-          </h2>
-          {!vendor.userReview && !showReviewForm && (
-            <Button
-              className="rounded-full"
-              onClick={() => setShowReviewForm(true)}
-            >
-              Write a Review
-            </Button>
+        {/* About Tab */}
+        <TabsContent value="about" className="mt-8 space-y-12">
+          {/* Description */}
+          {(vendor.description || vendor.bio) && (
+            <div className="space-y-3">
+              <h2 className="font-serif text-2xl text-foreground">About</h2>
+              <p className="text-muted-foreground leading-relaxed max-w-3xl">
+                {vendor.description || vendor.bio}
+              </p>
+            </div>
           )}
-        </div>
 
-        {/* Review Form */}
-        {showReviewForm && (
-          <VendorReviewForm
+          {/* Contact Links */}
+          <div className="flex flex-wrap gap-3">
+            {vendor.website && (
+              <a href={vendor.website} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="rounded-full gap-2">
+                  <Globe className="h-4 w-4" />
+                  Website
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </a>
+            )}
+            {vendor.instagram && (
+              <a href={`https://instagram.com/${vendor.instagram}`} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="rounded-full gap-2">
+                  <Instagram className="h-4 w-4" />
+                  @{vendor.instagram}
+                </Button>
+              </a>
+            )}
+            {vendor.email && (
+              <a href={`mailto:${vendor.email}`}>
+                <Button variant="outline" className="rounded-full gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email
+                </Button>
+              </a>
+            )}
+            {vendor.phone && (
+              <a href={`tel:${vendor.phone}`}>
+                <Button variant="outline" className="rounded-full gap-2">
+                  <Phone className="h-4 w-4" />
+                  {vendor.phone}
+                </Button>
+              </a>
+            )}
+          </div>
+
+          {/* Portfolio Gallery */}
+          {portfolioImages.length > 0 && (
+            <div className="space-y-6">
+              <h2 className="font-serif text-2xl text-foreground">Portfolio</h2>
+              <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 550: 2, 900: 3 }}>
+                <Masonry gutter="16px">
+                  {portfolioImages.map((image, index) => (
+                    <div
+                      key={index}
+                      className="rounded-2xl overflow-hidden relative aspect-auto group cursor-pointer"
+                    >
+                      <Image
+                        src={image}
+                        alt={`${vendor.name} portfolio ${index + 1}`}
+                        width={400}
+                        height={300}
+                        className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
+                        unoptimized
+                      />
+                    </div>
+                  ))}
+                </Masonry>
+              </ResponsiveMasonry>
+            </div>
+          )}
+
+          {/* Q&A Section */}
+          <VendorQASection
             vendorName={vendor.name}
-            onSubmit={handleReviewSubmit}
-            onCancel={() => setShowReviewForm(false)}
+            vendorSlug={vendor.slug}
+            questions={questions}
+            questionCount={vendor.questionCount ?? 0}
+            isVendorOwner={isVendorOwner}
+            onQuestionSubmit={handleQuestionSubmit}
+            onAnswerSubmit={handleAnswerSubmit}
           />
-        )}
+        </TabsContent>
 
-        {/* User's existing review */}
-        {vendor.userReview && (
-          <div className="mb-6">
-            <p className="text-sm text-muted-foreground mb-2">Your Review</p>
-            <VendorReviewCard
-              review={{
-                ...vendor.userReview,
-                tenant: { id: "", displayName: "You", profileImage: null, slug: "" },
-              }}
-              isOwnReview
-            />
-          </div>
-        )}
+        {/* Posts Tab */}
+        <TabsContent value="posts" className="mt-8">
+          <div className="space-y-6">
+            {isVendorOwner && (
+              <div className="flex justify-end">
+                <Button onClick={() => setShowPostForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Post
+                </Button>
+              </div>
+            )}
 
-        {/* Other reviews */}
-        {reviews.length === 0 && !vendor.userReview ? (
-          <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-3xl bg-muted/5">
-            <p>No reviews yet. Be the first to review!</p>
+            {isLoadingPosts ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-3xl bg-muted/5">
+                <Newspaper className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No posts yet.</p>
+                {isVendorOwner && (
+                  <p className="text-sm mt-2">Share updates, tips, and special offers with your followers.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {posts.map((post) => (
+                  <VendorPostCard
+                    key={post.id}
+                    post={post}
+                    showVendorInfo={false}
+                    isOwner={isVendorOwner}
+                    onEdit={(postId) => {
+                      // Handle edit
+                      console.log("Edit post", postId);
+                    }}
+                    onDelete={async (postId) => {
+                      if (confirm("Are you sure you want to delete this post?")) {
+                        try {
+                          const response = await fetch(`/api/vendors/posts/${postId}`, {
+                            method: "DELETE",
+                          });
+                          if (response.ok) {
+                            setPosts((prev) => prev.filter((p) => p.id !== postId));
+                            toast.success("Post deleted");
+                          }
+                        } catch (error) {
+                          toast.error("Failed to delete post");
+                        }
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {reviews.map((review) => (
-              <VendorReviewCard key={review.id} review={review} />
-            ))}
-          </div>
-        )}
-      </div>
+        </TabsContent>
 
-      {/* Q&A Section */}
-      <VendorQASection
-        vendorName={vendor.name}
+        {/* Showcases Tab */}
+        <TabsContent value="showcases" className="mt-8">
+          <div className="space-y-6">
+            {isLoadingShowcases ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : showcases.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-3xl bg-muted/5">
+                <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No showcases yet.</p>
+                {isVendorOwner && (
+                  <p className="text-sm mt-2">Feature your best weddings to inspire couples.</p>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {showcases.map((showcase) => (
+                  <ShowcaseCard key={showcase.id} showcase={showcase} />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Reviews Tab */}
+        <TabsContent value="reviews" className="mt-8">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif text-2xl text-foreground">
+                Reviews ({vendor.reviewCount || 0})
+              </h2>
+              {!vendor.userReview && !showReviewForm && (
+                <Button
+                  className="rounded-full"
+                  onClick={() => setShowReviewForm(true)}
+                >
+                  Write a Review
+                </Button>
+              )}
+            </div>
+
+            {/* Review Form */}
+            {showReviewForm && (
+              <VendorReviewForm
+                vendorName={vendor.name}
+                onSubmit={handleReviewSubmit}
+                onCancel={() => setShowReviewForm(false)}
+              />
+            )}
+
+            {/* User's existing review */}
+            {vendor.userReview && (
+              <div className="mb-6">
+                <p className="text-sm text-muted-foreground mb-2">Your Review</p>
+                <VendorReviewCard
+                  review={{
+                    ...vendor.userReview,
+                    tenant: { id: "", displayName: "You", profileImage: null, slug: "" },
+                  }}
+                  isOwnReview
+                />
+              </div>
+            )}
+
+            {/* Other reviews */}
+            {reviews.length === 0 && !vendor.userReview ? (
+              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-3xl bg-muted/5">
+                <p>No reviews yet. Be the first to review!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {reviews.map((review) => (
+                  <VendorReviewCard key={review.id} review={review} />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Post Form Dialog */}
+      <VendorPostForm
         vendorSlug={vendor.slug}
-        questions={questions}
-        questionCount={vendor.questionCount ?? 0}
-        isVendorOwner={isVendorOwner}
-        onQuestionSubmit={handleQuestionSubmit}
-        onAnswerSubmit={handleAnswerSubmit}
+        open={showPostForm}
+        onOpenChange={setShowPostForm}
+        onSuccess={fetchPosts}
       />
     </div>
   );
