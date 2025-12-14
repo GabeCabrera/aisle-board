@@ -54,11 +54,10 @@ export async function getPublicBoards() {
     where: eq(boards.isPublic, true),
     with: {
       tenant: {
-        columns: { displayName: true, profileImage: true },
+        columns: { id: true, displayName: true, profileImage: true },
       },
       ideas: {
         columns: { id: true, imageUrl: true },
-        limit: 4,
         orderBy: [desc(ideas.createdAt)],
       },
     },
@@ -66,7 +65,12 @@ export async function getPublicBoards() {
     limit: 50,
   });
 
-  return boardsData;
+  // Return boards with idea count and only first 4 ideas for cover
+  return boardsData.map((board) => ({
+    ...board,
+    ideaCount: board.ideas.length,
+    ideas: board.ideas.slice(0, 4),
+  }));
 }
 
 export async function getMyBoards(tenantId: string) {

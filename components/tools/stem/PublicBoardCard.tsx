@@ -1,18 +1,21 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { ImageIcon, Heart } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 
 import type { Board } from "@/lib/db/schema";
 
 // --- Types ---
 interface BoardWithMeta extends Board {
   tenant: {
+    id: string;
     displayName: string;
     profileImage?: string | null;
   } | null;
   ideas?: { id: string; imageUrl: string }[];
+  ideaCount?: number;
 }
 
 interface PublicBoardCardProps {
@@ -21,10 +24,12 @@ interface PublicBoardCardProps {
 }
 
 export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
+  const router = useRouter();
   const ideas = board.ideas || [];
-  const ideaCount = ideas.length;
+  const ideaCount = board.ideaCount ?? ideas.length;
   const displayName = board.tenant?.displayName || "Unknown";
   const profileImage = board.tenant?.profileImage;
+  const tenantId = board.tenant?.id;
 
   // Get initials for avatar fallback
   const initials = displayName
@@ -33,6 +38,13 @@ export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tenantId) {
+      router.push(`/planner/stem/profile/${tenantId}`);
+    }
+  };
 
   return (
     <Card
@@ -43,7 +55,7 @@ export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
       <div className="h-48 relative bg-muted">
         {ideas.length > 0 ? (
           <div className="absolute inset-0 grid grid-cols-2 gap-0.5">
-            {ideas.slice(0, 4).map((idea, i) => (
+            {ideas.slice(0, 4).map((idea) => (
               <div key={idea.id} className="relative overflow-hidden">
                 <Image
                   src={idea.imageUrl}
@@ -86,9 +98,12 @@ export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
           </p>
         )}
 
-        {/* Author info */}
-        <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary overflow-hidden relative shrink-0">
+        {/* Author info - clickable to go to profile */}
+        <div
+          onClick={handleAuthorClick}
+          className="flex items-center gap-2 pt-2 border-t border-border/50 hover:bg-muted/30 -mx-4 px-4 -mb-4 pb-4 rounded-b-3xl transition-colors cursor-pointer"
+        >
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary overflow-hidden relative shrink-0 ring-2 ring-transparent hover:ring-primary/20 transition-all">
             {profileImage ? (
               <Image
                 src={profileImage}
@@ -101,7 +116,7 @@ export function PublicBoardCard({ board, onClick }: PublicBoardCardProps) {
               initials
             )}
           </div>
-          <span className="text-sm text-muted-foreground truncate">
+          <span className="text-sm text-muted-foreground truncate hover:text-foreground transition-colors">
             {displayName}
           </span>
         </div>

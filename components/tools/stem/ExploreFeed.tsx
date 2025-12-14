@@ -10,11 +10,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { IdeaCard } from "./IdeaCard"; // To display individual ideas
 import type { Board, Idea } from '@/lib/db/schema'; // Import directly from schema
 
-// Define PublicBoard by extending Board and adding tenant displayName
+// Define PublicBoard by extending Board and adding tenant info and ideas
 interface PublicBoard extends Board {
   tenant: {
+    id: string;
     displayName: string;
+    profileImage?: string | null;
   } | null;
+  ideas?: { id: string; imageUrl: string }[];
+  ideaCount?: number;
 }
 
 interface IdeaWithBoard extends Idea {

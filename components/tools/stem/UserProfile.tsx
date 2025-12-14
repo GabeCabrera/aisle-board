@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Share2, Heart, Instagram, Globe, User } from "lucide-react";
+import { ArrowLeft, Calendar, Share2, Heart, Instagram, Globe, User, MessageCircle, Loader2 } from "lucide-react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { toast } from "sonner";
 
@@ -45,6 +45,7 @@ export function UserProfile({ profile }: UserProfileProps) {
   const [isFollowing, setIsFollowing] = useState(profile.isFollowing);
   const [followerCount, setFollowerCount] = useState(profile.stats.followersCount);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -69,9 +70,9 @@ export function UserProfile({ profile }: UserProfileProps) {
       const response = await fetch('/api/social/follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          targetTenantId: profile.id, 
-          action: newStatus ? "follow" : "unfollow" 
+        body: JSON.stringify({
+          targetTenantId: profile.id,
+          action: newStatus ? "follow" : "unfollow"
         }),
       });
 
@@ -85,6 +86,28 @@ export function UserProfile({ profile }: UserProfileProps) {
       toast.error("Failed to update follow status");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleStartChat = async () => {
+    setIsStartingChat(true);
+    try {
+      const response = await fetch('/api/social/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otherTenantId: profile.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to start conversation");
+      }
+
+      const data = await response.json();
+      router.push(`/planner/stem/messages/${data.id}`);
+    } catch (error) {
+      toast.error("Failed to start conversation");
+    } finally {
+      setIsStartingChat(false);
     }
   };
 
@@ -145,22 +168,45 @@ export function UserProfile({ profile }: UserProfileProps) {
         </div>
 
         <div className="flex items-center gap-3 mt-4">
-          <Button 
+          <Button
             size="lg"
             className={cn(
               "rounded-full px-8 transition-all min-w-[140px]",
-              isFollowing 
-                ? "bg-muted text-foreground hover:bg-muted/80" 
+              isFollowing
+                ? "bg-muted text-foreground hover:bg-muted/80"
                 : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft"
             )}
             onClick={handleFollow}
             disabled={isLoading}
           >
-            {isFollowing ? "Following" : "Follow"}
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isFollowing ? (
+              "Following"
+            ) : (
+              "Follow"
+            )}
           </Button>
 
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
+            size="lg"
+            className="rounded-full px-6"
+            onClick={handleStartChat}
+            disabled={isStartingChat}
+          >
+            {isStartingChat ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Message
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
             size="lg"
             className="rounded-full px-4"
             onClick={handleShare}
