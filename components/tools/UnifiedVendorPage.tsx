@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VendorFeed } from "./stem/VendorFeed";
 import VendorsTool from "./VendorsTool";
-import { Store, Compass, Heart } from "lucide-react";
+import { Compass, Heart, Loader2 } from "lucide-react";
 import type { PlannerData } from "@/lib/hooks/usePlannerData";
 import type { VendorProfile } from "@/lib/db/schema";
 import type { LocationMatch, WeddingLocation } from "@/lib/data/stem";
@@ -76,15 +76,17 @@ export function UnifiedVendorPage({
         </div>
 
         <TabsContent value="discover" className="mt-0">
-          <VendorFeed
-            initialVendors={initialVendors}
-            initialCategories={initialCategories}
-            initialStates={initialStates}
-            savedVendorIds={savedVendorIds}
-            recommendedVendors={recommendedVendors}
-            weddingLocation={weddingLocation}
-            hideHeader
-          />
+          <Suspense fallback={<VendorFeedSkeleton />}>
+            <VendorFeed
+              initialVendors={initialVendors}
+              initialCategories={initialCategories}
+              initialStates={initialStates}
+              savedVendorIds={savedVendorIds}
+              recommendedVendors={recommendedVendors}
+              weddingLocation={weddingLocation}
+              hideHeader
+            />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="my-vendors" className="mt-0">
@@ -100,4 +102,22 @@ export function UnifiedVendorPage({
 // Separate component to avoid duplicate header from VendorsTool
 function MyVendorsContent({ plannerData }: { plannerData?: PlannerData }) {
   return <VendorsTool initialData={plannerData} hideHeader />;
+}
+
+// Loading skeleton for VendorFeed while useSearchParams resolves
+function VendorFeedSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto p-6 space-y-8">
+      {/* Filters skeleton */}
+      <div className="flex gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-10 w-32 bg-muted/50 rounded-lg animate-pulse" />
+        ))}
+      </div>
+      {/* Cards skeleton */}
+      <div className="flex justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    </div>
+  );
 }
