@@ -151,6 +151,13 @@ export function LoginForm() {
           Create one
         </Link>
       </div>
+
+      <div className="text-center text-sm text-muted-foreground pt-4 border-t border-border">
+        Are you a wedding vendor?{" "}
+        <Link href="/vendor/signup" className="text-primary font-medium hover:underline underline-offset-4 transition-colors">
+          List your business
+        </Link>
+      </div>
     </div>
   );
 }

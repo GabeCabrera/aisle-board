@@ -19,7 +19,10 @@ export default function LandingPage() {
           <Link href="/" className="font-serif text-2xl font-medium tracking-tight">
             Scribe & Stem
           </Link>
-          <nav aria-label="Main Navigation" className="flex gap-4">
+          <nav aria-label="Main Navigation" className="flex gap-4 items-center">
+            <Link href="/vendor/signup" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+              For Vendors
+            </Link>
             <Link href="/login" passHref>
               <Button variant="ghost" className="hover:bg-transparent hover:text-primary transition-colors">
                 Log in
