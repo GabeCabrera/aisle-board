@@ -14,6 +14,7 @@ import {
   Sparkles,
   Image,
   Store,
+  BarChart3,
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -38,7 +39,13 @@ const navItems: NavItem[] = [
     label: "Dashboard",
     href: "/admin",
     icon: LayoutDashboard,
-    description: "Overview & analytics",
+    description: "Overview & metrics",
+  },
+  {
+    label: "Analytics",
+    href: "/admin/analytics",
+    icon: BarChart3,
+    description: "User behavior tracking",
   },
   {
     label: "Users",

@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { Bodoni_Moda, Manrope } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { RedditPixelTracker } from "@/components/reddit-pixel-tracker";
+import { StemPixelTracker } from "@/components/stem-pixel-tracker";
 import "./globals.css";
 import Script from "next/script"; // Import Script from next/script
 
@@ -272,6 +273,7 @@ export default function RootLayout({
       <body className={`min-h-screen antialiased ${bodoni.variable} ${manrope.variable} font-sans`}>
         <Providers>
           <RedditPixelTracker />
+          <StemPixelTracker />
           {children}
         </Providers>
         <Toaster position="bottom-right" />

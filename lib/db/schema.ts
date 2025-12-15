@@ -2299,3 +2299,69 @@ export const thankYouNotesRelations = relations(thankYouNotes, ({ one }) => ({
 
 export type ThankYouNote = typeof thankYouNotes.$inferSelect;
 export type NewThankYouNote = typeof thankYouNotes.$inferInsert;
+
+// ============================================================================
+// ANALYTICS EVENTS - Custom user behavior tracking
+// ============================================================================
+export const analyticsEvents = pgTable(
+  "analytics_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // Identity (nullable for anonymous visitors)
+    tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    sessionId: text("session_id").notNull(),
+
+    // Event data
+    eventType: text("event_type").notNull(), // 'page_view', 'click', 'feature_use', 'ai_message', etc.
+    eventName: text("event_name").notNull(), // Specific event: 'budget_opened', 'guest_added', etc.
+    eventData: jsonb("event_data").default({}), // Additional context
+
+    // Page context
+    pagePath: text("page_path").notNull(),
+    pageTitle: text("page_title"),
+    referrer: text("referrer"),
+
+    // Device/browser info
+    userAgent: text("user_agent"),
+    screenWidth: integer("screen_width"),
+    screenHeight: integer("screen_height"),
+    deviceType: text("device_type"), // 'mobile', 'tablet', 'desktop'
+
+    // Timing
+    timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
+    sessionStart: timestamp("session_start", { withTimezone: true }),
+    timeOnPage: integer("time_on_page"), // milliseconds
+
+    // UTM parameters (for marketing attribution)
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("analytics_events_tenant_idx").on(table.tenantId),
+    timestampIdx: index("analytics_events_timestamp_idx").on(table.timestamp),
+    eventTypeIdx: index("analytics_events_event_type_idx").on(table.eventType),
+    sessionIdx: index("analytics_events_session_idx").on(table.sessionId),
+    pagePathIdx: index("analytics_events_page_path_idx").on(table.pagePath),
+  })
+);
+
+export const analyticsEventsRelations = relations(analyticsEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [analyticsEvents.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [analyticsEvents.userId],
+    references: [users.id],
+  }),
+}));
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
