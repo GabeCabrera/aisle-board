@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { isAdmin } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
-import { tenants, users, planners, pages, rsvpForms, rsvpResponses, scribeConversations } from "@/lib/db/schema";
+import { tenants, users, planners, pages, rsvpForms, rsvpResponses } from "@/lib/db/schema";
 import { count, eq, gte, sql, desc, and, ne, notInArray, inArray } from "drizzle-orm";
 
 const COMPLETE_PLAN_PRICE = 29; // $29 one-time
@@ -449,92 +449,6 @@ export async function GET() {
       : 0;
 
     // ============================================================================
-    // AI PLANNER INSIGHTS (excluding test accounts)
-    // ============================================================================
-
-    // Get all conversations (excluding test accounts)
-    const allConversations = testTenantIds.length > 0
-      ? await db
-          .select({
-            id: scribeConversations.id,
-            tenantId: scribeConversations.tenantId,
-            messages: scribeConversations.messages,
-            isActive: scribeConversations.isActive,
-            createdAt: scribeConversations.createdAt,
-          })
-          .from(scribeConversations)
-          .where(notInArray(scribeConversations.tenantId, testTenantIds))
-      : await db
-          .select({
-            id: scribeConversations.id,
-            tenantId: scribeConversations.tenantId,
-            messages: scribeConversations.messages,
-            isActive: scribeConversations.isActive,
-            createdAt: scribeConversations.createdAt,
-          })
-          .from(scribeConversations);
-
-    // Count conversations and messages
-    const totalConversations = allConversations.length;
-    let totalAIMessages = 0;
-    const uniqueTenantIds = new Set<string>();
-    
-    allConversations.forEach(convo => {
-      uniqueTenantIds.add(convo.tenantId);
-      const messages = convo.messages as Array<{ role: string }> | null;
-      if (Array.isArray(messages)) {
-        totalAIMessages += messages.length;
-      }
-    });
-
-    const tenantsUsingAI = uniqueTenantIds.size;
-    const aiAdoptionRate = totalTenants > 0 
-      ? Math.round((tenantsUsingAI / totalTenants) * 100) 
-      : 0;
-    const avgMessagesPerConversation = totalConversations > 0
-      ? Math.round(totalAIMessages / totalConversations)
-      : 0;
-
-    // Get planner name preferences
-    const allTenantsWithPlannerName = testTenantIds.length > 0
-      ? await db
-          .select({ plannerName: tenants.plannerName })
-          .from(tenants)
-          .where(notInArray(tenants.id, testTenantIds))
-      : await db.select({ plannerName: tenants.plannerName }).from(tenants);
-
-    const plannerNameCounts: Record<string, number> = {};
-    allTenantsWithPlannerName.forEach(t => {
-      const name = t.plannerName || "Planner";
-      plannerNameCounts[name] = (plannerNameCounts[name] || 0) + 1;
-    });
-
-    const topPlannerNames = Object.entries(plannerNameCounts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    // AI usage by plan type
-    const tenantsWithConversations = new Set(allConversations.map(c => c.tenantId));
-    const freeTenantsWithAI = await db
-      .select({ id: tenants.id })
-      .from(tenants)
-      .where(and(
-        eq(tenants.plan, "free"),
-        excludeTestTenants ? excludeTestTenants : sql`1=1`
-      ));
-    const paidTenantsWithAI = await db
-      .select({ id: tenants.id })
-      .from(tenants)
-      .where(and(
-        eq(tenants.plan, "complete"),
-        excludeTestTenants ? excludeTestTenants : sql`1=1`
-      ));
-
-    const freeUsingAI = freeTenantsWithAI.filter(t => tenantsWithConversations.has(t.id)).length;
-    const paidUsingAI = paidTenantsWithAI.filter(t => tenantsWithConversations.has(t.id)).length;
-
-    // ============================================================================
     // RECENT ACTIVITY (excluding test accounts)
     // ============================================================================
 
@@ -690,19 +604,6 @@ export async function GET() {
           budget: budgetAdoptionRate,
           vendors: vendorAdoptionRate,
           seating: seatingAdoptionRate,
-          ai: aiAdoptionRate,
-        },
-        aiPlanner: {
-          totalConversations,
-          totalMessages: totalAIMessages,
-          tenantsUsingAI,
-          aiAdoptionRate,
-          avgMessagesPerConversation,
-          topPlannerNames,
-          usageByPlan: {
-            free: freeUsingAI,
-            paid: paidUsingAI,
-          },
         },
       },
       activity: {

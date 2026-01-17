@@ -29,7 +29,7 @@ function checkRateLimit(sessionId: string): boolean {
 
 // Event schema validation
 const eventSchema = z.object({
-  eventType: z.enum(["page_view", "click", "feature_use", "ai_message", "form_submit", "error", "session_start", "session_end"]),
+  eventType: z.enum(["page_view", "click", "feature_use", "form_submit", "error", "session_start", "session_end"]),
   eventName: z.string().min(1).max(100),
   eventData: z.record(z.unknown()).optional().default({}),
   pagePath: z.string().min(1).max(500),

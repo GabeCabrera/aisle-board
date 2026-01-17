@@ -5,6 +5,7 @@ import { getToken } from "next-auth/jwt";
 // Routes that don't require authentication
 const publicRoutes = [
   "/",
+  "/demo", // Public product demo
   "/login",
   "/register",
   "/forgot-password",
@@ -17,6 +18,8 @@ const publicRoutes = [
   "/invite/accept", // Partner invite acceptance
   "/vendors", // Public vendor directory
   "/claim", // Vendor claim flow
+  "/blog", // Public blog
+  "/scribe", // Public scribe landing
 ];
 
 // Routes that require auth but should bypass other checks

@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageSquare,
   Settings,
   LogOut,
   Menu,
@@ -38,7 +37,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { Button } from "@/components/ui/button";
-import { ScribeChat, ScribeTrigger } from "../scribe-chat";
 import { cn } from "@/lib/utils";
 
 // Map tool IDs to Lucide icons
@@ -53,13 +51,11 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   "calendar": CalendarRange,
   "seating": Armchair,
   "settings": Settings,
-  "chat": MessageSquare,
 };
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const [isMobileOpen, setMobileOpen] = React.useState(false);
-  const [isFloatingChatOpen, setIsFloatingChatOpen] = React.useState(false);
   const browser = useBrowser();
 
   const handleToolClick = (toolId: string) => {
@@ -74,9 +70,6 @@ function MainContent({ children }: { children: React.ReactNode }) {
     .toUpperCase()
     .slice(0, 2) || "U";
 
-  // Determine if we should show the floating chat (active when NOT on chat or settings)
-  const showFloatingChat = browser.activeTabId !== 'scribe' && browser.activeTabId !== 'settings';
-
   const SidebarContent = () => (
     <nav className="flex flex-col h-full bg-canvas/50 border-r border-border backdrop-blur-xl" aria-label="Main navigation">
       {/* Header */}
@@ -87,21 +80,6 @@ function MainContent({ children }: { children: React.ReactNode }) {
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start h-10 mb-6 font-medium",
-            browser.activeTabId === 'chat'
-              ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-          onClick={() => browser.goHome()}
-          aria-current={browser.activeTabId === 'chat' ? "page" : undefined}
-        >
-          <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
-          Chat
-        </Button>
-
         <div className="px-3 pb-2">
           <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">Planning</p>
         </div>
@@ -234,27 +212,6 @@ function MainContent({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Floating Chat Bubble */}
-        {showFloatingChat && (
-          <>
-            <ScribeChat 
-              isOpen={isFloatingChatOpen} 
-              onClose={() => setIsFloatingChatOpen(false)} 
-            />
-            <AnimatePresence>
-              {!isFloatingChatOpen && (
-                <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  className="fixed bottom-6 right-6 z-50"
-                >
-                  <ScribeTrigger onClick={() => setIsFloatingChatOpen(true)} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
-        )}
       </main>
     </div>
   );

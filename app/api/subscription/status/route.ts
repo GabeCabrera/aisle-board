@@ -75,8 +75,6 @@ export async function GET() {
     return NextResponse.json({
       plan: access.plan,
       hasFullAccess: access.hasFullAccess,
-      aiMessagesRemaining: access.aiMessagesRemaining,
-      aiMessagesUsed: access.aiMessagesUsed,
       isLegacy: access.isLegacy,
       subscriptionStatus: access.subscriptionStatus,
       subscriptionEndsAt: access.subscriptionEndsAt,
@@ -84,7 +82,6 @@ export async function GET() {
         guests: limits.guests,
         vendors: limits.vendors,
         rsvpForms: limits.rsvpForms,
-        aiMessages: limits.aiMessages,
       },
       usage: {
         guests: guestCount,

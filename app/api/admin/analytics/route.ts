@@ -189,33 +189,6 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(count()))
       .limit(20);
 
-    // AI usage
-    const [aiMessagesResult] = await db
-      .select({ count: count() })
-      .from(analyticsEvents)
-      .where(
-        and(
-          gte(analyticsEvents.timestamp, startDate),
-          eq(analyticsEvents.eventType, "ai_message")
-        )
-      );
-    const totalAIMessages = aiMessagesResult?.count || 0;
-
-    const aiMessageBreakdown = await db
-      .select({
-        eventName: analyticsEvents.eventName,
-        count: count(),
-      })
-      .from(analyticsEvents)
-      .where(
-        and(
-          gte(analyticsEvents.timestamp, startDate),
-          eq(analyticsEvents.eventType, "ai_message")
-        )
-      )
-      .groupBy(analyticsEvents.eventName)
-      .orderBy(desc(count()));
-
     // Errors
     const errors = await db
       .select({
@@ -291,10 +264,6 @@ export async function GET(request: NextRequest) {
       behavior: {
         featureUsage,
         clickEvents,
-        aiUsage: {
-          total: totalAIMessages,
-          breakdown: aiMessageBreakdown,
-        },
         errors,
       },
       trends: {

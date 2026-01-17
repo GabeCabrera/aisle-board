@@ -14,7 +14,6 @@ import {
   Monitor,
   TrendingUp,
   AlertTriangle,
-  MessageSquare,
   RefreshCw,
   Globe,
   Link2,
@@ -41,10 +40,6 @@ interface AnalyticsData {
   behavior: {
     featureUsage: Array<{ eventName: string; count: number; uniqueUsers: number }>;
     clickEvents: Array<{ eventName: string; count: number }>;
-    aiUsage: {
-      total: number;
-      breakdown: Array<{ eventName: string; count: number }>;
-    };
     errors: Array<{ eventName: string; count: number; lastOccurred: string }>;
   };
   trends: {
@@ -165,7 +160,7 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {/* Real-time Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
@@ -208,19 +203,6 @@ export default function AdminAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                <MessageSquare className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold">{data.behavior.aiUsage.total.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">AI messages</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Main Content Tabs */}
@@ -440,30 +422,6 @@ export default function AdminAnalyticsPage() {
                       <div key={i} className="flex items-center justify-between">
                         <span className="text-sm">{click.eventName.replace(/_/g, " ")}</span>
                         <span className="font-medium">{click.count}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* AI Usage */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  AI Usage
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {data.behavior.aiUsage.breakdown.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No AI usage data yet</p>
-                  ) : (
-                    data.behavior.aiUsage.breakdown.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between">
-                        <span className="text-sm">{item.eventName.replace(/_/g, " ")}</span>
-                        <span className="font-medium">{item.count}</span>
                       </div>
                     ))
                   )}

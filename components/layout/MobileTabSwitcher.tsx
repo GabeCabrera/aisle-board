@@ -1,6 +1,6 @@
 "use client";
 
-import { useBrowser, getToolById, ScribeLogo } from "./browser-context";
+import { useBrowser, getToolById } from "./browser-context";
 import { X, Plus, Code } from "lucide-react";
 
 // =============================================================================
@@ -10,7 +10,7 @@ import { X, Plus, Code } from "lucide-react";
 interface TabCardProps {
   tab: {
     id: string;
-    type: "chat" | "tool" | "artifact";
+    type: "tool" | "artifact";
     toolId?: string;
     title: string;
     closable: boolean;
@@ -54,16 +54,13 @@ function TabCard({ tab, isActive, onSelect, onClose }: TabCardProps) {
           className="h-8 flex items-center gap-2 px-3"
           style={{
             background:
-              tab.type === "chat"
-                ? "linear-gradient(135deg, #FAF0EE 0%, #F5E1DD 100%)"
-                : tab.type === "artifact"
-                  ? "linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%)"
-                  : tool
-                    ? tool.gradient
-                    : "linear-gradient(135deg, #F5F5F4 0%, #E7E5E4 100%)",
+              tab.type === "artifact"
+                ? "linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%)"
+                : tool
+                  ? tool.gradient
+                  : "linear-gradient(135deg, #F5F5F4 0%, #E7E5E4 100%)",
           }}
         >
-          {tab.type === "chat" && <ScribeLogo size={14} className="text-rose-500" />}
           {tab.type === "tool" && tool && <tool.icon className="w-3.5 h-3.5 text-white" />}
           {tab.type === "artifact" && <Code className="w-3.5 h-3.5 text-emerald-600" />}
           <span
@@ -77,12 +74,6 @@ function TabCard({ tab, isActive, onSelect, onClose }: TabCardProps) {
 
         {/* Preview content area */}
         <div className="flex-1 p-3 flex items-center justify-center">
-          {tab.type === "chat" && (
-            <div className="text-center">
-              <ScribeLogo size={32} className="text-rose-300 mx-auto mb-2" />
-              <p className="text-xs text-stone-400">Chat</p>
-            </div>
-          )}
           {tab.type === "tool" && tool && (
             <div className="text-center">
               <div

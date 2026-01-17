@@ -8,7 +8,6 @@ import type { FeatureKey, PlanType } from "@/lib/subscription";
 interface SubscriptionData {
   plan: PlanType;
   hasFullAccess: boolean;
-  aiMessagesRemaining: number | "unlimited";
   isLegacy: boolean;
   subscriptionStatus: string | null;
   limits: {
@@ -82,7 +81,6 @@ export function useSubscription(): UseSubscriptionReturn {
       // Free tier features
       const freeFeatures: FeatureKey[] = [];
       const stemFeatures: FeatureKey[] = [
-        "unlimited_ai",
         "seating_chart",
         "calendar_sync",
         "pdf_export",
@@ -93,7 +91,6 @@ export function useSubscription(): UseSubscriptionReturn {
         "vendor_contact_reveal",
       ];
       const stemPlusFeatures: FeatureKey[] = [
-        "priority_ai",
         "consultation",
         "curated_vendors",
       ];

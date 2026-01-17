@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HeroSection } from "@/components/landing/hero-section";
 import { FeaturesGrid } from "@/components/landing/features-grid";
-import { PlaygroundDemo } from "@/components/landing/playground-demo";
+import { PricingSection } from "@/components/pricing-section";
 import { FAQSection } from "@/components/landing/faq-section";
 import { BlogSection } from "@/components/landing/blog-section";
 import { CTASection } from "@/components/landing/cta-section";
@@ -40,7 +40,7 @@ export default function LandingPage() {
       <main className="flex-1">
         <HeroSection />
         <FeaturesGrid />
-        <PlaygroundDemo />
+        <PricingSection />
         <FAQSection />
         <BlogSection />
         <CTASection />

@@ -2,16 +2,12 @@ import { db } from "@/lib/db";
 import { tenants } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-// Free tier AI message limit (per day)
-export const DAILY_FREE_AI_MESSAGE_LIMIT = 5;
-
 // =============================================================================
 // FEATURE GATING
 // =============================================================================
 
 // Features that can be gated by plan
 export type FeatureKey =
-  | "unlimited_ai"
   | "seating_chart"
   | "calendar_sync"
   | "pdf_export"
@@ -20,7 +16,6 @@ export type FeatureKey =
   | "multiple_rsvp"
   | "premium_templates"
   | "vendor_contact_reveal"
-  | "priority_ai"
   | "consultation"
   | "curated_vendors";
 
@@ -30,26 +25,22 @@ export const PLAN_LIMITS = {
     guests: 50,
     vendors: 10,
     rsvpForms: 1,
-    aiMessages: DAILY_FREE_AI_MESSAGE_LIMIT,
   },
   stem: {
     guests: Infinity,
     vendors: Infinity,
     rsvpForms: Infinity,
-    aiMessages: Infinity,
   },
   stemPlus: {
     guests: Infinity,
     vendors: Infinity,
     rsvpForms: Infinity,
-    aiMessages: Infinity,
   },
 } as const;
 
 // Features available per plan tier
 const FEATURE_ACCESS: Record<FeatureKey, ("free" | "stem" | "stemPlus")[]> = {
   // Free tier features (empty means paid only)
-  unlimited_ai: ["stem", "stemPlus"],
   seating_chart: ["stem", "stemPlus"],
   calendar_sync: ["stem", "stemPlus"],
   pdf_export: ["stem", "stemPlus"],
@@ -59,7 +50,6 @@ const FEATURE_ACCESS: Record<FeatureKey, ("free" | "stem" | "stemPlus")[]> = {
   premium_templates: ["stem", "stemPlus"],
   vendor_contact_reveal: ["stem", "stemPlus"],
   // Premium-only features
-  priority_ai: ["stemPlus"],
   consultation: ["stemPlus"],
   curated_vendors: ["stemPlus"],
 };
@@ -165,29 +155,9 @@ export function isPaidPlan(plan: PlanType): boolean {
 export interface PlanAccess {
   plan: PlanType;
   hasFullAccess: boolean;
-  hasAIAccess: boolean;
-  aiMessagesUsed: number;
-  aiMessagesRemaining: number | "unlimited";
   isLegacy: boolean;
   subscriptionStatus: string | null;
   subscriptionEndsAt: Date | null;
-}
-
-/**
- * Check if usage should be reset based on the last reset timestamp
- */
-function shouldResetUsage(lastReset: Date | null): boolean {
-  if (!lastReset) return true;
-  
-  const now = new Date();
-  const resetDate = new Date(lastReset);
-  
-  // Reset if it's a different calendar day
-  return (
-    now.getFullYear() !== resetDate.getFullYear() ||
-    now.getMonth() !== resetDate.getMonth() ||
-    now.getDate() !== resetDate.getDate()
-  );
 }
 
 /**
@@ -208,93 +178,12 @@ export async function getTenantAccess(tenantId: string): Promise<PlanAccess | nu
   // Full access if: subscribed, or legacy complete purchaser
   const hasFullAccess = isSubscribed || isLegacy;
   
-  // Check if we need to reset usage display (optimistic check)
-  // Note: We don't write to DB here (read-only), so we just calculate what the usage WOULD be
-  const needsReset = shouldResetUsage(tenant.aiMessagesResetAt);
-  const currentUsage = needsReset ? 0 : tenant.aiMessagesUsed;
-  
-  // AI access if: has full access, OR still has free messages remaining for the day
-  const hasAIAccess = hasFullAccess || currentUsage < DAILY_FREE_AI_MESSAGE_LIMIT;
-  
-  const aiMessagesRemaining = hasFullAccess 
-    ? "unlimited" 
-    : Math.max(0, DAILY_FREE_AI_MESSAGE_LIMIT - currentUsage);
-
   return {
     plan,
     hasFullAccess,
-    hasAIAccess,
-    aiMessagesUsed: currentUsage,
-    aiMessagesRemaining,
     isLegacy,
     subscriptionStatus: tenant.subscriptionStatus,
     subscriptionEndsAt: tenant.subscriptionEndsAt,
-  };
-}
-
-/**
- * Increment AI message count for a tenant
- * Returns the new count, or null if they've hit the limit (free tier)
- */
-export async function incrementAIUsage(tenantId: string): Promise<{ allowed: boolean; newCount: number; remaining: number | "unlimited" }> {
-  // We need to fetch fresh tenant data to handle the reset logic atomically-ish
-  const [tenant] = await db.select().from(tenants).where(eq(tenants.id, tenantId));
-  
-  if (!tenant) {
-    return { allowed: false, newCount: 0, remaining: 0 };
-  }
-
-  const isSubscribed = tenant.subscriptionStatus === "active" || tenant.subscriptionStatus === "trialing";
-  const hasFullAccess = isSubscribed || tenant.hasLegacyAccess;
-
-  // Unlimited for paid users
-  if (hasFullAccess) {
-    await db
-      .update(tenants)
-      .set({ 
-        aiMessagesUsed: tenant.aiMessagesUsed + 1,
-        updatedAt: new Date(),
-      })
-      .where(eq(tenants.id, tenantId));
-    
-    return { allowed: true, newCount: tenant.aiMessagesUsed + 1, remaining: "unlimited" };
-  }
-
-  // Handle Free Tier
-  const needsReset = shouldResetUsage(tenant.aiMessagesResetAt);
-  let currentUsage = tenant.aiMessagesUsed;
-  
-  if (needsReset) {
-    // It's a new day! Reset counter.
-    currentUsage = 0;
-    // We will update the DB with the reset timestamp below
-  }
-
-  // Check limit
-  if (currentUsage >= DAILY_FREE_AI_MESSAGE_LIMIT) {
-    return { allowed: false, newCount: currentUsage, remaining: 0 };
-  }
-
-  // Increment
-  const newCount = currentUsage + 1;
-  const updateData: any = {
-    aiMessagesUsed: newCount,
-    updatedAt: new Date(),
-  };
-
-  if (needsReset) {
-    updateData.aiMessagesResetAt = new Date();
-  }
-
-  await db
-    .update(tenants)
-    .set(updateData)
-    .where(eq(tenants.id, tenantId));
-
-  return { 
-    allowed: true, 
-    newCount, 
-    remaining: DAILY_FREE_AI_MESSAGE_LIMIT - newCount,
   };
 }
 

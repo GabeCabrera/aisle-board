@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getToolById, Tab, ScribeLogo } from "./browser-context";
+import { getToolById, Tab } from "./browser-context";
 import {
   X,
   Code,
@@ -387,17 +387,13 @@ export function TabItem({
               }
             : {
                 background:
-                  tab.type === "chat"
-                    ? "linear-gradient(135deg, #D4A69C 0%, #C4918A 100%)"
-                    : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+              tab.type === "artifact"
+                ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                : "linear-gradient(135deg, #F5F5F4 0%, #E7E5E4 100%)",
               }
         }
       >
-        {tab.type === "chat" ? (
-          <ScribeLogo size={12} className="text-white" />
-        ) : (
-          <Icon className="w-3 h-3 text-white" />
-        )}
+        <Icon className="w-3 h-3 text-white" />
       </div>
 
       <span className="truncate">{tab.title}</span>

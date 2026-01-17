@@ -3,8 +3,6 @@
 import { 
   Calculator, 
   Users, 
-  FileText, 
-  MessageSquare,
   Sparkles,
   CalendarCheck
 } from "lucide-react";
@@ -30,9 +28,9 @@ const features = [
     className: "md:col-span-1",
   },
   {
-    title: "Scribe AI",
-    description: "Draft emails, review contracts, and get advice instantly.",
-    icon: MessageSquare,
+    title: "Timeline & Tasks",
+    description: "Keep your checklist and timeline aligned so nothing slips.",
+    icon: CalendarCheck,
     className: "md:col-span-2 bg-gradient-to-br from-secondary/5 to-transparent",
   },
 ];

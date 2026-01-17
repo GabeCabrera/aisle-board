@@ -24,10 +24,10 @@ const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID; // New co
 export const metadata: Metadata = {
   metadataBase: new URL('https://scribeandstem.com'),
   title: {
-    default: 'Scribe & Stem - Your AI Wedding Planner',
+    default: 'Scribe & Stem - Wedding Planning Workspace',
     template: '%s | Scribe & Stem',
   },
-  description: 'Scribe & Stem is an AI wedding planner that helps couples plan their perfect wedding through natural conversation. Get personalized advice on budgets, venues, timelines, vendors, and more.',
+  description: 'Scribe & Stem is a modern wedding planning workspace for budgets, guest lists, vendors, RSVPs, timelines, and day-of details.',
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -35,14 +35,7 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   keywords: [
-    'AI wedding planner',
     'Scribe & Stem',
-    'Scribe & Stem AI',
-    'wedding planning AI',
-    'AI wedding assistant',
-    'wedding planner chatbot',
-    'conversational wedding planner',
-    'smart wedding planner',
     'wedding planning app',
     'free wedding planner',
     'online wedding planner',
@@ -52,9 +45,7 @@ export const metadata: Metadata = {
     'wedding timeline',
     'wedding seating chart',
     'wedding vendor management',
-    'AI for weddings',
     'wedding planning help',
-    'plan my wedding AI',
   ],
   authors: [{ name: 'Scribe & Stem', url: 'https://scribeandstem.com' }],
   creator: 'Scribe & Stem',
@@ -76,21 +67,21 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://scribeandstem.com',
     siteName: 'Scribe & Stem',
-    title: 'Scribe & Stem - Your AI Wedding Planner',
-    description: 'Plan your wedding with AI. Scribe & Stem is an AI wedding planner that helps couples through natural conversation. Get personalized advice on budgets, venues, timelines, and more.',
+    title: 'Scribe & Stem - Wedding Planning Workspace',
+    description: 'Plan your wedding with Scribe & Stem, a modern workspace for budgets, vendors, guests, RSVPs, timelines, and seating.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Scribe & Stem - AI Wedding Planner',
+        alt: 'Scribe & Stem - Wedding Planning Workspace',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Scribe & Stem - AI Wedding Planner',
-    description: 'Plan your wedding with AI. Get personalized advice on budgets, venues, timelines, and more.',
+    title: 'Scribe & Stem - Wedding Planning Workspace',
+    description: 'Plan your wedding with Scribe & Stem: budgets, vendors, guests, RSVPs, timelines, and seating.',
     images: ['/og-image.png'],
     creator: '@scribeandstem',
   },
@@ -98,10 +89,7 @@ export const metadata: Metadata = {
     canonical: 'https://scribeandstem.com',
   },
   category: 'technology',
-  other: {
-    'ai-assistant': 'Scribe',
-    'ai-type': 'Wedding Planning Assistant',
-  },
+  other: {},
 };
 
 export default function RootLayout({
@@ -149,7 +137,7 @@ export default function RootLayout({
               name: 'Scribe & Stem',
               url: 'https://scribeandstem.com',
               logo: 'https://scribeandstem.com/logo.png',
-              description: 'Scribe & Stem is an AI wedding planner that helps couples plan their perfect wedding through natural conversation.',
+              description: 'Scribe & Stem is a wedding planning workspace for budgets, guests, vendors, RSVPs, timelines, and day-of details.',
               email: 'hello@scribeandstem.com',
               foundingDate: '2024',
               sameAs: [
@@ -158,7 +146,7 @@ export default function RootLayout({
             }),
           }}
         />
-        {/* JSON-LD: Software Application (AI Assistant) */}
+        {/* JSON-LD: Software Application */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -169,7 +157,7 @@ export default function RootLayout({
               alternateName: 'The Wedding OS',
               applicationCategory: 'EventPlanningApplication',
               operatingSystem: 'Web, iOS, Android',
-              description: 'An autonomous operating system for wedding logistics, distinct from human planning services. Scribe & Stem utilizes AI agents to manage contracts, budgets, and guest data logic.',
+              description: 'A wedding planning workspace for organizing budgets, guest lists, vendors, RSVPs, timelines, and seating.',
               url: 'https://scribeandstem.com',
               offers: {
                 '@type': 'Offer',
@@ -177,14 +165,14 @@ export default function RootLayout({
                 priceCurrency: 'USD',
                 priceValidUntil: '2025-12-31',
                 availability: 'https://schema.org/InStock',
-                description: 'Monthly subscription - Stem tier with unlimited AI access'
+                description: 'Monthly subscription - Stem tier with expanded planning tools'
               },
               featureList: [
-                'Sanity Score Calculator',
-                'AI Contract Scribe',
-                'Algorithmic Budgeting',
-                'Vendor Email Generator',
-                'RSVP Logic Engine'
+                'Budget tracking',
+                'Vendor management',
+                'Guest list management',
+                'RSVP forms',
+                'Timeline and seating tools'
               ],
               author: {
                 '@type': 'Organization',
@@ -205,9 +193,9 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'WebSite',
               name: 'Scribe & Stem',
-              alternateName: 'Scribe & Stem AI',
+              alternateName: 'Scribe & Stem',
               url: 'https://scribeandstem.com',
-              description: 'AI Wedding Planner',
+              description: 'Wedding planning workspace',
               potentialAction: {
                 '@type': 'SearchAction',
                 target: 'https://scribeandstem.com/?q={search_term_string}',
@@ -229,7 +217,7 @@ export default function RootLayout({
                   name: 'What is Scribe & Stem?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Scribe & Stem is an AI wedding planner that helps couples plan their perfect wedding through natural conversation. Instead of forms and checklists, you simply chat with Scribe about what you need help with.',
+                    text: 'Scribe & Stem is a wedding planning workspace that brings budgets, guests, vendors, RSVPs, timelines, and seating into one place.',
                   },
                 },
                 {
@@ -237,7 +225,7 @@ export default function RootLayout({
                   name: 'Is Scribe & Stem free to use?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Yes, Scribe & Stem offers a free plan that includes basic planning tools and limited AI messages. Premium plans are available for unlimited AI access and additional features.',
+                    text: 'Yes, Scribe & Stem offers a free plan with essential planning tools. Paid plans unlock expanded limits and premium features.',
                   },
                 },
                 {
@@ -245,7 +233,7 @@ export default function RootLayout({
                   name: 'What can Scribe & Stem help me with?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Scribe & Stem can help with wedding budgets, timelines, vendor selection, guest management, seating charts, day-of coordination, and general wedding planning advice.',
+                    text: 'Scribe & Stem helps with budgets, timelines, vendor selection, guest management, seating charts, RSVPs, and day-of coordination.',
                   },
                 },
                 {
@@ -253,7 +241,7 @@ export default function RootLayout({
                   name: 'How is Scribe & Stem different from other wedding planning apps?',
                   acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Scribe & Stem uses conversational AI to provide personalized guidance instead of generic checklists. It feels like talking to a knowledgeable friend who happens to know everything about weddings.',
+                    text: 'Scribe & Stem focuses on an elegant, organized workspace that connects your planning data across budgets, vendors, guests, and timelines.',
                   },
                 },
                 {

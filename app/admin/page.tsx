@@ -96,19 +96,6 @@ interface AdminStats {
       budget: number;
       vendors: number;
       seating: number;
-      ai: number;
-    };
-    aiPlanner: {
-      totalConversations: number;
-      totalMessages: number;
-      tenantsUsingAI: number;
-      aiAdoptionRate: number;
-      avgMessagesPerConversation: number;
-      topPlannerNames: Array<{ name: string; count: number }>;
-      usageByPlan: {
-        free: number;
-        paid: number;
-      };
     };
   };
   activity: {
@@ -662,71 +649,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* AI Planner Insights */}
-          <div className="bg-gradient-to-br from-rose-500 to-purple-600 text-white p-6 mb-6 rounded-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <Sparkles className="w-6 h-6" />
-              <h2 className="text-lg font-medium">AI Planner Usage</h2>
-            </div>
-            <div className="grid md:grid-cols-4 gap-4">
-              <div className="bg-white/10 rounded-lg p-4">
-                <p className="text-3xl font-light">{stats.productInsights.aiPlanner.tenantsUsingAI}</p>
-                <p className="text-sm text-white/80">Couples Using AI</p>
-                <p className="text-xs text-white/60 mt-1">{stats.productInsights.aiPlanner.aiAdoptionRate}% adoption</p>
-              </div>
-              <div className="bg-white/10 rounded-lg p-4">
-                <p className="text-3xl font-light">{stats.productInsights.aiPlanner.totalConversations}</p>
-                <p className="text-sm text-white/80">Conversations</p>
-              </div>
-              <div className="bg-white/10 rounded-lg p-4">
-                <p className="text-3xl font-light">{stats.productInsights.aiPlanner.totalMessages}</p>
-                <p className="text-sm text-white/80">Total Messages</p>
-                <p className="text-xs text-white/60 mt-1">~{stats.productInsights.aiPlanner.avgMessagesPerConversation} per convo</p>
-              </div>
-              <div className="bg-white/10 rounded-lg p-4">
-                <div className="flex gap-4">
-                  <div>
-                    <p className="text-xl font-light">{stats.productInsights.aiPlanner.usageByPlan.free}</p>
-                    <p className="text-xs text-white/60">Free</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-light">{stats.productInsights.aiPlanner.usageByPlan.paid}</p>
-                    <p className="text-xs text-white/60">Paid</p>
-                  </div>
-                </div>
-                <p className="text-sm text-white/80 mt-2">By Plan</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Popular Planner Names */}
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <h2 className="font-medium text-warm-800 flex items-center gap-2 mb-6">
-                <Sparkles className="w-5 h-5 text-purple-500" />
-                Popular Planner Names
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {stats.productInsights.aiPlanner.topPlannerNames.length > 0 ? (
-                  stats.productInsights.aiPlanner.topPlannerNames.map((item, i) => (
-                    <div
-                      key={item.name}
-                      className={`px-3 py-1.5 rounded-full text-sm ${
-                        i === 0 ? "bg-purple-100 text-purple-700 font-medium" :
-                        i < 3 ? "bg-rose-50 text-rose-600" :
-                        "bg-warm-100 text-warm-600"
-                      }`}
-                    >
-                      {item.name} <span className="text-xs opacity-60">({item.count})</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-warm-400">No data yet</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Feature Adoption Rates */}
           <Card className="mb-6">
             <CardContent className="p-6">
@@ -734,14 +656,7 @@ export default function AdminDashboard() {
                 <Target className="w-5 h-5 text-warm-400" />
                 Feature Adoption Rates
               </h2>
-              <div className="grid md:grid-cols-5 gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-warm-600">AI Planner</span>
-                    <span className="text-sm font-medium text-warm-800">{stats.productInsights.featureAdoption.ai}%</span>
-                  </div>
-                  <ProgressBar value={stats.productInsights.featureAdoption.ai} color="purple" />
-                </div>
+              <div className="grid md:grid-cols-4 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-warm-600">RSVP Forms</span>

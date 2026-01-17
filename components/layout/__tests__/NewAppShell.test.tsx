@@ -20,7 +20,7 @@ jest.mock('@/components/layout/browser-context', () => ({
   useBrowser: () => ({
     openTool: jest.fn(),
     goHome: jest.fn(),
-    activeTabId: 'chat', // Mock active tab for testing purposes
+    activeTabId: 'home', // Mock active tab for testing purposes
     tabs: [],
   }),
   tools: [ // Mock the tools array as it's used in NewAppShell
@@ -46,6 +46,6 @@ describe('NewAppShell', () => {
     expect(screen.getByText('Test Children')).toBeInTheDocument();
 
     // Check for a navigation item
-    expect(screen.getByText('Chat')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
 });

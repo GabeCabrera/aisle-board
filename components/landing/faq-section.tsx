@@ -8,11 +8,11 @@ import { cn } from "@/lib/utils";
 const faqs = [
   {
     question: "Is Scribe & Stem free to use?",
-    answer: "Yes, we offer a generous Free tier that includes essential planning tools like the Budget Calculator, Guest List, and Vendor Checklist. Premium features like unlimited AI Chat and advanced contract analysis are available on paid plans.",
+    answer: "Yes, we offer a generous Free tier that includes essential planning tools like the Budget Calculator, Guest List, and Vendor Checklist. Paid plans unlock expanded limits and premium features.",
   },
   {
-    question: "How does the AI integration work?",
-    answer: "Scribe, our AI assistant, is deeply integrated into every tool. You can ask it to 'Draft an email to this photographer' or 'Analyze this venue contract for hidden fees', and it interacts directly with your planner data.",
+    question: "How do the planning tools work?",
+    answer: "Your budget, guest list, vendors, and timeline live in one workspace, so updates stay in sync across your plan. It is built to replace spreadsheets and scattered notes.",
   },
   {
     question: "Can I invite my partner?",

@@ -5,7 +5,7 @@ import {
   getAllDecisions, 
   getDecisionProgress, 
   initializeDecisionsForTenant 
-} from "@/lib/ai/decisions";
+} from "@/lib/decisions";
 
 export const dynamic = "force-dynamic";
 

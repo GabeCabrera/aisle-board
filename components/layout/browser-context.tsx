@@ -8,7 +8,7 @@ import { createContext, useContext, useState, useCallback, useEffect } from "rea
 
 export interface Tab {
   id: string;
-  type: "chat" | "tool" | "artifact";
+  type: "tool" | "artifact";
   toolId?: string;
   title: string;
   icon?: React.ComponentType<{ className?: string }>;
@@ -192,17 +192,21 @@ export function ScribeLogo({ size = 32, className = "" }: { size?: number; class
 // =============================================================================
 
 export function BrowserProvider({ children }: { children: React.ReactNode }) {
+  const defaultTool = getToolById("dashboard");
+  const defaultTabId = "home";
   // Tab state
   const [tabs, setTabs] = useState<Tab[]>([
     {
-      id: "scribe",
-      type: "chat",
-      title: "Scribe",
+      id: defaultTabId,
+      type: "tool",
+      toolId: "dashboard",
+      title: defaultTool?.label || "Dashboard",
+      icon: defaultTool?.icon,
       closable: false,
     },
   ]);
-  const [activeTabId, setActiveTabId] = useState("scribe");
-  const [history, setHistory] = useState<string[]>(["scribe"]);
+  const [activeTabId, setActiveTabId] = useState(defaultTabId);
+  const [history, setHistory] = useState<string[]>([defaultTabId]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   // Mobile UI state
@@ -288,8 +292,8 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
   }, [historyIndex, history, tabs]);
 
   const goHome = useCallback(() => {
-    switchTab("scribe");
-  }, [switchTab]);
+    switchTab(defaultTabId);
+  }, [switchTab, defaultTabId]);
 
   const toggleFavorite = useCallback((toolId: string) => {
     setFavorites((prev) =>

@@ -5,7 +5,7 @@ export function generateOrganizationSchema() {
     name: "Stem",
     url: "https://scribeandstem.com",
     logo: "https://scribeandstem.com/logo.png",
-    description: "Stem is an AI wedding planner that helps couples plan their perfect wedding through natural conversation.",
+    description: "Stem is a wedding planning workspace that keeps budgets, guests, vendors, and timelines organized in one place.",
     email: "hello@scribeandstem.com",
     sameAs: [
       "https://twitter.com/scribeandstem",
@@ -19,7 +19,7 @@ export function generateWebsiteSchema() {
     "@type": "WebSite",
     name: "Stem",
     url: "https://scribeandstem.com",
-    description: "AI Wedding Planner",
+    description: "Wedding planning workspace",
     potentialAction: {
       "@type": "SearchAction",
       target: "https://scribeandstem.com/search?q={search_term_string}",
@@ -35,7 +35,7 @@ export function generateSoftwareApplicationSchema() {
     name: "Stem",
     applicationCategory: "LifestyleApplication",
     operatingSystem: "Web",
-    description: "Stem is an AI wedding planner that helps couples plan their perfect wedding. Get personalized advice on budgets, venues, timelines, vendors, and more.",
+    description: "Stem is a wedding planning workspace for budgets, vendors, guests, RSVPs, timelines, and seating.",
     url: "https://scribeandstem.com",
     author: {
       "@type": "Organization",
@@ -59,19 +59,19 @@ export function generateFAQSchema() {
   const faqs = [
     {
       question: "What is Stem?",
-      answer: "Stem is an AI wedding planner that helps couples plan their perfect wedding through natural conversation. Instead of overwhelming forms and checklists, you simply chat with Scribe (our AI) about what you need help with.",
+      answer: "Stem is a wedding planning workspace that brings budgets, guests, vendors, RSVPs, timelines, and seating into one place.",
     },
     {
       question: "Is Stem free to use?",
-      answer: "Yes, Stem offers a free plan that includes basic planning tools and limited AI messages. Premium plans are available for unlimited AI access and additional features.",
+      answer: "Yes, Stem offers a free plan with essential planning tools. Paid plans unlock expanded limits and premium features.",
     },
     {
       question: "What can Stem help me with?",
-      answer: "Stem can help with wedding budgets, timelines, vendor selection, guest management, seating charts, day-of coordination, and general wedding planning advice. Just ask Scribe about whatever you need help with.",
+      answer: "Stem can help with wedding budgets, timelines, vendor selection, guest management, seating charts, RSVPs, and day-of coordination.",
     },
     {
       question: "How is Stem different from other wedding planning apps?",
-      answer: "Stem uses conversational AI (Scribe) to provide personalized guidance instead of generic checklists. It feels like talking to a knowledgeable friend who happens to know everything about weddings.",
+      answer: "Stem focuses on an elegant, organized workspace that connects your planning data across budgets, vendors, guests, and timelines.",
     },
     {
       question: "Does Stem sell my data to vendors?",

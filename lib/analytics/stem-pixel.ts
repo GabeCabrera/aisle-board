@@ -8,7 +8,6 @@ type EventType =
   | "page_view"
   | "click"
   | "feature_use"
-  | "ai_message"
   | "form_submit"
   | "error"
   | "session_start"
@@ -286,22 +285,6 @@ export function trackFeatureUse(featureName: string, data?: Record<string, unkno
 }
 
 /**
- * Track AI message interaction
- */
-export function trackAIMessage(messageType: "sent" | "received" | "tool_used", data?: Record<string, unknown>): void {
-  if (!isInitialized) init();
-
-  queueEvent({
-    eventType: "ai_message",
-    eventName: `ai_message_${messageType}`,
-    eventData: data,
-    pagePath: typeof window !== "undefined" ? window.location.pathname : "/",
-    pageTitle: typeof document !== "undefined" ? document.title : undefined,
-    timestamp: Date.now(),
-  });
-}
-
-/**
  * Track form submission
  */
 export function trackFormSubmit(formName: string, data?: Record<string, unknown>): void {
@@ -357,7 +340,6 @@ export const stemPixel = {
   trackPageView,
   trackClick,
   trackFeatureUse,
-  trackAIMessage,
   trackFormSubmit,
   trackError,
   getSessionId,

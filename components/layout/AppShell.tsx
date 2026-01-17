@@ -20,12 +20,11 @@ import {
   useBrowser,
   tools,
   getToolById,
-  ScribeLogo,
 } from "./browser-context";
 import { ToolContent, ArtifactRunner, TabItem } from "./shared-components";
 
 // Re-export for backwards compatibility
-export { useBrowser, ScribeLogo };
+export { useBrowser };
 
 // =============================================================================
 // FAVORITES BAR
@@ -313,10 +312,8 @@ function BrowserChrome({ children }: { children: React.ReactNode }) {
               })()}
             </>
           )}
-          {activeTab?.type === "chat" && <ScribeLogo size={16} className="text-rose-400 flex-shrink-0" />}
           {activeTab?.type === "artifact" && <Code className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
           <span className="text-sm text-stone-600 truncate">
-            {activeTab?.type === "chat" && "scribe://chat"}
             {activeTab?.type === "tool" && `scribe://${activeTab.toolId}`}
             {activeTab?.type === "artifact" &&
               `scribe://widget/${activeTab.title.toLowerCase().replace(/\s+/g, "-")}`}
@@ -359,7 +356,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
     <BrowserChrome>
       {/* Render content based on active tab */}
       <div className="h-full overflow-auto">
-        {activeTab?.type === "chat" && children}
+        {!activeTab?.toolId && children}
         {activeTab?.type === "tool" && activeTab.toolId && <ToolContent toolId={activeTab.toolId} />}
         {activeTab?.type === "artifact" && activeTab.artifactData && (
           <ArtifactRunner

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useBrowser, getToolById, tools, ScribeLogo } from "./browser-context";
+import { useBrowser, getToolById, tools } from "./browser-context";
 import { ChevronLeft, ChevronRight, Home, Layers, MoreHorizontal, X, Plus, Code } from "lucide-react";
 import { ToolContent } from "./shared-components";
 import { MobileTabSwitcher } from "./MobileTabSwitcher";
@@ -123,18 +123,14 @@ function BottomNavBar() {
         <ChevronRight className="w-6 h-6 text-stone-600" />
       </button>
 
-      {/* Home (Chat) */}
+      {/* Home */}
       <button
         onClick={browser.goHome}
         className={`p-3 rounded-xl transition-all active:scale-95 ${
-          activeTab?.type === "chat" ? "bg-rose-50" : ""
+          activeTab?.id === "home" ? "bg-stone-100" : ""
         }`}
       >
-        {activeTab?.type === "chat" ? (
-          <ScribeLogo size={24} className="text-rose-500" />
-        ) : (
-          <Home className="w-6 h-6 text-stone-600" />
-        )}
+        <Home className="w-6 h-6 text-stone-600" />
       </button>
 
       {/* Tab Switcher */}
@@ -182,7 +178,6 @@ function MobileAddressBar() {
         background: "linear-gradient(135deg, #F5F5F4 0%, #E7E5E4 100%)",
       }}
     >
-      {activeTab?.type === "chat" && <ScribeLogo size={16} className="text-rose-400" />}
       {activeTab?.type === "tool" && tool && (
         <div
           className="w-4 h-4 rounded flex items-center justify-center"
@@ -193,7 +188,6 @@ function MobileAddressBar() {
       )}
       {activeTab?.type === "artifact" && <Code className="w-4 h-4 text-emerald-500" />}
       <span className="text-sm text-stone-500 truncate flex-1">
-        {activeTab?.type === "chat" && "scribe://chat"}
         {activeTab?.type === "tool" && `scribe://${activeTab.toolId}`}
         {activeTab?.type === "artifact" &&
           `scribe://widget/${activeTab.title.toLowerCase().replace(/\s+/g, "-")}`}
@@ -229,7 +223,7 @@ export function MobileShell({ children }: MobileShellProps) {
 
       {/* Content area */}
       <div className="flex-1 overflow-hidden bg-white">
-        {activeTab?.type === "chat" && children}
+        {!activeTab?.toolId && children}
         {activeTab?.type === "tool" && activeTab.toolId && <ToolContent toolId={activeTab.toolId} />}
         {activeTab?.type === "artifact" && activeTab.artifactData && (
           <div className="h-full p-4">

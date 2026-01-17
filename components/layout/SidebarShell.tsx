@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageSquare,
   Settings,
   LogOut,
   Menu,
@@ -142,21 +141,6 @@ function SidebarContent({ mobile = false, onClose }: { mobile?: boolean; onClose
 
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-        <Link href="/planner/chat" onClick={onClose}>
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full justify-start h-10 mb-6 font-medium",
-              pathname === '/planner/chat'
-                ? "bg-white text-primary shadow-sm hover:bg-white hover:text-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            )}
-          >
-            <MessageSquare className="mr-2 h-4 w-4" />
-            Chat
-          </Button>
-        </Link>
-
         <div className="px-3 pb-2">
           <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">Planning</p>
         </div>

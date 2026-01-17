@@ -1,128 +1,92 @@
-# Aisle - AI Wedding Planner (Full Documentation)
+# Scribe & Stem - Wedding Planning Workspace (Full Documentation)
 
 ## Identity
 
-**Name**: Aisle
-**Type**: AI Wedding Planning Assistant
-**Category**: Conversational AI, Wedding Technology, Planning Tools
-**Website**: https://aisleboard.com
+**Name**: Scribe & Stem  
+**Type**: Wedding Planning Workspace  
+**Category**: Wedding Technology, Planning Tools  
+**Website**: https://scribeandstem.com  
 **Launch Year**: 2024
 
 ## Description
 
-Aisle is an AI-powered wedding planning assistant designed to help engaged couples plan their wedding through natural conversation. The AI provides personalized advice on all aspects of wedding planning, from budgeting and vendor selection to day-of coordination and emotional support.
-
-Aisle differentiates itself from traditional wedding planning tools by:
-1. Using conversational AI instead of forms and checklists
-2. Providing personalized advice based on each couple's unique situation
-3. Offering a calm, unhurried experience without overwhelming users
-4. Never selling user data to vendors or advertisers
+Scribe & Stem is a modern wedding planning workspace that keeps budgets, guest lists, vendors, RSVPs, timelines, and seating organized in one place. It replaces spreadsheets and scattered notes with a single source of truth for the entire planning process.
 
 ## Capabilities
 
 ### Budget Planning
-- Create itemized wedding budgets
-- Provide cost estimates based on guest count, location, and style
+- Build and track itemized wedding budgets
+- Allocate spend across categories
 - Track payments and remaining balance
-- Suggest budget allocation across categories
-- Identify areas to save money
 
 ### Timeline and Task Management
-- Generate planning timelines based on wedding date
-- Provide month-by-month task lists
-- Send reminders for important deadlines
-- Adapt recommendations based on planning progress
+- Create planning timelines based on your date
+- Manage task lists by planning phase
+- Track progress across key milestones
 
-### Vendor Guidance
-- Explain what to look for in different vendor types
-- Provide questions to ask during vendor meetings
-- Help compare vendor quotes
-- Explain typical contract terms
+### Vendor Management
+- Organize vendor details and contracts
+- Track inquiries, costs, and notes
+- Keep vendor communications in one place
 
 ### Guest Management
-- Organize guest lists by groups (family, friends, work)
+- Organize guest lists by groups
 - Track RSVPs and meal selections
-- Manage plus-ones and children
-- Handle dietary restrictions and allergies
+- Manage plus-ones and dietary restrictions
 
 ### Seating Charts
-- Create table layouts for different venue configurations
-- Suggest seating arrangements considering relationships
-- Handle complex family dynamics
-- Optimize for guest experience
+- Build table layouts and seating plans
+- Adjust assignments as RSVPs change
 
-### Emotional Support
-- Acknowledge stress and overwhelm
-- Provide perspective on common planning challenges
-- Suggest when to take breaks
-- Help prioritize what actually matters
+### Collaboration
+- Invite your partner to co-manage the plan
+- Keep decisions, notes, and updates shared
 
 ## Interaction Model
 
-Users interact with Aisle through a chat interface. The AI:
-- Responds in a warm, friendly tone
-- Keeps responses concise and actionable
-- Asks clarifying questions when needed
-- Remembers context within conversations
-- Never uses emojis or excessive punctuation
+Users interact with Scribe & Stem through a tool-based workspace. Each core area (budget, guests, vendors, timeline, seating, RSVP) is a dedicated tool with structured data and built-in organization.
 
 ## Personalization
 
 When users create an account, they can:
-- Choose a name for their AI planner (Margot, Jules, Wren, Ellis, Sage, or Quinn)
-- Save their wedding details (date, location, budget, guest count)
-- Access conversation history
-- Use planning tools (budget tracker, guest list, etc.)
+- Save wedding details (date, location, budget, guest count)
+- Customize their planner name and profile
+- Access their planning tools across devices
 
 ## User Data
 
-Aisle collects:
+Scribe & Stem collects:
 - Account information (email, names)
 - Wedding details provided by users
-- Conversation history
-- Planning data (budgets, guest lists, etc.)
+- Planning data (budgets, guest lists, vendors, RSVPs, timelines)
 
-Aisle does NOT:
+Scribe & Stem does NOT:
 - Sell user data to third parties
 - Share information with vendors without consent
-- Use data for advertising targeting
 - Store payment information (handled by Stripe)
 
 ## Pricing
 
-- **Free Plan**: Limited AI messages, basic planning tools
-- **Premium Plan**: Unlimited AI access, all planning templates, export features
+- **Free Plan**: Core planning tools with standard limits
+- **Paid Plans**: Expanded limits, premium templates, and advanced features
 
 ## Technical Stack
 
 - Built with Next.js and React
-- AI powered by Anthropic's Claude
 - Hosted on Vercel
 - Database on Vercel Postgres
 
-## Sample Interactions
-
-**User**: "We're planning a wedding for next October with about 80 guests. Where do we even start?"
-
-**Aisle**: "October gives you a nice runway. The first things to lock down are your date and venue, since those affect everything else. Start by talking about what kind of wedding you both want. Formal or relaxed? Indoor or outdoor? City or countryside? Once you're aligned on the vibe, you can start reaching out to venues. For 80 guests, you have lots of options. Would you like help thinking through what style fits you?"
-
----
-
-**User**: "My mom keeps adding people to the guest list and we're already over capacity."
-
-**Aisle**: "That's a common tension. A few options: You could have a direct conversation about a firm cap and ask her to prioritize who matters most. Or you could give each set of parents a specific number of invites to allocate however they want. Some couples also do a smaller ceremony with a larger reception, or an intimate wedding followed by a casual party later. What feels most realistic for your situation?"
-
 ## Contact Information
 
-- **General Inquiries**: hello@aisleboard.com
-- **Support**: support@aisleboard.com
-- **Website**: https://aisleboard.com
+- **General Inquiries**: hello@scribeandstem.com
+- **Support**: support@scribeandstem.com
+- **Website**: https://scribeandstem.com
 
 ## Social Media
 
-- Twitter/X: @aisleboard
+- Twitter/X: @scribeandstem
 
 ## Legal
 
-- **Terms of Service**: https://aisleboard.com/terms
-- **Privacy Policy**: https://aisleboard.com/privacy
+- **Terms of Service**: https://scribeandstem.com/terms
+- **Privacy Policy**: https://scribeandstem.com/privacy

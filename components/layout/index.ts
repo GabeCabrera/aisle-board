@@ -1,5 +1,5 @@
 // Layout components - centralized exports
-export { AppShell, DesktopShell, useBrowser, ScribeLogo } from "./AppShell";
+export { AppShell, DesktopShell, useBrowser } from "./AppShell";
 export { MobileShell } from "./MobileShell";
 export { MobileTabSwitcher } from "./MobileTabSwitcher";
 export { ResponsiveShell } from "./ResponsiveShell";
