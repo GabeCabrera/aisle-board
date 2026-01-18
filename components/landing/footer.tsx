@@ -15,13 +15,13 @@ const legal = [
 
 export function Footer() {
   return (
-    <footer className="py-12 px-6 border-t border-border bg-muted/20">
+    <footer className="py-12 px-6 border-t border-border bg-background">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
         
         <div className="text-center md:text-left">
           <span className="font-serif text-xl font-medium tracking-tight block mb-2">Scribe & Stem</span>
           <p className="text-sm text-muted-foreground">
-            The intelligent operating system for your wedding.
+            Wedding planning workspace.
           </p>
         </div>
 

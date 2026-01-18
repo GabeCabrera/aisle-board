@@ -13,7 +13,7 @@ export function BlogSection() {
   }
 
   return (
-    <section className="py-24 px-6 bg-muted/30">
+    <section className="py-24 px-6 bg-background">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -39,7 +39,7 @@ export function BlogSection() {
             <Button
               variant="outline"
               size="lg"
-              className="rounded-full border-2 hover:bg-muted/50 gap-2"
+              className="rounded-full border border-border hover:bg-muted/30 gap-2"
             >
               Browse All Articles
               <ArrowRight className="h-4 w-4" />

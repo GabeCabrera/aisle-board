@@ -2,97 +2,102 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
 import { db } from "@/lib/db";
-import { pages, planners, rsvpForms } from "@/lib/db/schema";
-import { eq, and, count } from "drizzle-orm";
-import { getTenantAccess, PLAN_LIMITS, type PlanType } from "@/lib/subscription";
+import { tenants } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-/**
- * GET /api/subscription/status
- * Returns the current user's subscription status and usage
- */
+export interface SubscriptionStatus {
+  plan: string;
+  status: "active" | "trialing" | "past_due" | "canceled" | "expired" | "none";
+  trialEndsAt: string | null;
+  daysRemaining: number | null;
+  isTrialing: boolean;
+  isActive: boolean;
+  needsUpgrade: boolean;
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-
+    
     if (!session?.user?.tenantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tenantId = session.user.tenantId;
+    const [tenant] = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.id, session.user.tenantId));
 
-    // Get plan access info
-    const access = await getTenantAccess(tenantId);
-
-    if (!access) {
+    if (!tenant) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
-    // Get the planner for this tenant
-    const [planner] = await db
-      .select()
-      .from(planners)
-      .where(eq(planners.tenantId, tenantId));
+    const now = new Date();
+    const subscriptionEndDate = tenant.subscriptionEndsAt;
+    const subscriptionStatus = tenant.subscriptionStatus;
+    
+    let status: SubscriptionStatus["status"] = "none";
+    let daysRemaining: number | null = null;
+    let isTrialing = false;
+    let isActive = false;
+    let needsUpgrade = false;
 
-    let guestCount = 0;
-    let vendorCount = 0;
-
-    if (planner) {
-      // Get guests and vendors from pages table (stored as JSONB in `fields`)
-      const [guestsPage] = await db
-        .select()
-        .from(pages)
-        .where(and(eq(pages.plannerId, planner.id), eq(pages.templateId, "guests")));
-
-      const [vendorsPage] = await db
-        .select()
-        .from(pages)
-        .where(and(eq(pages.plannerId, planner.id), eq(pages.templateId, "vendors")));
-
-      // Parse guest and vendor counts from JSONB fields
-      const guestData = (guestsPage?.fields as { guests?: unknown[] }) || {};
-      guestCount = Array.isArray(guestData.guests) ? guestData.guests.length : 0;
-
-      const vendorData = (vendorsPage?.fields as { vendors?: unknown[] }) || {};
-      vendorCount = Array.isArray(vendorData.vendors) ? vendorData.vendors.length : 0;
+    // Determine status based on subscription data
+    if (subscriptionStatus === "trialing") {
+      isTrialing = true;
+      status = "trialing";
+      
+      if (subscriptionEndDate) {
+        const endDate = new Date(subscriptionEndDate);
+        daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // If trial has expired
+        if (daysRemaining <= 0) {
+          status = "expired";
+          needsUpgrade = true;
+          daysRemaining = 0;
+        }
+      }
+    } else if (subscriptionStatus === "active") {
+      isActive = true;
+      status = "active";
+      
+      if (subscriptionEndDate) {
+        const endDate = new Date(subscriptionEndDate);
+        daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    } else if (subscriptionStatus === "past_due") {
+      status = "past_due";
+      needsUpgrade = true;
+    } else if (subscriptionStatus === "canceled") {
+      status = "canceled";
+      // Check if they still have access until period end
+      if (subscriptionEndDate && new Date(subscriptionEndDate) > now) {
+        isActive = true;
+        daysRemaining = Math.ceil((new Date(subscriptionEndDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      } else {
+        needsUpgrade = true;
+      }
+    } else {
+      // No subscription - on free plan
+      status = "none";
     }
 
-    // Get RSVP form count
-    const [rsvpFormCount] = await db
-      .select({ count: count() })
-      .from(rsvpForms)
-      .where(eq(rsvpForms.tenantId, tenantId));
-
-    // Determine plan tier for limits
-    const getPlanTier = (plan: PlanType): "free" | "stem" | "stemPlus" => {
-      if (plan === "premium_monthly" || plan === "premium_yearly") return "stemPlus";
-      if (plan === "monthly" || plan === "yearly") return "stem";
-      return "free";
+    const response: SubscriptionStatus = {
+      plan: tenant.plan,
+      status,
+      trialEndsAt: tenant.subscriptionEndsAt?.toISOString() || null,
+      daysRemaining,
+      isTrialing,
+      isActive: isActive || isTrialing,
+      needsUpgrade,
     };
 
-    const tier = getPlanTier(access.plan);
-    const limits = PLAN_LIMITS[tier];
-
-    return NextResponse.json({
-      plan: access.plan,
-      hasFullAccess: access.hasFullAccess,
-      isLegacy: access.isLegacy,
-      subscriptionStatus: access.subscriptionStatus,
-      subscriptionEndsAt: access.subscriptionEndsAt,
-      limits: {
-        guests: limits.guests,
-        vendors: limits.vendors,
-        rsvpForms: limits.rsvpForms,
-      },
-      usage: {
-        guests: guestCount,
-        vendors: vendorCount,
-        rsvpForms: rsvpFormCount?.count ?? 0,
-      },
-    });
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Subscription status error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch subscription status" },
+      { error: "Failed to get subscription status" },
       { status: 500 }
     );
   }

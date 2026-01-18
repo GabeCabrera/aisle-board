@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { TrialBanner } from "@/components/trial-banner";
 
 interface NavItem {
   id: string;
@@ -291,6 +292,9 @@ export function SidebarShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative min-w-0 overflow-hidden bg-white/50">
+        {/* Trial Banner */}
+        <TrialBanner />
+        
         {/* Mobile Header */}
         <div className="md:hidden h-16 flex items-center px-4 border-b border-border bg-background/80 backdrop-blur-md z-20">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="-ml-2">

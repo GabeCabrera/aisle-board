@@ -36,7 +36,7 @@ export function FAQSection() {
           {faqs.map((faq, i) => (
             <div 
               key={i} 
-              className="border border-border rounded-2xl overflow-hidden bg-white transition-colors hover:border-primary/20"
+              className="border border-border rounded-2xl overflow-hidden bg-white"
             >
               <button
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
@@ -46,7 +46,7 @@ export function FAQSection() {
                 <Plus 
                   className={cn(
                     "w-5 h-5 transition-transform duration-300",
-                    openIndex === i ? "rotate-45 text-primary" : "text-muted-foreground"
+                    openIndex === i ? "rotate-45 text-foreground" : "text-muted-foreground"
                   )} 
                 />
               </button>

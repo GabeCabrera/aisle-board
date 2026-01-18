@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 
 const features = [
   {
-    title: "Sanity Engine",
-    description: "A real-time stress score that tracks your planning health. We tell you when to panic (and when to relax).",
+    title: "Planning Dashboard",
+    description: "See your entire wedding at a glance. Budget, guests, tasks—all in one place so nothing falls through the cracks.",
     icon: Sparkles,
-    className: "md:col-span-2 bg-gradient-to-br from-primary/5 to-transparent",
+    className: "md:col-span-2",
   },
   {
     title: "Guest Logic",
@@ -31,15 +31,15 @@ const features = [
     title: "Timeline & Tasks",
     description: "Keep your checklist and timeline aligned so nothing slips.",
     icon: CalendarCheck,
-    className: "md:col-span-2 bg-gradient-to-br from-secondary/5 to-transparent",
+    className: "md:col-span-2",
   },
 ];
 
 export function FeaturesGrid() {
   return (
-    <section className="py-24 px-6 bg-muted/30">
+    <section className="py-24 px-6 bg-background">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <div className="text-center max-w-3xl mx-auto mb-20">
           <h2 className="font-serif text-4xl md:text-5xl mb-4 text-foreground">
             Everything you need. <br/>
             <span className="text-muted-foreground italic">Nothing you don&apos;t.</span>
@@ -49,17 +49,17 @@ export function FeaturesGrid() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {features.map((feature, i) => (
             <div
               key={i}
               className={cn(
-                "group relative overflow-hidden rounded-3xl p-8 border border-border bg-white transition-all hover:shadow-lg hover:-translate-y-1",
+                "rounded-3xl p-8 border border-border bg-white shadow-soft",
                 feature.className
               )}
             >
-              <div className="h-12 w-12 rounded-2xl bg-background border border-border flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                <feature.icon className="w-6 h-6 text-primary" />
+              <div className="h-12 w-12 rounded-full border border-border flex items-center justify-center mb-6">
+                <feature.icon className="w-5 h-5 text-muted-foreground" />
               </div>
               <h3 className="font-serif text-2xl mb-2">{feature.title}</h3>
               <p className="text-muted-foreground leading-relaxed">

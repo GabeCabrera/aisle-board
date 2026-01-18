@@ -32,7 +32,7 @@ function BudgetPreview() {
       
       <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
         <motion.div 
-          className="h-full bg-gradient-to-r from-primary to-rose-400 rounded-full"
+          className="h-full bg-foreground rounded-full"
           initial={{ width: 0 }}
           animate={{ width: "81%" }}
           transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
@@ -95,7 +95,7 @@ function GuestsPreview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 + i * 0.1 }}
           >
-            <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-medium">
+            <div className="h-6 w-6 rounded-full bg-muted text-foreground flex items-center justify-center text-[10px] font-medium">
               {guest.initials}
             </div>
             <span className="text-xs flex-1 truncate">{guest.name}</span>
@@ -125,7 +125,7 @@ function TimelinePreview() {
       {events.map((event, i) => (
         <motion.div 
           key={event.title}
-          className="flex items-center gap-3 p-2 rounded-lg bg-muted/30"
+          className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 + i * 0.15 }}
@@ -134,7 +134,7 @@ function TimelinePreview() {
           <div className="flex-1">
             <p className="text-xs font-medium">{event.title}</p>
           </div>
-          <span className="text-[10px] text-primary font-medium">{event.time}</span>
+          <span className="text-[10px] text-foreground font-medium">{event.time}</span>
         </motion.div>
       ))}
     </div>
@@ -143,15 +143,7 @@ function TimelinePreview() {
 
 export function HeroSection() {
   return (
-    <section className="relative pt-24 pb-16 lg:pt-32 lg:pb-24 overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-0 right-0 -z-10 opacity-30 pointer-events-none">
-        <div className="w-[600px] h-[600px] bg-gradient-to-br from-primary/20 to-secondary/10 rounded-full blur-3xl animate-pulse" />
-      </div>
-      <div className="absolute bottom-0 left-0 -z-10 opacity-20 pointer-events-none">
-        <div className="w-[400px] h-[400px] bg-gradient-to-tr from-accent/30 to-transparent rounded-full blur-3xl" />
-      </div>
-
+    <section className="relative pt-24 pb-16 lg:pt-32 lg:pb-24">
       <div className="max-w-7xl mx-auto px-6">
         {/* Text Content - Centered */}
         <div className="max-w-3xl mx-auto text-center mb-12 lg:mb-16">
@@ -160,8 +152,8 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary mb-6">
-              <Sparkles className="mr-2 h-3.5 w-3.5" />
+            <div className="inline-flex items-center rounded-full border border-border bg-white px-3 py-1 text-sm font-medium text-foreground mb-6">
+              <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
               Wedding Planning Made Simple
             </div>
             
@@ -177,12 +169,12 @@ export function HeroSection() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register">
-                <Button size="lg" className="h-12 px-8 text-lg bg-primary hover:bg-primary/90 text-white rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300">
+                <Button size="lg" className="h-12 px-8 text-lg bg-foreground hover:bg-foreground/90 text-background rounded-full transition-colors">
                   Start Planning Free <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
               <Link href="/demo">
-                <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full border-2 hover:bg-muted/50">
+                <Button variant="outline" size="lg" className="h-12 px-8 text-lg rounded-full border border-border hover:bg-muted/30">
                   Explore Demo
                 </Button>
               </Link>
@@ -208,46 +200,38 @@ export function HeroSection() {
           transition={{ duration: 0.7, delay: 0.3 }}
           className="max-w-5xl mx-auto"
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Budget Card - Takes 2 columns on larger screens */}
-            <div className="md:col-span-2 bg-white rounded-2xl border border-border shadow-xl p-5 hover:shadow-2xl transition-shadow">
+            <div className="md:col-span-2 bg-white rounded-2xl border border-border shadow-soft p-5">
               <div className="flex items-center gap-2 mb-4">
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                  <Wallet className="h-4 w-4 text-primary" />
-                </div>
+                <Wallet className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-medium text-sm">Budget Tracker</h3>
               </div>
               <BudgetPreview />
             </div>
 
             {/* Timeline Card */}
-            <div className="bg-white rounded-2xl border border-border shadow-xl p-5 hover:shadow-2xl transition-shadow">
+            <div className="bg-white rounded-2xl border border-border shadow-soft p-5">
               <div className="flex items-center gap-2 mb-4">
-                <div className="p-1.5 rounded-lg bg-amber-100">
-                  <Calendar className="h-4 w-4 text-amber-600" />
-                </div>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-medium text-sm">Day-of Timeline</h3>
               </div>
               <TimelinePreview />
             </div>
 
             {/* Guests Card */}
-            <div className="md:col-span-2 bg-white rounded-2xl border border-border shadow-xl p-5 hover:shadow-2xl transition-shadow">
+            <div className="md:col-span-2 bg-white rounded-2xl border border-border shadow-soft p-5">
               <div className="flex items-center gap-2 mb-4">
-                <div className="p-1.5 rounded-lg bg-emerald-100">
-                  <Users className="h-4 w-4 text-emerald-600" />
-                </div>
+                <Users className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-medium text-sm">Guest List & RSVPs</h3>
               </div>
               <GuestsPreview />
             </div>
 
             {/* Checklist Mini Card */}
-            <div className="bg-gradient-to-br from-primary/5 to-rose-50 rounded-2xl border border-primary/10 shadow-xl p-5 hover:shadow-2xl transition-shadow">
+            <div className="bg-white rounded-2xl border border-border shadow-soft p-5">
               <div className="flex items-center gap-2 mb-4">
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                </div>
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-medium text-sm">Checklist</h3>
               </div>
               <div className="space-y-2">
@@ -277,7 +261,7 @@ export function HeroSection() {
                   </motion.div>
                 ))}
               </div>
-              <div className="mt-4 pt-3 border-t border-primary/10">
+              <div className="mt-4 pt-3 border-t border-border">
                 <p className="text-[10px] text-muted-foreground">3 of 5 completed</p>
                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-1">
                   <motion.div 

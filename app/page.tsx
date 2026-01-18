@@ -12,9 +12,9 @@ export const dynamic = "force-static";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden selection:bg-primary selection:text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground selection:bg-foreground selection:text-background flex flex-col">
       {/* Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300 bg-background/80 backdrop-blur-md border-b border-border/50">
+      <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 bg-background border-b border-border">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <Link href="/" className="font-serif text-2xl font-medium tracking-tight">
             Scribe & Stem
@@ -24,12 +24,12 @@ export default function LandingPage() {
               For Vendors
             </Link>
             <Link href="/login" passHref>
-              <Button variant="ghost" className="hover:bg-transparent hover:text-primary transition-colors">
+              <Button variant="ghost" className="hover:bg-muted/50 transition-colors">
                 Log in
               </Button>
             </Link>
             <Link href="/register" passHref>
-              <Button className="px-6 rounded-full bg-foreground text-background hover:bg-primary hover:text-white transition-all duration-300">
+              <Button className="px-6 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-colors">
                 Get Started
               </Button>
             </Link>

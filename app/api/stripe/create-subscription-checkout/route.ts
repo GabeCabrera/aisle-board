@@ -131,6 +131,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check if user has already had a trial (to prevent abuse)
+    const hasHadTrial = tenant?.subscriptionStatus !== null;
+    
     // Build checkout session options
     const checkoutOptions: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
@@ -145,6 +148,8 @@ export async function POST(request: NextRequest) {
       success_url: `${baseUrl}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/choose-plan`,
       subscription_data: {
+        // 14-day free trial for new subscribers
+        ...(!hasHadTrial && { trial_period_days: 14 }),
         metadata: {
           tenantId: session.user.tenantId,
           userId: session.user.id,
